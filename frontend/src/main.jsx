@@ -28,6 +28,7 @@ import DataImport from './pages/admin/DataImport';
 import DistrictAnalytics from './pages/DistrictAnalytics';
 import Enforcement from './pages/Enforcement';
 import VehiclesSeized from './pages/vehicles/VehiclesSeized';
+import SouthIndiaDataBank from './pages/databank/SouthIndiaDataBank';
 import './index.css';
 
 function IndexRedirect() {
@@ -75,6 +76,9 @@ createRoot(document.getElementById('root')).render(
                 <FieldStaff />
               </RoleGuard>
             } />
+
+            {/* South India Data Bank (Interstate Portal) */}
+            <Route path="south-india-databank" element={<SouthIndiaDataBank />} />
 
             {/* Technical Surveillance (Page 5) — Department-restricted: TECH_CELL, ANALYST, STF, INTELLIGENCE */}
             <Route path="surveillance" element={

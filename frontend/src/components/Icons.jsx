@@ -296,6 +296,14 @@ export const IconVehicle = ({ size, color = '#ec4899' }) => (
   </Icon>
 );
 
+export const IconDatabase = ({ size, color = '#8b5cf6' }) => (
+  <Icon size={size} color={color}>
+    <ellipse cx="12" cy="5" rx="9" ry="3" />
+    <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+    <path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3" />
+  </Icon>
+);
+
 export const IconPlus = ({ size, color = 'currentColor' }) => (
   <Icon size={size} color={color}>
     <line x1="12" y1="5" x2="12" y2="19" />
@@ -356,6 +364,7 @@ const ICON_MAP = {
   warning: IconWarning,
   shield: IconShield,
   vehicle: IconVehicle,
+  database: IconDatabase,
 };
 
 export default ICON_MAP;

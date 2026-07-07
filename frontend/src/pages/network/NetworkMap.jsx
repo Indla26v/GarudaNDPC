@@ -40,10 +40,17 @@ const NODE_COLORS = {
   'CONSUMER': '#22c55e',
   'UNKNOWN': '#94a3b8',
   'Unknown': '#94a3b8',
+
+  // Raw Database values as fallback
+  'LOCAL_KINGPIN': '#ef4444',
+  'SUPPLIER': '#f97316',
+  'INTERSTATE_LINK': '#ec4899',
+  'LOCAL_PEDDLER': '#eab308',
 };
 
 export default function NetworkMap() {
   const [activeTab, setActiveTab] = useState('chain');
+  const [layoutMode, setLayoutMode] = useState('force'); // 'force' | 'hierarchy'
   const [nodes, setNodes] = useState([]);
   const [edges, setEdges] = useState([]);
   const [summary, setSummary] = useState(null);
@@ -106,16 +113,9 @@ export default function NetworkMap() {
     const hasSearch = !!searchQuery;
     const hasSelection = !!selectedNode;
 
-    if (!focusMode || (!hasSearch && !hasSelection)) {
-      if (categoryFilter === 'ALL') {
-        activeNodesRef.current = allNodes;
-        activeEdgesRef.current = allEdges;
-      } else {
-        const filteredNodes = allNodes.filter(n => n.category === categoryFilter);
-        const filteredNodeIds = new Set(filteredNodes.map(n => n.id));
-        activeNodesRef.current = filteredNodes;
-        activeEdgesRef.current = allEdges.filter(e => filteredNodeIds.has(e.source) && filteredNodeIds.has(e.target));
-      }
+    if (!hasSearch) {
+      activeNodesRef.current = [];
+      activeEdgesRef.current = [];
       return;
     }
 
@@ -174,14 +174,106 @@ export default function NetworkMap() {
   const navigate = useNavigate();
   const perms = usePermissions();
 
-  // Load Graph Data
+  const getCrossGroupConsumers = () => {
+    // 1. Filter out consumers to get supply nodes
+    const supplyNodes = nodes.filter(n => n.category !== 'CONSUMER');
+    const consumers = nodes.filter(n => n.category === 'CONSUMER');
+    
+    if (supplyNodes.length === 0 || consumers.length === 0) return [];
+
+    // 2. Build adjacency list for supply nodes only
+    const adj = {};
+    supplyNodes.forEach(n => { adj[n.id] = []; });
+    edges.forEach(e => {
+      if (adj[e.source] && adj[e.target]) {
+        adj[e.source].push(e.target);
+        adj[e.target].push(e.source);
+      }
+    });
+
+    // 3. Find connected components (supply groups)
+    const visited = new Set();
+    const nodeGroupId = {};
+    let groupId = 0;
+
+    supplyNodes.forEach(n => {
+      if (!visited.has(n.id)) {
+        const queue = [n.id];
+        visited.add(n.id);
+        while (queue.length > 0) {
+          const currId = queue.shift();
+          nodeGroupId[currId] = groupId;
+          
+          const neighbors = adj[currId] || [];
+          neighbors.forEach(neighborId => {
+            if (!visited.has(neighborId)) {
+              visited.add(neighborId);
+              queue.push(neighborId);
+            }
+          });
+        }
+        groupId++;
+      }
+    });
+
+    // 4. For each consumer, count how many distinct supply groups it connects to
+    const crossConsumers = [];
+    consumers.forEach(c => {
+      // Find all neighbors of c in the full edges list
+      const connectedGroups = new Set();
+      const linkedSuspects = [];
+      
+      edges.forEach(e => {
+        let neighborId = null;
+        if (e.source === c.id) neighborId = e.target;
+        else if (e.target === c.id) neighborId = e.source;
+
+        if (neighborId && nodeGroupId[neighborId] !== undefined) {
+          const grp = nodeGroupId[neighborId];
+          connectedGroups.add(grp);
+          
+          const neighborNode = supplyNodes.find(n => n.id === neighborId);
+          if (neighborNode && !linkedSuspects.some(s => s.id === neighborNode.id)) {
+            linkedSuspects.push(neighborNode);
+          }
+        }
+      });
+
+      if (connectedGroups.size >= 2) {
+        crossConsumers.push({
+          consumer: c,
+          groupCount: connectedGroups.size,
+          linkedSuspects: linkedSuspects
+        });
+      }
+    });
+
+    return crossConsumers;
+  };
+
   const loadGraphData = async () => {
     setLoading(true);
     setError(null);
     try {
       const response = await api.get('/intelligence/network-graph');
       const data = response.data.data;
-      setNodes(data.nodes || []);
+
+      // Normalize database categories to match frontend legend keys
+      const normalizedNodes = (data.nodes || []).map(node => {
+        let normalizedCategory = node.category;
+        const cat = (node.category || '').toUpperCase();
+        if (cat === 'LOCAL_KINGPIN') normalizedCategory = 'KINGPIN';
+        else if (cat === 'SUPPLIER') normalizedCategory = 'LOCAL_SUPPLIER';
+        else if (cat === 'INTERSTATE_LINK') normalizedCategory = 'INTERSTATE_SUPPLIER';
+        else if (cat === 'LOCAL_PEDDLER') normalizedCategory = 'PEDDLER';
+        
+        return {
+          ...node,
+          category: normalizedCategory
+        };
+      });
+
+      setNodes(normalizedNodes);
       setEdges(data.edges || []);
       setSummary(data.summary || null);
       setIsServiceConnected(true);
@@ -193,7 +285,7 @@ export default function NetworkMap() {
       // Initialize node coordinates for the Force-Directed simulation
       const width = 1200;
       const height = 800;
-      const fetchedNodes = data.nodes || [];
+      const fetchedNodes = normalizedNodes;
       const fetchedEdges = data.edges || [];
 
       // Compute connected components
@@ -376,7 +468,19 @@ export default function NetworkMap() {
     setLinkageLoading(true);
     try {
       const response = await api.get('/intelligence/case-linkages');
-      setLinkageData(response.data.data.linkages || []);
+      const linkages = (response.data.data.linkages || []).map(linkage => {
+        let normalizedCategory = linkage.category;
+        const cat = (linkage.category || '').toUpperCase();
+        if (cat === 'LOCAL_KINGPIN') normalizedCategory = 'KINGPIN';
+        else if (cat === 'SUPPLIER') normalizedCategory = 'LOCAL_SUPPLIER';
+        else if (cat === 'INTERSTATE_LINK') normalizedCategory = 'INTERSTATE_SUPPLIER';
+        else if (cat === 'LOCAL_PEDDLER') normalizedCategory = 'PEDDLER';
+        return {
+          ...linkage,
+          category: normalizedCategory
+        };
+      });
+      setLinkageData(linkages);
       setIsServiceConnected(true);
     } catch (err) {
       console.error(err);
@@ -417,6 +521,31 @@ export default function NetworkMap() {
     const updateSimulation = () => {
       const simNodes = activeNodesRef.current;
       const simEdges = activeEdgesRef.current;
+
+      // Group and sort nodes by tier for Hierarchical Layout grid alignment
+      const kingpins = [];
+      const suppliers = [];
+      const transporters = [];
+      const peddlers = [];
+      const consumers = [];
+
+      if (layoutMode === 'hierarchy') {
+        simNodes.forEach(node => {
+          const cat = (node.category || '').toUpperCase();
+          if (cat === 'KINGPIN') kingpins.push(node);
+          else if (cat === 'INTERSTATE_SUPPLIER' || cat === 'LOCAL_SUPPLIER') suppliers.push(node);
+          else if (cat === 'TRANSPORTER') transporters.push(node);
+          else if (cat === 'PEDDLER') peddlers.push(node);
+          else consumers.push(node);
+        });
+
+        const sortByLabel = (a, b) => (a.label || '').localeCompare(b.label || '');
+        kingpins.sort(sortByLabel);
+        suppliers.sort(sortByLabel);
+        transporters.sort(sortByLabel);
+        peddlers.sort(sortByLabel);
+        consumers.sort(sortByLabel);
+      }
 
       // 1. Repulsion between all node pairs
       for (let i = 0; i < simNodes.length; i++) {
@@ -484,12 +613,45 @@ export default function NetworkMap() {
         }
         if (draggedNodeRef.current?.id === node.id) continue;
 
-        // Pull to their group's target center instead of the global center
-        const targetX = node.targetCx ?? cx;
-        const targetY = node.targetCy ?? cy;
+        if (layoutMode === 'hierarchy') {
+          // Compute structured target coordinates
+          let targetX = cx;
+          let targetY = cy;
 
-        node.vx += (targetX - node.x) * centerForce;
-        node.vy += (targetY - node.y) * centerForce;
+          const cat = (node.category || '').toUpperCase();
+          if (cat === 'KINGPIN') {
+            const idx = kingpins.indexOf(node);
+            targetX = kingpins.length > 0 ? (width - 240) * (idx + 0.5) / kingpins.length + 120 : cx;
+            targetY = height * 0.15;
+          } else if (cat === 'INTERSTATE_SUPPLIER' || cat === 'LOCAL_SUPPLIER') {
+            const idx = suppliers.indexOf(node);
+            targetX = suppliers.length > 0 ? (width - 240) * (idx + 0.5) / suppliers.length + 120 : cx;
+            targetY = height * 0.32;
+          } else if (cat === 'TRANSPORTER') {
+            const idx = transporters.indexOf(node);
+            targetX = transporters.length > 0 ? (width - 240) * (idx + 0.5) / transporters.length + 120 : cx;
+            targetY = height * 0.50;
+          } else if (cat === 'PEDDLER') {
+            const idx = peddlers.indexOf(node);
+            targetX = peddlers.length > 0 ? (width - 240) * (idx + 0.5) / peddlers.length + 120 : cx;
+            targetY = height * 0.68;
+          } else {
+            const idx = consumers.indexOf(node);
+            targetX = consumers.length > 0 ? (width - 240) * (idx + 0.5) / consumers.length + 120 : cx;
+            targetY = height * 0.85;
+          }
+
+          // Pull strongly to the calculated grid position to prevent clumping
+          node.vx += (targetX - node.x) * 0.15;
+          node.vy += (targetY - node.y) * 0.15;
+        } else {
+          // Pull to their group's target center instead of the global center
+          const targetX = node.targetCx ?? cx;
+          const targetY = node.targetCy ?? cy;
+
+          node.vx += (targetX - node.x) * centerForce;
+          node.vy += (targetY - node.y) * centerForce;
+        }
 
         // Apply friction/damping
         node.vx *= damping;
@@ -509,13 +671,52 @@ export default function NetworkMap() {
       ctx.save();
       ctx.clearRect(0, 0, width, height);
 
+      const simNodes = activeNodesRef.current;
+      const isDark = document.body.classList.contains('dark');
+
+      if (simNodes.length === 0) {
+        ctx.font = 'bold 13px sans-serif';
+        ctx.fillStyle = isDark ? 'rgba(255, 255, 255, 0.4)' : 'rgba(15, 23, 42, 0.45)';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('Enter a suspect name in the search box above to visualize their network chain', width / 2, height / 2);
+        ctx.restore();
+        return;
+      }
+
       // Apply zoom and pan transformation
       ctx.translate(panRef.current.x, panRef.current.y);
       ctx.scale(zoomRef.current, zoomRef.current);
 
-      const simNodes = activeNodesRef.current;
       const simEdges = activeEdgesRef.current;
-      const isDark = document.body.classList.contains('dark');
+
+      // Draw Hierarchical Tier Guidelines
+      if (layoutMode === 'hierarchy') {
+        const tiers = [
+          { name: 'KINGPINS (ORGANIZERS)', y: height * 0.15 },
+          { name: 'SUPPLIERS (LOCAL & INTERSTATE)', y: height * 0.32 },
+          { name: 'TRANSPORTERS (CARRIERS)', y: height * 0.50 },
+          { name: 'PEDDLERS (DISTRIBUTORS)', y: height * 0.68 },
+          { name: 'CONSUMERS & OTHERS', y: height * 0.85 }
+        ];
+
+        tiers.forEach(tier => {
+          ctx.beginPath();
+          ctx.setLineDash([5, 5]);
+          ctx.moveTo(-300, tier.y);
+          ctx.lineTo(width + 300, tier.y);
+          ctx.strokeStyle = isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(15, 23, 42, 0.08)';
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+          ctx.setLineDash([]); // Reset dashed lines
+
+          // Tier text tag
+          ctx.font = 'bold 9px sans-serif';
+          ctx.fillStyle = isDark ? 'rgba(255, 255, 255, 0.4)' : 'rgba(15, 23, 42, 0.45)';
+          ctx.textAlign = 'left';
+          ctx.fillText(tier.name, 20, tier.y - 10);
+        });
+      }
 
       // Draw Edges (Links)
       for (const edge of simEdges) {
@@ -593,7 +794,7 @@ export default function NetworkMap() {
         // Apply filters
         const categoryMatch = categoryFilter === 'ALL' || node.category === categoryFilter;
         const searchMatch = !searchQuery || node.name.toLowerCase().includes(searchQuery.toLowerCase()) || (node.alias && node.alias.toLowerCase().includes(searchQuery.toLowerCase()));
-        const isDimmed = !categoryMatch || !searchMatch;
+        const isDimmed = !categoryMatch;
 
         const isHovered = hoveredNodeRef.current?.id === node.id;
         const isSelected = selectedNode?.id === node.id;
@@ -640,7 +841,7 @@ export default function NetworkMap() {
     return () => {
       cancelAnimationFrame(animationRef.current);
     };
-  }, [activeTab, loading, error, categoryFilter, searchQuery, selectedNode]);
+  }, [activeTab, loading, error, categoryFilter, searchQuery, selectedNode, layoutMode]);
 
   // Mouse Handlers for Canvas Graph Interaction
   const handleMouseDown = (e) => {
@@ -867,6 +1068,16 @@ export default function NetworkMap() {
                   <option value="CONSUMER">Consumer</option>
                 </select>
 
+                {/* Layout Mode Selection */}
+                <select
+                  value={layoutMode}
+                  onChange={(e) => setLayoutMode(e.target.value)}
+                  className="select text-xs py-1.5 focus:outline-none"
+                >
+                  <option value="force">Force-Directed Layout</option>
+                  <option value="hierarchy">Hierarchical Layout</option>
+                </select>
+
                 {/* Focus Mode Toggle */}
                 <label className="flex items-center gap-2 text-xs cursor-pointer select-none">
                   <input
@@ -1025,6 +1236,45 @@ export default function NetworkMap() {
                   </div>
                 ))}
               </div>
+            </div>
+
+            {/* Cross-Group Consumers Card */}
+            <div className="card p-4 space-y-3">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-amber-400">
+                Cross-Group Consumers ({getCrossGroupConsumers().length})
+              </div>
+              <p className="text-[11px] text-[var(--color-garuda-400)] leading-tight">
+                Consumers purchasing from two or more independent supply chain hierarchy networks.
+              </p>
+              
+              {getCrossGroupConsumers().length === 0 ? (
+                <div className="text-[11px] text-[var(--color-garuda-400)] py-2 border border-dashed rounded-lg border-[var(--color-garuda-700)] text-center bg-[var(--color-garuda-900)]/35">
+                  No cross-group consumers identified.
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-[160px] overflow-y-auto pr-1">
+                  {getCrossGroupConsumers().map((item, idx) => (
+                    <div 
+                      key={idx} 
+                      onClick={() => {
+                        setSelectedNode(item.consumer);
+                        setSearchQuery(item.consumer.name);
+                      }}
+                      className="p-2.5 rounded-xl border text-xs bg-[var(--color-garuda-600)] border-[var(--color-garuda-700)] hover:border-indigo-500 transition-all cursor-pointer flex justify-between items-center"
+                    >
+                      <div className="flex-1 min-w-0 pr-2">
+                        <div className="font-bold text-[var(--color-garuda-100)] truncate">{item.consumer.name}</div>
+                        <div className="text-[9px] text-[var(--color-garuda-400)] mt-0.5 truncate">
+                          Linked: {item.linkedSuspects.map(s => s.label).join(', ')}
+                        </div>
+                      </div>
+                      <span className="text-[9px] font-extrabold bg-amber-500/10 text-amber-500 border border-amber-500/20 px-2 py-0.5 rounded-full shrink-0">
+                        {item.groupCount} Groups
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
           </div>

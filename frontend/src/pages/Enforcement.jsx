@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { usePermissions } from '../hooks/usePermissions';
 import api from '../api/axios';
+import southIndiaMap from '../assets/south-india-map-slide1.png';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import VillageVisitForm from '../components/enforcement/forms/VillageVisitForm';
 import LodgeCheckForm from '../components/enforcement/forms/LodgeCheckForm';
@@ -26,6 +27,156 @@ export default function Enforcement() {
 
   // State to manage which view is active if the user has access to both (optional, but good for testing)
   const [activeView, setActiveView] = useState(isCommandLevel ? 'dashboard' : 'field_hub');
+
+  const [scrolled, setScrolled] = useState(false);
+  const [stationsCount, setStationsCount] = useState(0);
+  const [logsCount, setLogsCount] = useState(0);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    const mainEl = document.querySelector('main.overflow-y-auto');
+    if (!mainEl) return;
+
+    const handleScroll = () => {
+      if (mainEl.scrollTop > 80) {
+        setScrolled(true);
+      } else {
+        setScrolled(false);
+      }
+    };
+    mainEl.addEventListener('scroll', handleScroll);
+    return () => {
+      mainEl.removeEventListener('scroll', handleScroll);
+    };
+  }, []);
+
+  useEffect(() => {
+    const fetchStationsCount = async () => {
+      try {
+        const res = await api.get('/police-stations');
+        const list = res.data.data?.stations || res.data.data || [];
+        setStationsCount(list.length);
+      } catch (err) {
+        console.error('Failed to fetch stations count:', err);
+      }
+    };
+    const fetchLogsCount = async () => {
+      try {
+        const res = await api.get('/enforcement/user-logs?type=ALL');
+        const list = res.data?.data?.logs || [];
+        setLogsCount(list.length);
+      } catch (err) {
+        console.error('Failed to fetch logs count:', err);
+      }
+    };
+    if (isCommandLevel) {
+      fetchStationsCount();
+    }
+    fetchLogsCount();
+  }, [isCommandLevel]);
+
+  const sidebarItems = [
+    ...(isCommandLevel ? [{
+      id: 'dashboard',
+      label: 'Command Dashboard',
+      desc: 'District-wide metrics',
+      count: stationsCount,
+      activeClass: 'bg-[#7c3aed] border-[#7c3aed] text-white shadow-md',
+      inactiveClass: 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 border-l-[#7c3aed] hover:bg-emerald-50 dark:hover:bg-emerald-950/20 text-slate-700 dark:text-slate-300 shadow-sm',
+      labelClassSelected: 'text-white',
+      labelClassInactive: 'text-[#7c3aed]',
+      badgeClassSelected: 'bg-[#5b21b6] text-white',
+      badgeClassInactive: 'bg-[#d1fae5] text-[#065f46]',
+      descClassSelected: 'text-white/80',
+      descClassInactive: 'text-slate-500 dark:text-slate-400'
+    }] : []),
+    {
+      id: 'field_hub',
+      label: 'Field Operations',
+      desc: 'Log field activities',
+      count: 14,
+      activeClass: 'bg-[#0284c7] border-[#0284c7] text-white shadow-md',
+      inactiveClass: 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 border-l-[#0284c7] hover:bg-emerald-50 dark:hover:bg-emerald-950/20 text-slate-700 dark:text-slate-300 shadow-sm',
+      labelClassSelected: 'text-white',
+      labelClassInactive: 'text-[#0284c7]',
+      badgeClassSelected: 'bg-[#075985] text-white',
+      badgeClassInactive: 'bg-[#d1fae5] text-[#065f46]',
+      descClassSelected: 'text-white/80',
+      descClassInactive: 'text-slate-500 dark:text-slate-400'
+    },
+    {
+      id: 'enforcement_log',
+      label: 'Enforcement Log',
+      desc: 'Geo-tagged history',
+      count: logsCount,
+      activeClass: 'bg-[#047857] border-[#047857] text-white shadow-md',
+      inactiveClass: 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 border-l-[#047857] hover:bg-emerald-50 dark:hover:bg-emerald-950/20 text-slate-700 dark:text-slate-300 shadow-sm',
+      labelClassSelected: 'text-white',
+      labelClassInactive: 'text-[#047857]',
+      badgeClassSelected: 'bg-[#064e3b] text-white',
+      badgeClassInactive: 'bg-[#d1fae5] text-[#065f46]',
+      descClassSelected: 'text-white/80',
+      descClassInactive: 'text-slate-500 dark:text-slate-400'
+    }
+  ];
+
+  const renderSidebarMenu = (isMobile = false) => (
+    <div 
+      className="p-5 rounded-2xl border text-slate-900 shadow-lg space-y-4"
+      style={{ backgroundColor: '#8bc53f', borderColor: '#74a634' }}
+    >
+      <h3 className="text-xs font-black uppercase tracking-wider text-emerald-950 mb-1">
+        {isMobile ? 'Navigation (Mobile)' : 'Navigation'}
+      </h3>
+
+      <div className="flex flex-col gap-3">
+        {sidebarItems.map(item => {
+          const isSelected = activeView === item.id;
+          return (
+            <button
+              key={item.id}
+              onClick={() => {
+                setActiveView(item.id);
+                if (isMobile) setMobileMenuOpen(false);
+              }}
+              className={`w-full text-left p-4 rounded-xl border border-l-4 transition-all flex items-start cursor-pointer ${
+                isSelected ? item.activeClass : item.inactiveClass
+              }`}
+            >
+              <div className="flex-1 min-w-0">
+                <div className="font-bold text-sm flex items-center justify-between">
+                  <span className={`truncate ${isSelected ? item.labelClassSelected : item.labelClassInactive}`}>
+                    {item.label}
+                  </span>
+                  <span className={`w-5 h-5 flex items-center justify-center rounded-full text-[10px] font-extrabold ${
+                    isSelected ? item.badgeClassSelected : item.badgeClassInactive
+                  }`}>
+                    {item.count}
+                  </span>
+                </div>
+                <div className={`text-[11px] mt-1 line-clamp-1 ${
+                  isSelected ? item.descClassSelected : item.descClassInactive
+                }`}>
+                  {item.desc}
+                </div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Info Helper Block */}
+      <div 
+        className="p-4 rounded-xl border text-[#1b3d1b] text-[11px] leading-relaxed"
+        style={{ backgroundColor: '#e9f5db', borderColor: '#cce2b4' }}
+      >
+        <p className="font-bold text-[#0f3d0f] uppercase text-[9px] tracking-wide mb-1">
+          Enforcement Scope
+        </p>
+        Prevention and tracking details are preserved across all views. Access to pages is dynamically adjusted based on your department role.
+      </div>
+    </div>
+  );
 
   return (
     <div className="flex flex-col xl:flex-row gap-6 p-6 animate-fade-in min-h-screen">
@@ -54,83 +205,70 @@ export default function Enforcement() {
         {activeView === 'enforcement_log' && <UserEnforcementLog />}
       </div>
 
-      {/* Right Sidebar Menu */}
-      <div className="w-full xl:w-64 flex-shrink-0 space-y-4 xl:sticky xl:top-6 self-start max-h-[calc(100vh-3rem)] overflow-y-auto pr-2 pb-6 custom-scrollbar">
-        <h3 className="text-sm font-bold uppercase tracking-wider mb-4" style={{ color: 'var(--color-garuda-400)' }}>Navigation</h3>
+      {/* Right Sidebar Area (Sticky Wrapper) */}
+      <div className="hidden xl:block w-full xl:w-64 flex-shrink-0 xl:sticky xl:top-6 self-start space-y-4">
         
-        {isCommandLevel && (
-          <button
-            onClick={() => setActiveView('dashboard')}
-            className={`w-full text-left p-4 rounded-xl border transition-all flex items-center gap-3 cursor-pointer ${
-              activeView === 'dashboard'
-                ? 'bg-purple-50 dark:bg-purple-950/20 border-purple-300 dark:border-purple-800/80 text-purple-900 dark:text-purple-200'
-                : 'bg-transparent border-slate-200 dark:border-slate-800 hover:bg-purple-50/30 dark:hover:bg-purple-950/5 hover:border-purple-200 dark:hover:border-purple-900 text-slate-700 dark:text-slate-300'
-            }`}
-          >
-            <div className={`p-2 rounded-lg transition-all ${
-              activeView === 'dashboard'
-                ? 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-400'
-                : 'bg-slate-100 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400'
-            }`}>
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
-            </div>
-            <div>
-              <div className="font-bold text-sm">Command Dashboard</div>
-              <div className={`text-xs mt-0.5 ${
-                activeView === 'dashboard' ? 'text-purple-700 dark:text-purple-400/80' : 'text-slate-500 dark:text-slate-400/70'
-              }`}>District-wide metrics</div>
-            </div>
-          </button>
-        )}
-
-        {(isFieldLevel || isCommandLevel) && (
-          <button
-            onClick={() => setActiveView('field_hub')}
-            className={`w-full text-left p-4 rounded-xl border transition-all flex items-center gap-3 cursor-pointer ${
-              activeView === 'field_hub'
-                ? 'bg-sky-50 dark:bg-sky-950/20 border-sky-300 dark:border-sky-800/80 text-sky-900 dark:text-sky-200'
-                : 'bg-transparent border-slate-200 dark:border-slate-800 hover:bg-sky-50/30 dark:hover:bg-sky-950/5 hover:border-sky-200 dark:hover:border-sky-900 text-slate-700 dark:text-slate-300'
-            }`}
-          >
-            <div className={`p-2 rounded-lg transition-all ${
-              activeView === 'field_hub'
-                ? 'bg-sky-100 dark:bg-sky-900/40 text-sky-700 dark:text-sky-400'
-                : 'bg-slate-100 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400'
-            }`}>
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
-            </div>
-            <div>
-              <div className="font-bold text-sm">Field Operations</div>
-              <div className={`text-xs mt-0.5 ${
-                activeView === 'field_hub' ? 'text-sky-700 dark:text-sky-400/80' : 'text-slate-500 dark:text-slate-400/70'
-              }`}>Log field activities</div>
-            </div>
-          </button>
-        )}
-
-        <button
-          onClick={() => setActiveView('enforcement_log')}
-          className={`w-full text-left p-4 rounded-xl border transition-all flex items-center gap-3 cursor-pointer ${
-            activeView === 'enforcement_log'
-              ? 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-300 dark:border-emerald-800/80 text-emerald-900 dark:text-emerald-200'
-              : 'bg-transparent border-slate-200 dark:border-slate-800 hover:bg-emerald-50/30 dark:hover:bg-emerald-950/5 hover:border-emerald-200 dark:hover:border-emerald-900 text-slate-700 dark:text-slate-300'
+        {/* Sticky Header that animates down/in when scrolled */}
+        <div 
+          className={`transition-all duration-500 ease-out overflow-hidden ${
+            scrolled 
+              ? 'max-h-40 opacity-100 transform translate-y-0 scale-100' 
+              : 'max-h-0 opacity-0 transform -translate-y-4 scale-95 pointer-events-none'
           }`}
         >
-          <div className={`p-2 rounded-lg transition-all ${
-            activeView === 'enforcement_log'
-              ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400'
-              : 'bg-slate-100 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400'
-          }`}>
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+          <div 
+            className="p-4 rounded-2xl border text-slate-900 shadow-md flex items-center justify-between gap-3"
+            style={{ backgroundColor: '#8bc53f', borderColor: '#74a634' }}
+          >
+            <h2 className="text-sm font-black tracking-tight text-emerald-950 leading-tight">
+              Preventive Enforcement
+            </h2>
           </div>
-          <div>
-            <div className="font-bold text-sm">Enforcement Log</div>
-            <div className={`text-xs mt-0.5 ${
-              activeView === 'enforcement_log' ? 'text-emerald-700 dark:text-emerald-400/80' : 'text-slate-500 dark:text-slate-400/70'
-            }`}>Geo-tagged history</div>
-          </div>
-        </button>
+        </div>
+
+        {/* Desktop Sidebar: renders inline */}
+        {renderSidebarMenu(false)}
+
       </div>
+
+      {/* Floating Action Button for Mobile Menu */}
+      <button 
+        onClick={() => setMobileMenuOpen(true)}
+        className="xl:hidden fixed bottom-6 right-6 z-40 bg-[#8bc53f] hover:bg-[#74a634] text-emerald-950 p-4 rounded-full shadow-2xl border border-[#74a634] flex items-center justify-center cursor-pointer transition-all hover:scale-110 active:scale-95"
+        title="Quick Menu"
+      >
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16m-7 6h7" />
+        </svg>
+      </button>
+
+      {/* Drawer Overlay for Mobile Menu */}
+      {mobileMenuOpen && (
+        <div className="fixed inset-0 z-50 xl:hidden flex justify-end">
+          {/* Backdrop */}
+          <div 
+            onClick={() => setMobileMenuOpen(false)}
+            className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs transition-opacity"
+          />
+
+          {/* Drawer Panel */}
+          <div className="relative w-80 max-w-xs bg-slate-900/90 backdrop-blur-md h-full shadow-2xl p-6 flex flex-col gap-4 overflow-y-auto border-l border-slate-800">
+            {/* Close Header */}
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Quick Navigation</span>
+              <button 
+                onClick={() => setMobileMenuOpen(false)}
+                className="text-slate-400 hover:text-white font-bold text-xs bg-slate-800 hover:bg-slate-700 px-2 py-1 rounded-lg cursor-pointer transition-all"
+              >
+                ✕ Close
+              </button>
+            </div>
+
+            {/* Mobile Sidebar: renders inside drawer */}
+            {renderSidebarMenu(true)}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -12,7 +12,7 @@ import {
   IconDashboard, IconOffender, IconConsumer, IconCases, IconFieldStaff,
   IconSurveillance, IconFinance, IconNetwork, IconReports, IconMap,
   IconTrash, IconEdit, IconUsers, IconBuilding, IconAuditLog, IconImport,
-  IconShield, IconVehicle,
+  IconShield, IconVehicle, IconDatabase,
 } from './Icons';
 
 /**
@@ -41,6 +41,10 @@ function useNavItems() {
         {
           path: '/mobile', label: 'Field Staff', icon: IconFieldStaff,
           show: perms.canFieldEntry || perms.canSurveillanceReport || perms.canVerifyAccused
+        },
+        {
+          path: '/south-india-databank', label: 'South India Data Bank', icon: IconDatabase,
+          show: true
         },
       ],
     },
