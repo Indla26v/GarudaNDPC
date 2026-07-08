@@ -43,6 +43,7 @@ export default function UserManagement() {
   const [editUser, setEditUser] = useState(null);
   const [form, setForm] = useState({ username: '', password: '', fullName: '', role: 'CONSTABLE', policeStationId: '', department: 'POLICE', badgeNumber: '', district: '', divisionId: '' });
   const [formError, setFormError] = useState('');
+  const [formViolations, setFormViolations] = useState([]);
   const [saving, setSaving] = useState(false);
 
   const [activeTab, setActiveTab] = useState('users');
@@ -118,6 +119,7 @@ export default function UserManagement() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
+    setFormViolations([]);
     setSaving(true);
     try {
       const payload = {
@@ -145,6 +147,9 @@ export default function UserManagement() {
       await fetchData();
     } catch (err) {
       setFormError(err.response?.data?.message || 'Failed to save user');
+      if (err.response?.data?.violations) {
+        setFormViolations(err.response.data.violations);
+      }
     } finally {
       setSaving(false);
     }
@@ -517,6 +522,25 @@ export default function UserManagement() {
                   required={!editUser}
                   className="input w-full"
                 />
+                {/* Password Policy Indicators */}
+                {form.password.length > 0 && (
+                  <div className="mt-2 p-2.5 rounded-lg space-y-0.5" style={{ background: 'var(--color-garuda-900)', border: '1px solid var(--color-garuda-700)' }}>
+                    <p className="text-[9px] font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--color-garuda-500)' }}>Password Policy</p>
+                    {[
+                      { label: '10-18 characters', pass: form.password.length >= 10 && form.password.length <= 18 },
+                      { label: 'Uppercase (A-Z)', pass: /[A-Z]/.test(form.password) },
+                      { label: 'Lowercase (a-z)', pass: /[a-z]/.test(form.password) },
+                      { label: 'Digit (0-9)', pass: /[0-9]/.test(form.password) },
+                      { label: 'Special char (!@#$%...)', pass: /[!@#$%^&*()_+\-=\[\]{}|;:'",.<>?\/\\`~]/.test(form.password) },
+                      { label: 'No spaces', pass: !/\s/.test(form.password) },
+                    ].map((check, i) => (
+                      <div key={i} className="flex items-center gap-1.5 text-[11px]">
+                        <span style={{ color: check.pass ? '#22c55e' : '#f87171' }}>{check.pass ? '✓' : '✕'}</span>
+                        <span style={{ color: check.pass ? '#86efac' : 'var(--color-garuda-400)' }}>{check.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
               <div>
                 <label className="text-xs font-medium block mb-1" style={{ color: 'var(--color-garuda-300)' }}>Full Name</label>
@@ -620,7 +644,14 @@ export default function UserManagement() {
               </div>
             </form>
             {formError && (
-              <p className="text-sm mt-3" style={{ color: '#f87171' }}>{formError}</p>
+              <div className="mt-3 space-y-1">
+                <p className="text-sm" style={{ color: '#f87171' }}>{formError}</p>
+                {formViolations.length > 0 && (
+                  <ul className="text-xs space-y-0.5 pl-4" style={{ color: '#fca5a5' }}>
+                    {formViolations.map((v, i) => <li key={i} className="list-disc">{v}</li>)}
+                  </ul>
+                )}
+              </div>
             )}
           </div>
         </div>

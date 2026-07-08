@@ -1,0 +1,4210 @@
+{
+  "info": {
+    "_postman_id": "garuda-ndps-tpt-api-collection-1783432183190",
+    "name": "Garuda NDPS TPT API",
+    "description": "API testing collection for the Garuda NDPS & Seizure Tracking Platform backend services. Organize API endpoints for Auth, Offenders, Cases, Vehicles, Enforcement, Surveillance, Finance, and Analytics.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "01. Authentication",
+      "description": "Endpoints for user login, token refresh, logout, and checking current user info.",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"admin1\",\n  \"password\": \"your_password_here\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ],
+              "query": []
+            },
+            "description": "Authenticate user and set Access & Refresh Tokens. Also stores the token in the 'authToken' environment variable."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const response = pm.response.json();",
+                  "if (response.success && response.data && response.data.accessToken) {",
+                  "    pm.environment.set(\"authToken\", response.data.accessToken);",
+                  "    console.log(\"Auth token saved to environment successfully.\");",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/refresh",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "refresh"
+              ],
+              "query": []
+            },
+            "description": "Obtains a new access token using a valid refresh token."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const response = pm.response.json();",
+                  "if (response.success && response.data && response.data.accessToken) {",
+                  "    pm.environment.set(\"authToken\", response.data.accessToken);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Current User Profile (Me)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "me"
+              ],
+              "query": []
+            },
+            "description": "Retrieves details of the currently logged-in user."
+          },
+          "event": []
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "logout"
+              ],
+              "query": []
+            },
+            "description": "Logs out the current session."
+          },
+          "event": []
+        }
+      ]
+    },
+    {
+      "name": "02. Dashboard",
+      "description": "KPIs and summary data for landing page/dashboard.",
+      "item": [
+        {
+          "name": "Get Dashboard Summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/dashboard/summary",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "dashboard",
+                "summary"
+              ],
+              "query": []
+            },
+            "description": "Retrieves overview stats, charts, and trends for NDPS enforcement."
+          },
+          "event": []
+        }
+      ]
+    },
+    {
+      "name": "03. Offenders & IMEI",
+      "description": "Management of NDPS offender profiles, history sheets, and IMEI records.",
+      "item": [
+        {
+          "name": "List Offenders",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/offenders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "offenders"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number"
+                },
+                {
+                  "key": "limit",
+                  "value": "10",
+                  "description": "Records per page"
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "description": "Search query by name/alias"
+                },
+                {
+                  "key": "category",
+                  "value": "",
+                  "description": "Category filters"
+                }
+              ]
+            },
+            "description": "Fetch list of offenders with pagination and search parameters."
+          },
+          "event": []
+        },
+        {
+          "name": "Get Offender By ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/offenders/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "offenders",
+                ":id"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Fetch detailed dossier of an offender."
+          },
+          "event": []
+        },
+        {
+          "name": "Create Offender",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"John Doe\",\n  \"alias\": \"Johnny\",\n  \"age\": 34,\n  \"gender\": \"Male\",\n  \"category\": \"PEDDLER\",\n  \"risk_score\": 75,\n  \"phone_numbers\": [\n    \"9876543210\"\n  ],\n  \"address\": \"123 Street Name, Town\",\n  \"district\": \"Chittoor\",\n  \"state\": \"Andhra Pradesh\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/offenders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "offenders"
+              ],
+              "query": []
+            },
+            "description": "Create a new offender profile (requires CI/SI role or higher)."
+          },
+          "event": []
+        },
+        {
+          "name": "Update Offender",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"alias\": \"Johnny Red\",\n  \"risk_score\": 80,\n  \"category\": \"SUPPLIER\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/offenders/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "offenders",
+                ":id"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Modify offender profile details (direct edit allowed for DSP/Admin, others create edit requests)."
+          },
+          "event": []
+        },
+        {
+          "name": "Export Offenders CSV",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/offenders/export",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "offenders",
+                "export"
+              ],
+              "query": []
+            },
+            "description": "Retrieves a CSV data dump of offenders."
+          },
+          "event": []
+        },
+        {
+          "name": "Upload Offender Mugshot",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "photo",
+                  "type": "file",
+                  "src": null,
+                  "description": "Upload mugshot image"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/offenders/upload",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "offenders",
+                "upload"
+              ],
+              "query": []
+            },
+            "description": "Uploads a profile picture for an offender."
+          },
+          "event": []
+        },
+        {
+          "name": "Import DPR Excel",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": null,
+                  "description": "Excel file containing DPR records"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/offenders/import",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "offenders",
+                "import"
+              ],
+              "query": []
+            },
+            "description": "Import offenders and cases via bulk DPR upload."
+          },
+          "event": []
+        },
+        {
+          "name": "Get Offender History Sheet",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/offenders/:id/history-sheet",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "offenders",
+                ":id",
+                "history-sheet"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Get text formatted history sheet overview."
+          },
+          "event": []
+        },
+        {
+          "name": "Get Offender History Sheet PDF",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/offenders/:id/history-sheet-pdf",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "offenders",
+                ":id",
+                "history-sheet-pdf"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Get binary PDF stream of offender history sheet."
+          },
+          "event": []
+        },
+        {
+          "name": "List Offender IMEIs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/offenders/:offenderId/imei",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "offenders",
+                ":offenderId",
+                "imei"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "offenderId",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Fetch all IMEI numbers linked to an offender."
+          },
+          "event": []
+        },
+        {
+          "name": "Add Offender IMEI",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"imei_number\": \"860123456789012\",\n  \"device_make\": \"Samsung S21\",\n  \"sim_number\": \"899100223344556677\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/offenders/:offenderId/imei",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "offenders",
+                ":offenderId",
+                "imei"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "offenderId",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Link a new IMEI record to an offender."
+          },
+          "event": []
+        },
+        {
+          "name": "Update Offender IMEI",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"device_make\": \"Samsung S22\",\n  \"sim_number\": \"899100223344556688\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/offenders/:offenderId/imei/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "offenders",
+                ":offenderId",
+                "imei",
+                ":id"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "offenderId",
+                  "value": ""
+                },
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Modify an existing IMEI record."
+          },
+          "event": []
+        }
+      ]
+    },
+    {
+      "name": "04. Cases & Life Cycle",
+      "description": "Management of seizure cases, accused mapping, seizures, charge sheets, bail records, and court hearings.",
+      "item": [
+        {
+          "name": "List Cases",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/cases",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "cases"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number"
+                },
+                {
+                  "key": "limit",
+                  "value": "10",
+                  "description": "Records per page"
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "description": "Search by CrNo/PS"
+                }
+              ]
+            },
+            "description": "List seizure cases."
+          },
+          "event": []
+        },
+        {
+          "name": "Get Case By ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/cases/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "cases",
+                ":id"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Fetch case details."
+          },
+          "event": []
+        },
+        {
+          "name": "Create Seizure Case",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"crime_number\": \"123/2026\",\n  \"police_station_id\": 1,\n  \"under_sections\": \"8(c) r/w 20(b)(ii)(C) NDPS Act\",\n  \"date_of_seizure\": \"2026-07-01T12:00:00Z\",\n  \"source_location\": \"Chennai Port\",\n  \"destination_location\": \"Tirupati Outer\",\n  \"contraband_type\": \"GANJA\",\n  \"contraband_quantity\": 15.5,\n  \"contraband_unit\": \"KGs\",\n  \"accused_ids\": [\n    1,\n    2\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/cases",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "cases"
+              ],
+              "query": []
+            },
+            "description": "Creates a new case case record."
+          },
+          "event": []
+        },
+        {
+          "name": "Update Case",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"under_sections\": \"8(c) r/w 22(c) NDPS Act\",\n  \"contraband_quantity\": 18\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/cases/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "cases",
+                ":id"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Modify basic details of a case."
+          },
+          "event": []
+        },
+        {
+          "name": "Update Case Accused",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accused_ids\": [\n    1,\n    2,\n    3\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/cases/:id/accused",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "cases",
+                ":id",
+                "accused"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Re-associate the list of accused offenders in a case."
+          },
+          "event": []
+        },
+        {
+          "name": "Update Case Seizures",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"seizures\": [\n    {\n      \"contraband_type\": \"GANJA\",\n      \"quantity\": 18,\n      \"unit\": \"KGs\",\n      \"description\": \"Seized in a truck\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/cases/:id/seizures",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "cases",
+                ":id",
+                "seizures"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Overwrite/update seizure breakdown of the case."
+          },
+          "event": []
+        },
+        {
+          "name": "Upload Case Document",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": null,
+                  "description": "Upload case document (FIR, Charge sheet etc)"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/cases/upload",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "cases",
+                "upload"
+              ],
+              "query": []
+            },
+            "description": "Uploads a document attachment for a case."
+          },
+          "event": []
+        },
+        {
+          "name": "Get Cases By Offender",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/cases/offender/:offenderId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "cases",
+                "offender",
+                ":offenderId"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "offenderId",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Fetch all cases in which the offender is an accused."
+          },
+          "event": []
+        },
+        {
+          "name": "Get Case Charge Sheet",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/cases/:id/charge-sheet",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "cases",
+                ":id",
+                "charge-sheet"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Get charge sheet details for a case."
+          },
+          "event": []
+        },
+        {
+          "name": "Upsert Case Charge Sheet",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"charge_sheet_number\": \"CS/45/2026\",\n  \"date_filed\": \"2026-07-05\",\n  \"court_name\": \"District NDPS Court, Chittoor\",\n  \"accused_charged\": [\n    1,\n    2\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/cases/:id/charge-sheet",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "cases",
+                ":id",
+                "charge-sheet"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Create or update charge sheet details."
+          },
+          "event": []
+        },
+        {
+          "name": "Get Court Hearings",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/cases/:id/court-hearings",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "cases",
+                ":id",
+                "court-hearings"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Get scheduled hearings list for a case."
+          },
+          "event": []
+        },
+        {
+          "name": "Add Court Hearing",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"hearing_date\": \"2026-08-15T10:00:00Z\",\n  \"hearing_purpose\": \"Framing of Charges\",\n  \"remarks\": \"Witness summons issued\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/cases/:id/court-hearings",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "cases",
+                ":id",
+                "court-hearings"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Log/schedule a new court hearing date."
+          },
+          "event": []
+        },
+        {
+          "name": "Get Bail Records",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/cases/:id/bail-records",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "cases",
+                ":id",
+                "bail-records"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Get bail logs for a case."
+          },
+          "event": []
+        },
+        {
+          "name": "Add Bail Record",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"offender_id\": 1,\n  \"bail_type\": \"Regular Bail\",\n  \"date_granted\": \"2026-07-06\",\n  \"expiry_date\": \"2026-10-06\",\n  \"sureties_details\": \"Two local sureties of 50k each\",\n  \"conditions_imposed\": \"Must report to PS every Monday\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/cases/:id/bail-records",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "cases",
+                ":id",
+                "bail-records"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Log a bail status for an accused offender in a case."
+          },
+          "event": []
+        }
+      ]
+    },
+    {
+      "name": "05. Field Enforcement",
+      "description": "Logs for field checks, drug tests, drone surveillance, village drives, and review states.",
+      "item": [
+        {
+          "name": "List Enforcement Checks",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/enforcement",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "enforcement"
+              ],
+              "query": []
+            },
+            "description": "Retrieve list of all field checks."
+          },
+          "event": []
+        },
+        {
+          "name": "Get Enforcement Summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/enforcement/summary",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "enforcement",
+                "summary"
+              ],
+              "query": []
+            },
+            "description": "Get metrics summary of check statistics."
+          },
+          "event": []
+        },
+        {
+          "name": "Get User Logs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/enforcement/user-logs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "enforcement",
+                "user-logs"
+              ],
+              "query": []
+            },
+            "description": "Retrieve check logs logged by the logged-in officer."
+          },
+          "event": []
+        },
+        {
+          "name": "Create Enforcement Check",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"check_point\": \"Highway Toll Plaza\",\n  \"offender_id\": 1,\n  \"suspect_name\": \"John Suspect\",\n  \"status\": \"PENDING_DRUG_TEST\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/enforcement",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "enforcement"
+              ],
+              "query": []
+            },
+            "description": "Creates a basic checkpoint record."
+          },
+          "event": []
+        },
+        {
+          "name": "Submit Check Test Result",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"drug_test_result\": \"POSITIVE\",\n  \"substance_detected\": \"HEROIN\",\n  \"action_taken\": \"Arrested and registered CrNo 56/2026\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/enforcement/:id/test-result",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "enforcement",
+                ":id",
+                "test-result"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Submits chemical drug test result for a pending check."
+          },
+          "event": []
+        },
+        {
+          "name": "Search Suspects (Field)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"Johnny\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/enforcement/search",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "enforcement",
+                "search"
+              ],
+              "query": []
+            },
+            "description": "Quick query for field officers to identify a suspect in database."
+          },
+          "event": []
+        },
+        {
+          "name": "Log Village Visit",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"village_name\": \"Kuppam East\",\n  \"visit_date\": \"2026-07-06\",\n  \"activities_conducted\": \"Awareness drive & meeting local watchmen\",\n  \"intelligence_gathered\": \"No suspicious movements reported\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/enforcement/village-visit",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "enforcement",
+                "village-visit"
+              ],
+              "query": []
+            },
+            "description": "Log field preventive village inspections."
+          },
+          "event": []
+        },
+        {
+          "name": "Log Lodge Check",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lodge_name\": \"Standard Residency\",\n  \"rooms_checked\": [\n    \"102\",\n    \"204\",\n    \"305\"\n  ],\n  \"suspicious_findings\": \"None\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/enforcement/lodge-check",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "enforcement",
+                "lodge-check"
+              ],
+              "query": []
+            },
+            "description": "Log commercial lodging check."
+          },
+          "event": []
+        },
+        {
+          "name": "Log Drunk Drive Check",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Bus Stand Junction\",\n  \"vehicles_checked\": 45,\n  \"cases_booked\": 2\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/enforcement/drunk-drive",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "enforcement",
+                "drunk-drive"
+              ],
+              "query": []
+            },
+            "description": "Log drunk driving checkpoint report."
+          },
+          "event": []
+        },
+        {
+          "name": "Log Courier Check",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"agency_name\": \"BlueDart Office, Tirupati\",\n  \"parcels_scanned\": 150,\n  \"seizures_made\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/enforcement/courier-check",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "enforcement",
+                "courier-check"
+              ],
+              "query": []
+            },
+            "description": "Log courier / logistics shipping checks."
+          },
+          "event": []
+        },
+        {
+          "name": "Log Railway Check",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"station_name\": \"Tirupati Main Station\",\n  \"trains_inspected\": [\n    \"Venkatadri Express\"\n  ],\n  \"suspicious_bags_scanned\": 20\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/enforcement/railway-check",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "enforcement",
+                "railway-check"
+              ],
+              "query": []
+            },
+            "description": "Log train/rail transport checkpoint report."
+          },
+          "event": []
+        },
+        {
+          "name": "Log Bus Stand Check",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bus_stand_name\": \"Tirupati Central Bus Stand\",\n  \"buses_checked\": 15,\n  \"suspects_questioned\": 3\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/enforcement/bus-stand-check",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "enforcement",
+                "bus-stand-check"
+              ],
+              "query": []
+            },
+            "description": "Log central bus station check."
+          },
+          "event": []
+        },
+        {
+          "name": "Log Rowdy Sheeter Inspection",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sheeter_name\": \"Suspect A\",\n  \"status_update\": \"Present at residence, doing daily wage work\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/enforcement/rowdy-sheeter",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "enforcement",
+                "rowdy-sheeter"
+              ],
+              "query": []
+            },
+            "description": "Log monitoring updates on registered offenders."
+          },
+          "event": []
+        },
+        {
+          "name": "Log Bound Over Check",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"offender_id\": 1,\n  \"security_bond_amount\": 100000,\n  \"expiry_date\": \"2027-07-07\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/enforcement/bound-over",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "enforcement",
+                "bound-over"
+              ],
+              "query": []
+            },
+            "description": "Record boundary execution details."
+          },
+          "event": []
+        },
+        {
+          "name": "Log Vehicle Check",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vehicle_number\": \"AP39XX1234\",\n  \"make_model\": \"Tata Ace\",\n  \"owner_details\": \"K. Raju\",\n  \"outcome\": \"Let go after search\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/enforcement/vehicle-check",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "enforcement",
+                "vehicle-check"
+              ],
+              "query": []
+            },
+            "description": "Log suspicious vehicle check."
+          },
+          "event": []
+        },
+        {
+          "name": "Log MV Act Violations",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"challan_number\": \"MV-56432\",\n  \"fine_amount\": 1000,\n  \"offence\": \"No Helmet / Suspicious speed\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/enforcement/mv-act",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "enforcement",
+                "mv-act"
+              ],
+              "query": []
+            },
+            "description": "Log Motor Vehicle Act challans."
+          },
+          "event": []
+        },
+        {
+          "name": "Log Petty Cases",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"section\": \"290 IPC / 70b Police Act\",\n  \"accused_name\": \"S. Kumar\",\n  \"disposal\": \"Fined 250 by court\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/enforcement/petty-cases",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "enforcement",
+                "petty-cases"
+              ],
+              "query": []
+            },
+            "description": "Log petty offense cases booked."
+          },
+          "event": []
+        },
+        {
+          "name": "Log Palle Nidra",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"village_name\": \"Renigunta Rural\",\n  \"stay_date\": \"2026-07-05\",\n  \"community_meeting_summary\": \"Discussed illicit liquor & ganja peddling issues\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/enforcement/palle-nidra",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "enforcement",
+                "palle-nidra"
+              ],
+              "query": []
+            },
+            "description": "Log Palle Nidra (rural community night stays)."
+          },
+          "event": []
+        },
+        {
+          "name": "Log Drone Surveillance",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"flight_area\": \"Kalyani Dam Forest Fringe\",\n  \"gps_coordinates\": \"13.6264, 79.2882\",\n  \"findings\": \"Suspected cultivation patches scanned, no active crop found\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/enforcement/drone-surveillance",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "enforcement",
+                "drone-surveillance"
+              ],
+              "query": []
+            },
+            "description": "Log aerial drone operations."
+          },
+          "event": []
+        },
+        {
+          "name": "Get Pending Reviews",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/enforcement/pending-review",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "enforcement",
+                "pending-review"
+              ],
+              "query": []
+            },
+            "description": "Retrieves list of enforcement checks awaiting review (SHO+ only)."
+          },
+          "event": []
+        },
+        {
+          "name": "Review Enforcement Check",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"review_status\": \"APPROVED\",\n  \"review_remarks\": \"Details verified, log entered into general diary\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/enforcement/:id/review",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "enforcement",
+                ":id",
+                "review"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Approve or reject a submitted field check."
+          },
+          "event": []
+        }
+      ]
+    },
+    {
+      "name": "06. Deletion Workflow",
+      "description": "Multistep deletion approval logs (SI/CI -> SHO -> SDPO -> SP). Only SP executes actual deletion.",
+      "item": [
+        {
+          "name": "List Deletion Requests",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/deletion-requests",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "deletion-requests"
+              ],
+              "query": []
+            },
+            "description": "Get all pending deletion requests."
+          },
+          "event": []
+        },
+        {
+          "name": "Step 1: Flag For Deletion",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"target_type\": \"OFFENDER\",\n  \"target_id\": 1,\n  \"reason\": \"Record found duplicate\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/deletion-requests/flag",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "deletion-requests",
+                "flag"
+              ],
+              "query": []
+            },
+            "description": "Flag a record as ready for deletion (CI/SI edit level)."
+          },
+          "event": []
+        },
+        {
+          "name": "Step 2: Escalate (SHO)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/deletion-requests/:id/escalate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "deletion-requests",
+                ":id",
+                "escalate"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "SHO escalates flagged record for SDPO review."
+          },
+          "event": []
+        },
+        {
+          "name": "Step 3: Request Deletion (SDPO)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/deletion-requests/:id/request",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "deletion-requests",
+                ":id",
+                "request"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "SDPO officially requests deletion of the record from SP."
+          },
+          "event": []
+        },
+        {
+          "name": "Step 4: Approve Deletion (SP)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/deletion-requests/:id/approve",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "deletion-requests",
+                ":id",
+                "approve"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "SP approves the request."
+          },
+          "event": []
+        },
+        {
+          "name": "Step 5: Execute Purge (SP)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/deletion-requests/:id/execute",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "deletion-requests",
+                ":id",
+                "execute"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "SP triggers final physical database deletion."
+          },
+          "event": []
+        },
+        {
+          "name": "Reject Request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/deletion-requests/:id/reject",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "deletion-requests",
+                ":id",
+                "reject"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Reject the deletion request at any level."
+          },
+          "event": []
+        }
+      ]
+    },
+    {
+      "name": "07. Edit Requests",
+      "description": "Draft proposals to edit locked records. (SI/CI draft -> DSP approval).",
+      "item": [
+        {
+          "name": "List Edit Requests",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/edit-requests",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "edit-requests"
+              ],
+              "query": []
+            },
+            "description": "Get list of edit requests."
+          },
+          "event": []
+        },
+        {
+          "name": "Create Edit Request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"target_type\": \"OFFENDER\",\n  \"target_id\": 1,\n  \"proposed_changes\": {\n    \"alias\": \"New Verified Alias\",\n    \"category\": \"SUPPLIER\"\n  },\n  \"reason\": \"Information verified from field sources\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/edit-requests",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "edit-requests"
+              ],
+              "query": []
+            },
+            "description": "Propose modifications to an offender dossier."
+          },
+          "event": []
+        },
+        {
+          "name": "Approve Edit Request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/edit-requests/:id/approve",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "edit-requests",
+                ":id",
+                "approve"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Approve and apply proposed edits (DSP only)."
+          },
+          "event": []
+        },
+        {
+          "name": "Reject Edit Request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/edit-requests/:id/reject",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "edit-requests",
+                ":id",
+                "reject"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Reject the edit request."
+          },
+          "event": []
+        }
+      ]
+    },
+    {
+      "name": "08. Cyber Surveillance",
+      "description": "Phone logging, IMEI logs, correlation analysis, and Tower Dump intersection analysis.",
+      "item": [
+        {
+          "name": "List Surveillance Records",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/surveillance",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "surveillance"
+              ],
+              "query": []
+            },
+            "description": "List target surveillance tasks."
+          },
+          "event": []
+        },
+        {
+          "name": "Get Surveillance Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/surveillance/dashboard",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "surveillance",
+                "dashboard"
+              ],
+              "query": []
+            },
+            "description": "Get analytics overview of mobile surveillance."
+          },
+          "event": []
+        },
+        {
+          "name": "Create Surveillance Record",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"offender_id\": 1,\n  \"target_phone\": \"9876543210\",\n  \"surveillance_status\": \"ACTIVE\",\n  \"operator\": \"Airtel\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/surveillance",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "surveillance"
+              ],
+              "query": []
+            },
+            "description": "Log a target mobile number under cyber watch."
+          },
+          "event": []
+        },
+        {
+          "name": "Update Surveillance Record",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"surveillance_status\": \"COMPLETED\",\n  \"remarks\": \"Target arrested\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/surveillance/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "surveillance",
+                ":id"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Modify state of surveillance task."
+          },
+          "event": []
+        },
+        {
+          "name": "List Monitored Mobiles",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/surveillance/mobiles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "surveillance",
+                "mobiles"
+              ],
+              "query": []
+            },
+            "description": "List all target phone numbers."
+          },
+          "event": []
+        },
+        {
+          "name": "Add Monitored Mobile",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"offender_id\": 1,\n  \"mobile_number\": \"9887766554\",\n  \"device_details\": \"Redmi Note 10\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/surveillance/mobile",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "surveillance",
+                "mobile"
+              ],
+              "query": []
+            },
+            "description": "Add phone number to tracker."
+          },
+          "event": []
+        },
+        {
+          "name": "List Monitored IMEIs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/surveillance/imeis",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "surveillance",
+                "imeis"
+              ],
+              "query": []
+            },
+            "description": "List all device IMEIs."
+          },
+          "event": []
+        },
+        {
+          "name": "Add Monitored IMEI",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"offender_id\": 1,\n  \"imei_number\": \"354678123456789\",\n  \"remarks\": \"Device linked to multiple SIM swaps\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/surveillance/imei",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "surveillance",
+                "imei"
+              ],
+              "query": []
+            },
+            "description": "Log hardware IMEI watch."
+          },
+          "event": []
+        },
+        {
+          "name": "Get Social Media Intel",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/surveillance/social",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "surveillance",
+                "social"
+              ],
+              "query": []
+            },
+            "description": "Get social profile logs."
+          },
+          "event": []
+        },
+        {
+          "name": "Add Social Media Intel",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"offender_id\": 1,\n  \"platform\": \"Facebook\",\n  \"handle\": \"john_doe_99\",\n  \"findings\": \"Posted photos in suspicious vehicle AP39XX1234\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/surveillance/social",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "surveillance",
+                "social"
+              ],
+              "query": []
+            },
+            "description": "Log social scrapings."
+          },
+          "event": []
+        },
+        {
+          "name": "Get Messaging Apps Intel",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/surveillance/messaging",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "surveillance",
+                "messaging"
+              ],
+              "query": []
+            },
+            "description": "List encrypted app tracking logs."
+          },
+          "event": []
+        },
+        {
+          "name": "Add Messaging Apps Intel",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"offender_id\": 1,\n  \"app_name\": \"WhatsApp/Telegram\",\n  \"associated_number\": \"9876543210\",\n  \"last_seen_activity\": \"Active in drug trade group 'Trip-Boys'\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/surveillance/messaging",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "surveillance",
+                "messaging"
+              ],
+              "query": []
+            },
+            "description": "Record chat app identifiers."
+          },
+          "event": []
+        },
+        {
+          "name": "Get Map Logs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/surveillance/map-logs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "surveillance",
+                "map-logs"
+              ],
+              "query": []
+            },
+            "description": "Get location timeline logs."
+          },
+          "event": []
+        },
+        {
+          "name": "Get Device Correlations",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/surveillance/correlations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "surveillance",
+                "correlations"
+              ],
+              "query": []
+            },
+            "description": "Get correlations between overlapping SIM/IMEI swap events."
+          },
+          "event": []
+        },
+        {
+          "name": "Upload Tower Dump CSV/XLSX",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": null,
+                  "description": "Tower dump CSV output"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/surveillance/tower-dump",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "surveillance",
+                "tower-dump"
+              ],
+              "query": []
+            },
+            "description": "Upload cellular tower dump for intersections."
+          },
+          "event": []
+        },
+        {
+          "name": "Get Tower Intersections",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/surveillance/tower-intersections",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "surveillance",
+                "tower-intersections"
+              ],
+              "query": []
+            },
+            "description": "Calculate intersections between multiple tower locations."
+          },
+          "event": []
+        },
+        {
+          "name": "Get Offender Surveillance History",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/surveillance/offender/:offenderId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "surveillance",
+                "offender",
+                ":offenderId"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "offenderId",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Fetch comprehensive logs specific to an offender."
+          },
+          "event": []
+        }
+      ]
+    },
+    {
+      "name": "09. Financial Intelligence",
+      "description": "Transaction parser and banking analysis endpoints.",
+      "item": [
+        {
+          "name": "Upload Bank/UPI Statement",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": null,
+                  "description": "PDF/Excel bank statement"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/finance/upload-statement",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "finance",
+                "upload-statement"
+              ],
+              "query": []
+            },
+            "description": "Uploads statement file and starts async UPI parsing."
+          },
+          "event": []
+        },
+        {
+          "name": "Get Finance Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/finance/dashboard",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "finance",
+                "dashboard"
+              ],
+              "query": []
+            },
+            "description": "Get aggregate transaction statistics."
+          },
+          "event": []
+        },
+        {
+          "name": "Get Statement Uploads",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/finance/uploads",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "finance",
+                "uploads"
+              ],
+              "query": []
+            },
+            "description": "List processed bank statement files."
+          },
+          "event": []
+        },
+        {
+          "name": "Get Transactions List",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/finance/transactions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "finance",
+                "transactions"
+              ],
+              "query": [
+                {
+                  "key": "minAmount",
+                  "value": "10000",
+                  "description": "Minimum transaction value"
+                },
+                {
+                  "key": "flagged",
+                  "value": "true",
+                  "description": "Filter to flagged transactions only"
+                }
+              ]
+            },
+            "description": "Query transactions with filters."
+          },
+          "event": []
+        },
+        {
+          "name": "Get High-Value Alerts",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/finance/alerts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "finance",
+                "alerts"
+              ],
+              "query": []
+            },
+            "description": "Get list of suspicious deposits/withdrawals."
+          },
+          "event": []
+        },
+        {
+          "name": "Get Offender Links",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/finance/offender-links",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "finance",
+                "offender-links"
+              ],
+              "query": []
+            },
+            "description": "Find transactions matching phone numbers of known offenders."
+          },
+          "event": []
+        },
+        {
+          "name": "Get Common Counterparties",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/finance/common-counterparties",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "finance",
+                "common-counterparties"
+              ],
+              "query": []
+            },
+            "description": "Get counterparties receiving money from multiple suspect accounts."
+          },
+          "event": []
+        },
+        {
+          "name": "Get Offender Flow Map",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/finance/flow-map/:offenderId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "finance",
+                "flow-map",
+                ":offenderId"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "offenderId",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Get nodes and links representing flow of funds."
+          },
+          "event": []
+        },
+        {
+          "name": "Get Monthly Analysis",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/finance/analysis/monthly/:offenderId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "finance",
+                "analysis",
+                "monthly",
+                ":offenderId"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "offenderId",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Get monthly aggregates of credit/debit."
+          },
+          "event": []
+        },
+        {
+          "name": "Update Transaction Note/Flags",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"is_flagged\": true,\n  \"remarks\": \"Suspected drug buy transaction\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/finance/transaction/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "finance",
+                "transaction",
+                ":id"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Add notes or flag a transaction."
+          },
+          "event": []
+        },
+        {
+          "name": "Rerun Statement Analysis",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/finance/rerun-analysis/:batchId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "finance",
+                "rerun-analysis",
+                ":batchId"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "batchId",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Re-run transaction parsing rules for a batch."
+          },
+          "event": []
+        }
+      ]
+    },
+    {
+      "name": "10. Informers",
+      "description": "Management of covert informant profiles and activity states.",
+      "item": [
+        {
+          "name": "List Informers",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/informers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "informers"
+              ],
+              "query": []
+            },
+            "description": "Get list of active informers (requires INFORMER_VIEW permission)."
+          },
+          "event": []
+        },
+        {
+          "name": "Register Informer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code_name\": \"ASSET-BETA\",\n  \"real_name\": \"Secret Informer A\",\n  \"phone_number\": \"9988776655\",\n  \"police_station_id\": 1,\n  \"reliability_rating\": 4\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/informers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "informers"
+              ],
+              "query": []
+            },
+            "description": "Registers a covert informer."
+          },
+          "event": []
+        },
+        {
+          "name": "Update Informer Profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reliability_rating\": 5,\n  \"remarks\": \"Very active and dependable source\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/informers/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "informers",
+                ":id"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Update informer details."
+          },
+          "event": []
+        }
+      ]
+    },
+    {
+      "name": "11. Reports",
+      "description": "Analytical reports, court diaries, yearly matrices, and data downloads.",
+      "item": [
+        {
+          "name": "Get Absconder Report",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/reports/absconder-list",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reports",
+                "absconder-list"
+              ],
+              "query": []
+            },
+            "description": "Lists all absconding NDPS offenders."
+          },
+          "event": []
+        },
+        {
+          "name": "Get Monthly Abstract Report",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/reports/monthly-abstract",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reports",
+                "monthly-abstract"
+              ],
+              "query": []
+            },
+            "description": "Monthly count metrics of cases and seized drugs."
+          },
+          "event": []
+        },
+        {
+          "name": "Get Yearly Comparison Report",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/reports/yearly-comparison",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reports",
+                "yearly-comparison"
+              ],
+              "query": []
+            },
+            "description": "YoY comparison matrix of seizures."
+          },
+          "event": []
+        },
+        {
+          "name": "Get Pending Charge Sheets Report",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/reports/pending-charge-sheets",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reports",
+                "pending-charge-sheets"
+              ],
+              "query": []
+            },
+            "description": "List of cases exceeding 180-day filing limits."
+          },
+          "event": []
+        },
+        {
+          "name": "Get Bail Expiry Alerts Report",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/reports/bail-expiry-alerts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reports",
+                "bail-expiry-alerts"
+              ],
+              "query": []
+            },
+            "description": "Lists bail terms due to expire soon."
+          },
+          "event": []
+        },
+        {
+          "name": "Get Court Pending Report",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/reports/court-pending",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reports",
+                "court-pending"
+              ],
+              "query": []
+            },
+            "description": "List cases pending under judicial trial."
+          },
+          "event": []
+        },
+        {
+          "name": "Get Drug Seizures Report",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/reports/drug-seizures",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reports",
+                "drug-seizures"
+              ],
+              "query": []
+            },
+            "description": "Detailed classification of contraband seizures."
+          },
+          "event": []
+        },
+        {
+          "name": "Get Top Offenders Report",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/reports/top-offenders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reports",
+                "top-offenders"
+              ],
+              "query": []
+            },
+            "description": "Ranked list of offenders by case density."
+          },
+          "event": []
+        },
+        {
+          "name": "Get DPR Export",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/reports/dpr-export",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reports",
+                "dpr-export"
+              ],
+              "query": []
+            },
+            "description": "Downloads complete DPR history as excel sheet."
+          },
+          "event": []
+        },
+        {
+          "name": "Get Custom Reports Query",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/reports/custom",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reports",
+                "custom"
+              ],
+              "query": [
+                {
+                  "key": "startDate",
+                  "value": "2026-01-01"
+                },
+                {
+                  "key": "endDate",
+                  "value": "2026-07-01"
+                },
+                {
+                  "key": "contraband",
+                  "value": "GANJA"
+                }
+              ]
+            },
+            "description": "Run custom reports queries."
+          },
+          "event": []
+        },
+        {
+          "name": "Get Court Diary",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/reports/court-diary",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reports",
+                "court-diary"
+              ],
+              "query": []
+            },
+            "description": "Calendar view of scheduled hearings."
+          },
+          "event": []
+        },
+        {
+          "name": "Get Performance Metrics",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/reports/performance",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reports",
+                "performance"
+              ],
+              "query": []
+            },
+            "description": "Efficiency metrics for police stations."
+          },
+          "event": []
+        }
+      ]
+    },
+    {
+      "name": "12. Admin & System Settings",
+      "description": "User provisioning, joint task force team setup, system parameters, audit log reader.",
+      "item": [
+        {
+          "name": "List Users",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "users"
+              ],
+              "query": []
+            },
+            "description": "Retrieves list of all system users (SP/Admin only)."
+          },
+          "event": []
+        },
+        {
+          "name": "Create User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"constable4\",\n  \"password\": \"password123\",\n  \"full_name\": \"Constable Four\",\n  \"role\": \"CONSTABLE\",\n  \"police_station_id\": 1,\n  \"department\": \"Law & Order\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "users"
+              ],
+              "query": []
+            },
+            "description": "Provision a new police officer account."
+          },
+          "event": []
+        },
+        {
+          "name": "Update User",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"Officer Updated Name\",\n  \"role\": \"SHO\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/users/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "users",
+                ":id"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Edit user properties."
+          },
+          "event": []
+        },
+        {
+          "name": "Deactivate User",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/users/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "users",
+                ":id"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Mark user as inactive (locks them out)."
+          },
+          "event": []
+        },
+        {
+          "name": "Get Audit Logs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/audit-logs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "audit-logs"
+              ],
+              "query": []
+            },
+            "description": "Inspect compliance audit trails."
+          },
+          "event": []
+        },
+        {
+          "name": "Get Teams",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/teams",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "teams"
+              ],
+              "query": []
+            },
+            "description": "List investigation task teams."
+          },
+          "event": []
+        },
+        {
+          "name": "Create Team",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"NDPS Special Cell A\",\n  \"description\": \"Dedicated cell for interstate highway seizures\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/teams",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "teams"
+              ],
+              "query": []
+            },
+            "description": "Establish new Task Force unit."
+          },
+          "event": []
+        },
+        {
+          "name": "Update Team",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"NDPS Special Cell A-1\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/teams/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "teams",
+                ":id"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Edit team metadata."
+          },
+          "event": []
+        },
+        {
+          "name": "Add Team Member",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": 2\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/teams/:id/members",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "teams",
+                ":id",
+                "members"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Add an officer to an investigation team."
+          },
+          "event": []
+        },
+        {
+          "name": "Remove Team Member",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/teams/:id/members/:userId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "teams",
+                ":id",
+                "members",
+                ":userId"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                },
+                {
+                  "key": "userId",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Remove member from team."
+          },
+          "event": []
+        },
+        {
+          "name": "Delete Team",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/teams/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "teams",
+                ":id"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Dissolve a team."
+          },
+          "event": []
+        },
+        {
+          "name": "Preview Excel DPR",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": null,
+                  "description": "Upload xlsx file for previewing parsed rows"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/import/dpr/preview",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "import",
+                "dpr",
+                "preview"
+              ],
+              "query": []
+            },
+            "description": "Preview rows parsed from DPR spreadsheet."
+          },
+          "event": []
+        },
+        {
+          "name": "Confirm Excel DPR Import",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"import_token\": \"dpr-preview-token-here\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/import/dpr/confirm",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "import",
+                "dpr",
+                "confirm"
+              ],
+              "query": []
+            },
+            "description": "Apply draft imports to the production tables."
+          },
+          "event": []
+        },
+        {
+          "name": "Get System Settings",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/settings",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "settings"
+              ],
+              "query": []
+            },
+            "description": "Get general configurations."
+          },
+          "event": []
+        },
+        {
+          "name": "Update System Settings",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"system_maintenance_mode\": false,\n  \"allowed_upload_formats\": [\n    \".pdf\",\n    \".xlsx\",\n    \".png\",\n    \".jpg\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/settings",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "settings"
+              ],
+              "query": []
+            },
+            "description": "Modify system limits & parameters."
+          },
+          "event": []
+        },
+        {
+          "name": "Get System Health Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/system-health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "system-health"
+              ],
+              "query": []
+            },
+            "description": "Get system services, CPU, RAM metrics."
+          },
+          "event": []
+        },
+        {
+          "name": "Get API Health",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "health"
+              ],
+              "query": []
+            },
+            "description": "Basic health check of API server."
+          },
+          "event": []
+        },
+        {
+          "name": "Wake Database Server",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/wake",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "wake"
+              ],
+              "query": []
+            },
+            "description": "Triggers DB ping to wake Neon serverless instance from sleep."
+          },
+          "event": []
+        }
+      ]
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{authToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ]
+}

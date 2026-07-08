@@ -8,6 +8,7 @@ import bcrypt from 'bcrypt';
 import prisma from '../config/prisma';
 import { successResponse } from '../utils/transformers';
 import { logAudit } from '../utils/auditLogger';
+import { validatePassword } from '../utils/passwordPolicy';
 
 // ── List all users ────────────────────────────────────────────────────
 export const getUsers = async (req: Request, res: Response) => {
@@ -99,6 +100,15 @@ export const createUser = async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'username, password, fullName, and role are required' });
     }
 
+    // ── Password Policy Enforcement ──
+    const policyResult = validatePassword(password);
+    if (!policyResult.valid) {
+      return res.status(400).json({
+        message: 'Password does not meet policy requirements',
+        violations: policyResult.violations,
+      });
+    }
+
     // Check for existing username
     const existing = await prisma.users.findUnique({ where: { username } });
     if (existing) {
@@ -168,7 +178,17 @@ export const updateUser = async (req: Request, res: Response) => {
     }
 
     if (isActive !== undefined) updateData.is_active = isActive;
-    if (password) updateData.password_hash = await bcrypt.hash(password, 12);
+    if (password) {
+      // ── Password Policy Enforcement ──
+      const policyResult = validatePassword(password);
+      if (!policyResult.valid) {
+        return res.status(400).json({
+          message: 'Password does not meet policy requirements',
+          violations: policyResult.violations,
+        });
+      }
+      updateData.password_hash = await bcrypt.hash(password, 12);
+    }
 
     await prisma.users.update({
       where: { id: BigInt(id) },

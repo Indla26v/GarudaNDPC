@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link, useLocation, Outlet } from 'react-router-dom';
 import apLogo from '../assets/Appolice(emblem).png';
 import garudaLogo from '../assets/Garuda_logo.png';
@@ -153,12 +153,20 @@ const DEPT_FULL_LABELS = {
   CYBER_ANALYTICS: 'Cyber Analytics (STF)',
   EXCISE: 'Excise Department',
 }; export default function Layout() {
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUser } = useAuth();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [policeStationName, setPoliceStationName] = useState(null);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [profileForm, setProfileForm] = useState({ fullName: '', badgeNumber: '' });
+  const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [profileMsg, setProfileMsg] = useState({ type: '', text: '' });
+  const [passwordMsg, setPasswordMsg] = useState({ type: '', text: '' });
   const [darkMode] = useState(() => {
     return localStorage.getItem('dart_dark_mode') === 'true';
   });
@@ -188,6 +196,83 @@ const DEPT_FULL_LABELS = {
   const roleColor = ROLE_COLORS[user?.role] || ROLE_COLORS.CONSTABLE;
   const roleLabel = ROLE_LABELS[user?.role] || user?.role;
   const deptLabel = DEPT_LABELS[user?.department] || user?.department;
+
+  // Password policy live validation
+  const passwordChecks = useMemo(() => {
+    const p = passwordForm.newPassword;
+    return [
+      { label: '10-18 characters', pass: p.length >= 10 && p.length <= 18 },
+      { label: 'One uppercase letter (A-Z)', pass: /[A-Z]/.test(p) },
+      { label: 'One lowercase letter (a-z)', pass: /[a-z]/.test(p) },
+      { label: 'One digit (0-9)', pass: /[0-9]/.test(p) },
+      { label: 'One special character (!@#$%...)', pass: /[!@#$%^&*()_+\-=\[\]{}|;:'",.<>?\/\\`~]/.test(p) },
+      { label: 'No spaces', pass: p.length === 0 || !/\s/.test(p) },
+    ];
+  }, [passwordForm.newPassword]);
+
+  const allPasswordChecksPass = passwordForm.newPassword.length > 0 && passwordChecks.every(c => c.pass);
+  const passwordsMatch = passwordForm.newPassword && passwordForm.newPassword === passwordForm.confirmPassword;
+
+  const openProfileModal = () => {
+    setProfileForm({
+      fullName: user?.fullName || '',
+      badgeNumber: user?.badgeNumber || '',
+    });
+    setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    setProfileMsg({ type: '', text: '' });
+    setPasswordMsg({ type: '', text: '' });
+    setShowNewPassword(false);
+    setDropdownOpen(false);
+    setShowProfileModal(true);
+  };
+
+  const handleProfileSave = async () => {
+    setProfileSaving(true);
+    setProfileMsg({ type: '', text: '' });
+    try {
+      await api.put('/auth/profile', {
+        fullName: profileForm.fullName,
+        badgeNumber: profileForm.badgeNumber,
+      });
+      await refreshUser();
+      setProfileMsg({ type: 'success', text: 'Profile updated successfully!' });
+    } catch (err) {
+      setProfileMsg({ type: 'error', text: err.response?.data?.message || 'Failed to update profile' });
+    } finally {
+      setProfileSaving(false);
+    }
+  };
+
+  const handlePasswordChange = async () => {
+    setPasswordSaving(true);
+    setPasswordMsg({ type: '', text: '' });
+
+    if (!allPasswordChecksPass) {
+      setPasswordMsg({ type: 'error', text: 'New password does not meet policy requirements' });
+      setPasswordSaving(false);
+      return;
+    }
+    if (!passwordsMatch) {
+      setPasswordMsg({ type: 'error', text: 'New passwords do not match' });
+      setPasswordSaving(false);
+      return;
+    }
+
+    try {
+      await api.put('/auth/password', {
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword,
+      });
+      setPasswordMsg({ type: 'success', text: 'Password changed successfully!' });
+      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    } catch (err) {
+      const msg = err.response?.data?.message || 'Failed to change password';
+      const violations = err.response?.data?.violations;
+      setPasswordMsg({ type: 'error', text: violations ? violations.join('. ') : msg });
+    } finally {
+      setPasswordSaving(false);
+    }
+  };
 
   return (
     <div className="flex h-screen overflow-hidden relative">
@@ -355,8 +440,20 @@ const DEPT_FULL_LABELS = {
                   </div>
                 </div>
 
-                {/* Logout Button */}
-                <div className="p-2 bg-gray-50/50 dark:bg-gray-900/10">
+                {/* Action Buttons */}
+                <div className="p-2 bg-gray-50/50 dark:bg-gray-900/10 space-y-1">
+                  {/* Update Profile Button */}
+                  <button
+                    onClick={openProfileModal}
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-950/20 rounded-lg font-bold transition-all duration-150 cursor-pointer border-none bg-transparent"
+                    style={{ fontSize: '13px' }}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                    Update Profile
+                  </button>
+                  {/* Logout Button */}
                   <button
                     onClick={() => {
                       setDropdownOpen(false);
@@ -445,6 +542,185 @@ const DEPT_FULL_LABELS = {
           <Outlet />
         </main>
       </div>
+
+      {/* ---- Update Profile Modal ---- */}
+      {showProfileModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="absolute inset-0" onClick={() => setShowProfileModal(false)}></div>
+          <div
+            className="rounded-xl relative w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl"
+            style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}
+          >
+            {/* Modal Header */}
+            <div className="px-6 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid var(--color-garuda-700)' }}>
+              <h2 className="text-lg font-bold" style={{ color: 'var(--color-garuda-100)' }}>Update Profile</h2>
+              <button
+                onClick={() => setShowProfileModal(false)}
+                className="p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer bg-transparent border-none"
+                style={{ color: 'var(--color-garuda-400)' }}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Read-only Info */}
+            <div className="px-6 py-4 grid grid-cols-2 gap-3" style={{ background: 'var(--color-garuda-900)', borderBottom: '1px solid var(--color-garuda-700)' }}>
+              <div>
+                <p className="text-[9px] font-bold uppercase tracking-wider mb-0.5" style={{ color: 'var(--color-garuda-500)' }}>Username</p>
+                <p className="text-sm font-semibold" style={{ color: 'var(--color-garuda-200)' }}>{user?.username}</p>
+              </div>
+              <div>
+                <p className="text-[9px] font-bold uppercase tracking-wider mb-0.5" style={{ color: 'var(--color-garuda-500)' }}>Role</p>
+                <p className="text-sm font-semibold" style={{ color: 'var(--color-garuda-200)' }}>{ROLE_FULL_LABELS[user?.role] || user?.role}</p>
+              </div>
+              <div>
+                <p className="text-[9px] font-bold uppercase tracking-wider mb-0.5" style={{ color: 'var(--color-garuda-500)' }}>Department</p>
+                <p className="text-sm font-semibold" style={{ color: 'var(--color-garuda-200)' }}>{DEPT_FULL_LABELS[user?.department] || user?.department}</p>
+              </div>
+              <div>
+                <p className="text-[9px] font-bold uppercase tracking-wider mb-0.5" style={{ color: 'var(--color-garuda-500)' }}>Police Station</p>
+                <p className="text-sm font-semibold" style={{ color: 'var(--color-garuda-200)' }}>{policeStationName || 'HQ Command Center'}</p>
+              </div>
+            </div>
+
+            {/* Editable Profile Section */}
+            <div className="px-6 py-4 space-y-4" style={{ borderBottom: '1px solid var(--color-garuda-700)' }}>
+              <h3 className="text-sm font-bold uppercase tracking-wider" style={{ color: 'var(--color-garuda-300)' }}>Profile Details</h3>
+              {profileMsg.text && (
+                <div
+                  className="px-3 py-2 rounded-lg text-xs font-medium animate-fade-in"
+                  style={{
+                    background: profileMsg.type === 'success' ? 'rgba(34, 197, 94, 0.08)' : 'rgba(220, 38, 38, 0.08)',
+                    color: profileMsg.type === 'success' ? '#22c55e' : '#f87171',
+                    border: `1px solid ${profileMsg.type === 'success' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(220, 38, 38, 0.2)'}`,
+                  }}
+                >
+                  {profileMsg.text}
+                </div>
+              )}
+              <div>
+                <label className="text-xs font-medium block mb-1" style={{ color: 'var(--color-garuda-300)' }}>Full Name</label>
+                <input
+                  type="text"
+                  value={profileForm.fullName}
+                  onChange={(e) => setProfileForm({ ...profileForm, fullName: e.target.value })}
+                  className="input w-full"
+                  placeholder="Enter your full name"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium block mb-1" style={{ color: 'var(--color-garuda-300)' }}>Badge Number</label>
+                <input
+                  type="text"
+                  value={profileForm.badgeNumber}
+                  onChange={(e) => setProfileForm({ ...profileForm, badgeNumber: e.target.value })}
+                  className="input w-full"
+                  placeholder="Optional"
+                />
+              </div>
+              <button
+                onClick={handleProfileSave}
+                disabled={profileSaving || !profileForm.fullName.trim()}
+                className="btn btn-primary w-full disabled:opacity-50"
+              >
+                {profileSaving ? 'Saving...' : 'Save Profile'}
+              </button>
+            </div>
+
+            {/* Change Password Section */}
+            <div className="px-6 py-4 space-y-4">
+              <h3 className="text-sm font-bold uppercase tracking-wider" style={{ color: 'var(--color-garuda-300)' }}>Change Password</h3>
+              {passwordMsg.text && (
+                <div
+                  className="px-3 py-2 rounded-lg text-xs font-medium animate-fade-in"
+                  style={{
+                    background: passwordMsg.type === 'success' ? 'rgba(34, 197, 94, 0.08)' : 'rgba(220, 38, 38, 0.08)',
+                    color: passwordMsg.type === 'success' ? '#22c55e' : '#f87171',
+                    border: `1px solid ${passwordMsg.type === 'success' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(220, 38, 38, 0.2)'}`,
+                  }}
+                >
+                  {passwordMsg.text}
+                </div>
+              )}
+              <div>
+                <label className="text-xs font-medium block mb-1" style={{ color: 'var(--color-garuda-300)' }}>Current Password</label>
+                <input
+                  type="password"
+                  value={passwordForm.currentPassword}
+                  onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+                  className="input w-full"
+                  placeholder="Enter current password"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium block mb-1" style={{ color: 'var(--color-garuda-300)' }}>New Password</label>
+                <div className="relative">
+                  <input
+                    type={showNewPassword ? 'text' : 'password'}
+                    value={passwordForm.newPassword}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                    className="input w-full pr-10"
+                    placeholder="Enter new password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-300 focus:outline-none bg-transparent border-none cursor-pointer"
+                    tabIndex="-1"
+                  >
+                    {showNewPassword ? (
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                    ) : (
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" /></svg>
+                    )}
+                  </button>
+                </div>
+                {/* Password Policy Indicators */}
+                {passwordForm.newPassword.length > 0 && (
+                  <div className="mt-2 p-3 rounded-lg space-y-1" style={{ background: 'var(--color-garuda-900)', border: '1px solid var(--color-garuda-700)' }}>
+                    <p className="text-[9px] font-bold uppercase tracking-wider mb-1.5" style={{ color: 'var(--color-garuda-500)' }}>Password Policy</p>
+                    {passwordChecks.map((check, i) => (
+                      <div key={i} className="flex items-center gap-2 text-xs">
+                        <span style={{ color: check.pass ? '#22c55e' : '#f87171', fontSize: '11px' }}>
+                          {check.pass ? '✓' : '✕'}
+                        </span>
+                        <span style={{ color: check.pass ? '#86efac' : 'var(--color-garuda-400)' }}>
+                          {check.label}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div>
+                <label className="text-xs font-medium block mb-1" style={{ color: 'var(--color-garuda-300)' }}>Confirm New Password</label>
+                <input
+                  type="password"
+                  value={passwordForm.confirmPassword}
+                  onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                  className="input w-full"
+                  placeholder="Re-enter new password"
+                />
+                {passwordForm.confirmPassword && !passwordsMatch && (
+                  <p className="text-xs mt-1" style={{ color: '#f87171' }}>Passwords do not match</p>
+                )}
+                {passwordForm.confirmPassword && passwordsMatch && (
+                  <p className="text-xs mt-1" style={{ color: '#22c55e' }}>✓ Passwords match</p>
+                )}
+              </div>
+              <button
+                onClick={handlePasswordChange}
+                disabled={passwordSaving || !passwordForm.currentPassword || !allPasswordChecksPass || !passwordsMatch}
+                className="btn btn-primary w-full disabled:opacity-50"
+              >
+                {passwordSaving ? 'Changing...' : 'Change Password'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -55,6 +55,26 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
+  // Callable function to refresh user data (e.g., after profile update)
+  const refreshUser = useCallback(async () => {
+    try {
+      const res = await api.get('/auth/me');
+      const serverUser = res.data.data;
+      const userData = {
+        username: serverUser.username,
+        fullName: serverUser.full_name,
+        role: serverUser.role,
+        department: serverUser.department || null,
+        policeStationId: serverUser.police_station_id || null,
+        badgeNumber: serverUser.badge_number || null,
+      };
+      localStorage.setItem('garuda_user', JSON.stringify(userData));
+      setUser(userData);
+    } catch (err) {
+      console.error('Failed to refresh user data:', err);
+    }
+  }, []);
+
   // Validate session on initial mount
   useEffect(() => {
     const stored = localStorage.getItem('garuda_user');
@@ -125,7 +145,7 @@ export function AuthProvider({ children }) {
   );
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated, loading, sessionValidated, login, logout }}>
+    <AuthContext.Provider value={{ user, isAuthenticated, loading, sessionValidated, login, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

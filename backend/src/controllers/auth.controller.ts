@@ -5,6 +5,7 @@ import crypto from 'crypto';
 import prisma from '../config/prisma';
 import { convertBigIntsToNumbers, successResponse } from '../utils/transformers';
 import { logAudit } from '../utils/auditLogger';
+import { validatePassword } from '../utils/passwordPolicy';
 
 // ── SECURITY FIX #1: No hardcoded fallback — fail-fast if JWT_SECRET is missing
 const JWT_KEY = process.env.JWT_SECRET;
@@ -254,6 +255,99 @@ export const getMe = async (req: Request, res: Response) => {
     const { password_hash, ...userWithoutPassword } = user;
     res.json(successResponse(convertBigIntsToNumbers(userWithoutPassword)));
   } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// ── Update own profile (self-service) ─────────────────────────────────
+export const updateMyProfile = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user.userId;
+    const { fullName, badgeNumber } = req.body;
+
+    const user = await prisma.users.findUnique({ where: { id: userId } });
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const updateData: any = {};
+    if (fullName !== undefined && fullName.trim()) {
+      updateData.full_name = fullName.trim();
+    }
+    if (badgeNumber !== undefined) {
+      updateData.badge_number = badgeNumber?.trim() || null;
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({ message: 'No valid fields to update' });
+    }
+
+    const updated = await prisma.users.update({
+      where: { id: userId },
+      data: updateData,
+    });
+
+    await logAudit('UPDATE', 'USER', userId, req,
+      `Self-service profile update: ${JSON.stringify(Object.keys(updateData))}`);
+
+    const { password_hash: _, ...userWithoutPassword } = updated;
+    res.json(successResponse(convertBigIntsToNumbers(userWithoutPassword), 'Profile updated successfully'));
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// ── Change own password (self-service) ────────────────────────────────
+export const changeMyPassword = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user.userId;
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ message: 'Current password and new password are required' });
+    }
+
+    const user = await prisma.users.findUnique({ where: { id: userId } });
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Verify current password
+    const isMatch = await bcrypt.compare(currentPassword, user.password_hash);
+    if (!isMatch) {
+      return res.status(401).json({ message: 'Current password is incorrect' });
+    }
+
+    // Validate new password against policy
+    const policyResult = validatePassword(newPassword);
+    if (!policyResult.valid) {
+      return res.status(400).json({
+        message: 'New password does not meet policy requirements',
+        violations: policyResult.violations,
+      });
+    }
+
+    // Ensure new password is different from current
+    const isSame = await bcrypt.compare(newPassword, user.password_hash);
+    if (isSame) {
+      return res.status(400).json({ message: 'New password must be different from the current password' });
+    }
+
+    const newHash = await bcrypt.hash(newPassword, 12);
+    await prisma.users.update({
+      where: { id: userId },
+      data: {
+        password_hash: newHash,
+        password_changed_at: new Date(),
+      },
+    });
+
+    await logAudit('UPDATE', 'USER', userId, req, 'Self-service password change');
+
+    res.json(successResponse(null, 'Password changed successfully'));
+  } catch (error) {
+    console.error(error);
     res.status(500).json({ message: 'Server error' });
   }
 };
