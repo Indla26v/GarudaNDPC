@@ -449,6 +449,10 @@ export const updateOffender = async (req: Request, res: Response) => {
           data: updateDataObj
        });
 
+       const existingDocs = await tx.offender_identity_docs.findFirst({
+         where: { offender_id: BigInt(id as string) }
+       });
+
        // Delete nested
        await tx.offender_contacts.deleteMany({ where: { offender_id: BigInt(id as string) } });
        await tx.offender_identity_docs.deleteMany({ where: { offender_id: BigInt(id as string) } });
@@ -467,7 +471,10 @@ export const updateOffender = async (req: Request, res: Response) => {
            }))
          });
        }
-       const aadhaarNo = data.aadhaarNo ?? data.identityDocs?.aadhaarNo ?? null;
+       let aadhaarNo = data.aadhaarNo ?? data.identityDocs?.aadhaarNo ?? null;
+       if (aadhaarNo && (aadhaarNo.includes('X') || aadhaarNo.includes('x') || aadhaarNo.includes('*'))) {
+         aadhaarNo = existingDocs?.aadhaar_no ?? null;
+       }
        const voterId = data.voterId ?? data.identityDocs?.voterId ?? null;
        const panCard = data.panCard ?? data.identityDocs?.panCard ?? null;
 

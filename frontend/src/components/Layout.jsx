@@ -40,7 +40,7 @@ function useNavItems() {
         { path: '/enforcement', label: 'Enforcement', icon: IconShield, show: true },
         {
           path: '/mobile', label: 'Field Staff', icon: IconFieldStaff,
-          show: perms.canFieldEntry || perms.canSurveillanceReport || perms.canVerifyAccused
+          show: false
         },
         {
           path: '/south-india-databank', label: 'South India Data Bank', icon: IconDatabase,

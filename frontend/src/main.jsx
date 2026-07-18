@@ -46,108 +46,109 @@ createRoot(document.getElementById('root')).render(
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<Login />} />
-          
-          {/* Protected Routes */}
-          <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
-            <Route index element={<IndexRedirect />} />
-            <Route path="dashboard" element={<DashboardRoute />} />
 
-            {/* No Access page — for direct navigation */}
-            <Route path="no-access" element={<NoAccess />} />
+            {/* Protected Routes */}
+            <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+              <Route index element={<IndexRedirect />} />
+              <Route path="dashboard" element={<DashboardRoute />} />
 
-            {/* Offenders — viewable by all, edit/create guarded in backend */}
-            <Route path="offenders" element={<OffenderList />} />
-            <Route path="consumers" element={<OffenderList isConsumerOnly={true} />} />
-            <Route path="enforcement" element={<Enforcement />} />
-            <Route path="vehicles-seized" element={<VehiclesSeized />} />
-            <Route path="offenders/new" element={<OffenderForm />} />
-            <Route path="offenders/:id" element={<OffenderForm />} />
-            <Route path="offenders/:id/edit" element={<OffenderForm />} />
+              {/* No Access page — for direct navigation */}
+              <Route path="no-access" element={<NoAccess />} />
 
-            {/* Case Management (Page 3) */}
-            <Route path="cases" element={<CaseManagement />} />
-            <Route path="cases/new" element={<CaseForm />} />
-            <Route path="cases/:id" element={<CaseDetail />} />
-            <Route path="cases/:id/edit" element={<CaseForm />} />
+              {/* Offenders — viewable by all, edit/create guarded in backend */}
+              <Route path="offenders" element={<OffenderList />} />
+              <Route path="consumers" element={<OffenderList isConsumerOnly={true} />} />
+              <Route path="enforcement" element={<Enforcement />} />
+              <Route path="vehicles-seized" element={<VehiclesSeized />} />
+              <Route path="offenders/new" element={<OffenderForm />} />
+              <Route path="offenders/:id" element={<OffenderForm />} />
+              <Route path="offenders/:id/edit" element={<OffenderForm />} />
 
-            {/* Field Staff Module (Page 4) — Department-restricted: OPERATIONS, STF */}
-            <Route path="mobile" element={
-              <RoleGuard permission="FIELD_ENTRY">
-                <FieldStaff />
-              </RoleGuard>
-            } />
+              {/* Case Management (Page 3) */}
+              <Route path="cases" element={<CaseManagement />} />
+              <Route path="cases/new" element={<CaseForm />} />
+              <Route path="cases/:id" element={<CaseDetail />} />
+              <Route path="cases/:id/edit" element={<CaseForm />} />
 
-            {/* South India Data Bank (Interstate Portal) */}
-            <Route path="south-india-databank" element={<SouthIndiaDataBank />} />
+              {/* Field Staff Module (Page 4) — Department-restricted: OPERATIONS, STF
+              <Route path="mobile" element={
+                <RoleGuard permission="FIELD_ENTRY">
+                  <FieldStaff />
+                </RoleGuard>
+              } />
+              */}
 
-            {/* Technical Surveillance (Page 5) — Department-restricted: TECH_CELL, ANALYST, STF, INTELLIGENCE */}
-            <Route path="surveillance" element={
-              <RoleGuard permission="TECH_VIEW_ALL">
-                <Surveillance />
-              </RoleGuard>
-            } />
+              {/* South India Data Bank (Interstate Portal) */}
+              <Route path="south-india-databank" element={<SouthIndiaDataBank />} />
 
-            {/* Financial Analysis (Page 6) — Department-restricted: FIN_CELL, ANALYST, STF, INTELLIGENCE */}
-            <Route path="finance" element={
-              <RoleGuard permission="FIN_VIEW_ALL">
-                <FinancialAnalysis />
-              </RoleGuard>
-            } />
+              {/* Technical Surveillance (Page 5) — Department-restricted: TECH_CELL, ANALYST, STF, INTELLIGENCE */}
+              <Route path="surveillance" element={
+                <RoleGuard permission="TECH_VIEW_ALL">
+                  <Surveillance />
+                </RoleGuard>
+              } />
 
-            {/* Network & Chain Analysis (Page 7) — Department-restricted: ANALYST, TECH_CELL, STF, INTELLIGENCE */}
-            <Route path="network" element={
-              <RoleGuard permission="NET_VIEW_ALL">
-                <NetworkMap />
-              </RoleGuard>
-            } />
+              {/* Financial Analysis (Page 6) — Department-restricted: FIN_CELL, ANALYST, STF, INTELLIGENCE */}
+              <Route path="finance" element={
+                <RoleGuard permission="FIN_VIEW_ALL">
+                  <FinancialAnalysis />
+                </RoleGuard>
+              } />
 
-            {/* Reports & Intelligence (Page 8) — Role-restricted: SI and above */}
-            <Route path="reports" element={
-              <RoleGuard permission="REPORTS_VIEW">
-                <Reports />
-              </RoleGuard>
-            } />
+              {/* Network & Chain Analysis (Page 7) — Department-restricted: ANALYST, TECH_CELL, STF, INTELLIGENCE */}
+              <Route path="network" element={
+                <RoleGuard permission="NET_VIEW_ALL">
+                  <NetworkMap />
+                </RoleGuard>
+              } />
 
-            {/* Workflow Routes */}
-            <Route path="deletion-requests" element={<DeletionRequests />} />
-            <Route path="edit-requests" element={
-              <RoleGuard minRole="SI">
-                <EditRequests />
-              </RoleGuard>
-            } />
+              {/* Reports & Intelligence (Page 8) — Role-restricted: SI and above */}
+              <Route path="reports" element={
+                <RoleGuard permission="REPORTS_VIEW">
+                  <Reports />
+                </RoleGuard>
+              } />
 
-            {/* District Analytics — DSP and above */}
-            <Route path="district-analytics" element={
-              <RoleGuard permission="DISTRICT_ANALYTICS">
-                <DistrictAnalytics />
-              </RoleGuard>
-            } />
+              {/* Workflow Routes */}
+              <Route path="deletion-requests" element={<DeletionRequests />} />
+              <Route path="edit-requests" element={
+                <RoleGuard minRole="SI">
+                  <EditRequests />
+                </RoleGuard>
+              } />
 
-            {/* Admin Routes (Page 9) */}
-            <Route path="admin/users" element={
-              <RoleGuard permission="USER_MANAGEMENT">
-                <UserManagement />
-              </RoleGuard>
-            } />
-            <Route path="admin/audit-logs" element={
-              <RoleGuard permission="AUDIT_LOGS">
-                <AuditLogs />
-              </RoleGuard>
-            } />
-            <Route path="admin/teams" element={
-              <RoleGuard permission="TEAM_MANAGEMENT">
-                <TeamManagement />
-              </RoleGuard>
-            } />
-            <Route path="admin/import" element={
-              <RoleGuard permission="USER_MANAGEMENT">
-                <DataImport />
-              </RoleGuard>
-            } />
+              {/* District Analytics — DSP and above */}
+              <Route path="district-analytics" element={
+                <RoleGuard permission="DISTRICT_ANALYTICS">
+                  <DistrictAnalytics />
+                </RoleGuard>
+              } />
 
-            {/* Catch-all: any unknown route within the layout → No Access */}
-            <Route path="*" element={<NoAccess />} />
-          </Route>
+              {/* Admin Routes (Page 9) */}
+              <Route path="admin/users" element={
+                <RoleGuard permission="USER_MANAGEMENT">
+                  <UserManagement />
+                </RoleGuard>
+              } />
+              <Route path="admin/audit-logs" element={
+                <RoleGuard permission="AUDIT_LOGS">
+                  <AuditLogs />
+                </RoleGuard>
+              } />
+              <Route path="admin/teams" element={
+                <RoleGuard permission="TEAM_MANAGEMENT">
+                  <TeamManagement />
+                </RoleGuard>
+              } />
+              <Route path="admin/import" element={
+                <RoleGuard permission="USER_MANAGEMENT">
+                  <DataImport />
+                </RoleGuard>
+              } />
+
+              {/* Catch-all: any unknown route within the layout → No Access */}
+              <Route path="*" element={<NoAccess />} />
+            </Route>
           </Routes>
         </BrowserRouter>
       </AuthProvider>

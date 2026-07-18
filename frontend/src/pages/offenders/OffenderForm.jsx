@@ -48,6 +48,7 @@ export default function OffenderForm() {
   const [stations, setStations] = useState([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [snackbar, setSnackbar] = useState(null); // { type: 'success' | 'error', message: '' }
 
   // Photo upload state
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
@@ -79,6 +80,13 @@ export default function OffenderForm() {
     fetchStations();
     if (isEdit || isView) fetchOffender();
   }, [id, isEdit, isView]);
+
+  useEffect(() => {
+    if (snackbar) {
+      const timer = setTimeout(() => setSnackbar(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [snackbar]);
 
   const fetchStations = async () => {
     try {
@@ -504,7 +512,7 @@ export default function OffenderForm() {
 
   const set = (key, val) => setForm(prev => ({ ...prev, [key]: val }));
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (shouldRedirect = true) => {
     if (!form.fullName.trim()) { setError('Full name is required'); return; }
     if (!form.psId) { setError('Police station is required'); return; }
     
@@ -589,12 +597,20 @@ export default function OffenderForm() {
       };
       if (isEdit) {
         await api.put(`/offenders/${id}`, body);
+        setSnackbar({ type: 'success', message: 'Profile updated successfully!' });
       } else {
         await api.post('/offenders', body);
+        setSnackbar({ type: 'success', message: 'Profile created successfully!' });
       }
-      navigate('/offenders');
+      if (shouldRedirect) {
+        setTimeout(() => {
+          navigate('/offenders');
+        }, 1500);
+      }
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to save');
+      const msg = err.response?.data?.message || 'Failed to save';
+      setError(msg);
+      setSnackbar({ type: 'error', message: msg });
     } finally {
       setSaving(false);
     }
@@ -640,8 +656,15 @@ export default function OffenderForm() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
       streamRef.current = stream;
-      if (videoRef.current) videoRef.current.srcObject = stream;
       setCameraActive(true);
+      
+      // Wait for React to render and mount the video element before setting srcObject
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play().catch(e => console.error("Error playing video stream:", e));
+        }
+      }, 50);
     } catch (err) {
       setError('Could not access camera. Please use file upload instead.');
     }
@@ -770,13 +793,25 @@ export default function OffenderForm() {
         
         {/* Division 1: Basic Information */}
         <div className="card rounded-xl p-6" style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}>
-          <h3 className="text-lg font-semibold mb-6 pb-2 border-b" style={{ borderColor: 'var(--color-garuda-700)', color: 'var(--color-accent-400)' }}>Basic Information</h3>
+          <div className="flex justify-between items-center mb-6 pb-2 border-b" style={{ borderColor: 'var(--color-garuda-700)' }}>
+            <h3 className="text-lg font-semibold" style={{ color: 'var(--color-accent-400)' }}>Basic Information</h3>
+            {!isView && (
+              <button 
+                type="button" 
+                onClick={() => handleSubmit(false)} 
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white border-none cursor-pointer transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-sm"
+                style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)' }}
+              >
+                Update Section
+              </button>
+            )}
+          </div>
           <div className="flex flex-col md:flex-row gap-6">
             
             {/* Photograph Side */}
             <div className="flex-shrink-0 flex flex-col items-center">
               {isView ? (
-                <div className="w-32 h-32 rounded-xl overflow-hidden border border-slate-700 bg-slate-900 shadow-md">
+                <div className="w-48 h-48 rounded-xl overflow-hidden border border-slate-700 bg-slate-900 shadow-md">
                   {form.photoUrl ? (
                     <img src={form.photoUrl} alt="Subject" className="w-full h-full object-cover" />
                   ) : (
@@ -784,12 +819,12 @@ export default function OffenderForm() {
                   )}
                 </div>
               ) : (
-                <div className="w-full min-w-[240px]">
-                  <label className="block text-xs font-bold uppercase tracking-wider mb-1.5" style={{ color: 'var(--color-garuda-400)' }}>Subject Photograph</label>
-                  <div className="flex flex-col gap-3 p-4 rounded-xl border" style={{ background: 'var(--color-garuda-700)', borderColor: 'var(--color-garuda-600)' }}>
+                <div className="w-full min-w-[240px] flex flex-col items-center">
+                  <label className="block text-xs font-bold uppercase tracking-wider mb-1.5 w-full text-left" style={{ color: 'var(--color-garuda-400)' }}>Subject Photograph</label>
+                  <div className="flex flex-col gap-3 p-4 rounded-xl border w-full items-center justify-center" style={{ background: 'var(--color-garuda-700)', borderColor: 'var(--color-garuda-600)' }}>
                     {form.photoUrl ? (
-                      <div className="flex items-center gap-4">
-                        <div className="relative w-24 h-24 rounded-lg overflow-hidden border border-slate-700 bg-slate-900">
+                      <div className="flex flex-col items-center gap-3">
+                        <div className="relative w-48 h-48 rounded-lg overflow-hidden border border-slate-700 bg-slate-900">
                           <img src={form.photoUrl} alt="Subject Preview" className="w-full h-full object-cover" />
                           <button
                             type="button"
@@ -799,7 +834,7 @@ export default function OffenderForm() {
                             Remove
                           </button>
                         </div>
-                        <div>
+                        <div className="text-center">
                           <p className="text-xs font-bold text-green-400">✓ Uploaded</p>
                           <p className="text-[10px] mt-1" style={{ color: 'var(--color-garuda-400)' }}>Hover image to remove</p>
                         </div>
@@ -807,7 +842,7 @@ export default function OffenderForm() {
                     ) : cameraActive ? (
                       <div className="flex flex-col items-center gap-3">
                         <div className="relative w-full aspect-video rounded-lg overflow-hidden border border-slate-700 bg-black">
-                          <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
+                          <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
                           {uploadingPhoto && (
                             <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center gap-2">
                               <span className="text-xs text-slate-300 animate-pulse">Uploading…</span>
@@ -901,7 +936,19 @@ export default function OffenderForm() {
 
         {/* Division 2: Address Details */}
         <div className="card rounded-xl p-6" style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}>
-          <h3 className="text-lg font-semibold mb-4 pb-2 border-b" style={{ borderColor: 'var(--color-garuda-700)', color: 'var(--color-accent-400)' }}>Address Details</h3>
+          <div className="flex justify-between items-center mb-4 pb-2 border-b" style={{ borderColor: 'var(--color-garuda-700)' }}>
+            <h3 className="text-lg font-semibold" style={{ color: 'var(--color-accent-400)' }}>Address Details</h3>
+            {!isView && (
+              <button 
+                type="button" 
+                onClick={() => handleSubmit(false)} 
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white border-none cursor-pointer transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-sm"
+                style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)' }}
+              >
+                Update Section
+              </button>
+            )}
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
               {renderField("Full Address", form.fullAddress, <textarea rows={3} className={inp} style={inputStyle} value={form.fullAddress} onChange={e => set('fullAddress', e.target.value)} />)}
@@ -914,7 +961,19 @@ export default function OffenderForm() {
 
         {/* Division 3: Contacts */}
         <div className="card rounded-xl p-6" style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}>
-          <h3 className="text-lg font-semibold mb-4 pb-2 border-b" style={{ borderColor: 'var(--color-garuda-700)', color: 'var(--color-accent-400)' }}>Phone & Email Contacts</h3>
+          <div className="flex justify-between items-center mb-4 pb-2 border-b" style={{ borderColor: 'var(--color-garuda-700)' }}>
+            <h3 className="text-lg font-semibold" style={{ color: 'var(--color-accent-400)' }}>Phone & Email Contacts</h3>
+            {!isView && (
+              <button 
+                type="button" 
+                onClick={() => handleSubmit(false)} 
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white border-none cursor-pointer transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-sm"
+                style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)' }}
+              >
+                Update Section
+              </button>
+            )}
+          </div>
           {isView ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
               {form.contacts.map((c, i) => (
@@ -950,7 +1009,19 @@ export default function OffenderForm() {
 
         {/* Division 3.5: Social Media */}
         <div className="card rounded-xl p-6" style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}>
-          <h3 className="text-lg font-semibold mb-4 pb-2 border-b" style={{ borderColor: 'var(--color-garuda-700)', color: 'var(--color-accent-400)' }}>Social Media & Messaging Profiles</h3>
+          <div className="flex justify-between items-center mb-4 pb-2 border-b" style={{ borderColor: 'var(--color-garuda-700)' }}>
+            <h3 className="text-lg font-semibold" style={{ color: 'var(--color-accent-400)' }}>Social Media & Messaging Profiles</h3>
+            {!isView && (
+              <button 
+                type="button" 
+                onClick={() => handleSubmit(false)} 
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white border-none cursor-pointer transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-sm"
+                style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)' }}
+              >
+                Update Section
+              </button>
+            )}
+          </div>
           {isView ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
               {form.socialMedia
@@ -990,7 +1061,19 @@ export default function OffenderForm() {
 
         {/* Division 4: Drug Profile */}
         <div className="card rounded-xl p-6" style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}>
-          <h3 className="text-lg font-semibold mb-4 pb-2 border-b" style={{ borderColor: 'var(--color-garuda-700)', color: 'var(--color-accent-400)' }}>Drug Profile Details</h3>
+          <div className="flex justify-between items-center mb-4 pb-2 border-b" style={{ borderColor: 'var(--color-garuda-700)' }}>
+            <h3 className="text-lg font-semibold" style={{ color: 'var(--color-accent-400)' }}>Drug Profile Details</h3>
+            {!isView && (
+              <button 
+                type="button" 
+                onClick={() => handleSubmit(false)} 
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white border-none cursor-pointer transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-sm"
+                style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)' }}
+              >
+                Update Section
+              </button>
+            )}
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {renderField("Addiction Type", form.addictionType, <input className={inp} style={inputStyle} value={form.addictionType} onChange={e => set('addictionType', e.target.value)} placeholder="e.g. Ganja, Brown Sugar" />)}
             {renderField("Consumption Frequency", form.consumptionFrequency, <input className={inp} style={inputStyle} value={form.consumptionFrequency} onChange={e => set('consumptionFrequency', e.target.value)} placeholder="e.g. Daily, Weekly" />)}
@@ -1008,7 +1091,19 @@ export default function OffenderForm() {
 
         {/* Division 5: Financials */}
         <div className="card rounded-xl p-6" style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}>
-          <h3 className="text-lg font-semibold mb-4 pb-2 border-b" style={{ borderColor: 'var(--color-garuda-700)', color: 'var(--color-accent-400)' }}>Financial Details</h3>
+          <div className="flex justify-between items-center mb-4 pb-2 border-b" style={{ borderColor: 'var(--color-garuda-700)' }}>
+            <h3 className="text-lg font-semibold" style={{ color: 'var(--color-accent-400)' }}>Financial Details</h3>
+            {!isView && (
+              <button 
+                type="button" 
+                onClick={() => handleSubmit(false)} 
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white border-none cursor-pointer transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-sm"
+                style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)' }}
+              >
+                Update Section
+              </button>
+            )}
+          </div>
           {isView ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
               {form.financials.map((f, i) => (
@@ -1077,7 +1172,19 @@ export default function OffenderForm() {
 
         {/* Division 6: Criminal History */}
         <div className="card rounded-xl p-6" style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}>
-          <h3 className="text-lg font-semibold mb-4 pb-2 border-b" style={{ borderColor: 'var(--color-garuda-700)', color: 'var(--color-accent-400)' }}>Criminal History</h3>
+          <div className="flex justify-between items-center mb-4 pb-2 border-b" style={{ borderColor: 'var(--color-garuda-700)' }}>
+            <h3 className="text-lg font-semibold" style={{ color: 'var(--color-accent-400)' }}>Criminal History</h3>
+            {!isView && (
+              <button 
+                type="button" 
+                onClick={() => handleSubmit(false)} 
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white border-none cursor-pointer transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-sm"
+                style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)' }}
+              >
+                Update Section
+              </button>
+            )}
+          </div>
           {isView ? (
             <div className="space-y-4">
               <div className="flex gap-6 flex-wrap">
@@ -1142,7 +1249,19 @@ export default function OffenderForm() {
 
         {/* Division 7: Supply Chain Links */}
         <div className="card rounded-xl p-6" style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}>
-          <h3 className="text-lg font-semibold mb-4 pb-2 border-b" style={{ borderColor: 'var(--color-garuda-700)', color: 'var(--color-accent-400)' }}>Supply Chain Links</h3>
+          <div className="flex justify-between items-center mb-4 pb-2 border-b" style={{ borderColor: 'var(--color-garuda-700)' }}>
+            <h3 className="text-lg font-semibold" style={{ color: 'var(--color-accent-400)' }}>Supply Chain Links</h3>
+            {!isView && (
+              <button 
+                type="button" 
+                onClick={() => handleSubmit(false)} 
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white border-none cursor-pointer transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-sm"
+                style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)' }}
+              >
+                Update Section
+              </button>
+            )}
+          </div>
           {isView ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
               {form.supplyChainLinks.map((lk, i) => (
@@ -1206,6 +1325,36 @@ export default function OffenderForm() {
             className="px-6 py-2.5 rounded-lg text-sm font-semibold text-white cursor-pointer transition-all whitespace-nowrap"
             style={{ background: saving ? 'var(--color-garuda-600)' : 'linear-gradient(135deg, var(--color-accent-500), var(--color-accent-400))', boxShadow: saving ? 'none' : 'var(--shadow-glow)' }}>
             {saving ? 'Saving...' : isEdit ? 'Update Profile' : 'Create Profile'}
+          </button>
+        </div>
+      )}
+
+      {/* Floating Status Snackbar Toast */}
+      {snackbar && (
+        <div 
+          className={`fixed top-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 p-4 rounded-xl border shadow-xl transition-all duration-300 transform translate-y-0 scale-100 ${
+            snackbar.type === 'success' 
+              ? 'border-emerald-500 bg-emerald-950/90 text-emerald-100' 
+              : 'border-red-500 bg-red-950/90 text-red-100'
+          }`}
+          style={{ backdropFilter: 'blur(8px)' }}
+        >
+          {snackbar.type === 'success' ? (
+            <svg className="w-5 h-5 text-emerald-400 animate-pulse" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          ) : (
+            <svg className="w-5 h-5 text-red-400 animate-bounce" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          )}
+          <span className="text-sm font-semibold">{snackbar.message}</span>
+          <button 
+            type="button" 
+            onClick={() => setSnackbar(null)} 
+            className="ml-4 text-xs font-bold opacity-75 hover:opacity-100 cursor-pointer bg-transparent border-none text-current"
+          >
+            ✕
           </button>
         </div>
       )}

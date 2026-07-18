@@ -31,7 +31,15 @@ router.post('/upload', uploadPhoto.single('photo'), (req: any, res) => {
   if (!req.file) {
     return res.status(400).json({ message: 'No file uploaded' });
   }
-  res.json({ url: `/api/uploads/${req.file.filename}` });
+  const base64Data = req.file.buffer.toString('base64');
+  const dataUrl = `data:${req.file.mimetype};base64,${base64Data}`;
+  res.json({
+    success: true,
+    data: {
+      url: dataUrl
+    },
+    url: dataUrl
+  });
 });
 
 // Admin endpoint for Excel upload

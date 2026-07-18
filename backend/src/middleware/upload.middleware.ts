@@ -27,17 +27,7 @@ export const uploadExcel = multer({
 const ALLOWED_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
 
 export const uploadPhoto = multer({
-  storage: multer.diskStorage({
-    destination: (_req, _file, cb) => {
-      cb(null, uploadsDir);
-    },
-    filename: (_req, file, cb) => {
-      // ── SECURITY FIX #18: Sanitize filename extension
-      const ext = path.extname(file.originalname).toLowerCase().replace(/[^a-z0-9.]/g, '');
-      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-      cb(null, `photo-${uniqueSuffix}${ext}`);
-    }
-  }),
+  storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
   fileFilter: (_req, file, cb) => {
     // ── SECURITY FIX #18: Reject SVG and enforce allowed extensions

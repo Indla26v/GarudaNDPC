@@ -245,7 +245,7 @@ model offenders {
   mandal                                                              String?                  @db.VarChar(100)
   occupation                                                          String?                  @db.VarChar(100)
   monthly_income                                                      Decimal?                 @db.Decimal(12, 2)
-  photo_url                                                           String?                  @db.VarChar(500)
+  photo_url                                                           String?
   created_by                                                          BigInt?
   created_at                                                          DateTime                 @default(now()) @db.Timestamp(6)
   updated_at                                                          DateTime                 @default(now()) @db.Timestamp(6)
@@ -890,7 +890,7 @@ model enforcement_checks {
   subject_age          Int?
   subject_gender       gender_type?
   subject_aadhaar      String?      @db.VarChar(12)
-  photo_url            String?      @db.VarChar(500)
+  photo_url            String?
   place_of_enforcement String       @db.VarChar(500)
   geo_lat              Decimal?     @db.Decimal(10, 7)
   geo_lng              Decimal?     @db.Decimal(10, 7)
@@ -986,7 +986,7 @@ model village_visits {
   // GPS & Media
   geo_lat   Decimal? @db.Decimal(10, 7)
   geo_lng   Decimal? @db.Decimal(10, 7)
-  photo_url String?  @db.VarChar(500)
+  photo_url String?
 
   created_at DateTime @default(now()) @db.Timestamp(6)
 
@@ -1022,7 +1022,7 @@ model lodge_checks {
   // GPS & Media
   geo_lat   Decimal? @db.Decimal(10, 7)
   geo_lng   Decimal? @db.Decimal(10, 7)
-  photo_url String?  @db.VarChar(500)
+  photo_url String?
 
   created_at DateTime @default(now()) @db.Timestamp(6)
 
@@ -1050,7 +1050,7 @@ model drunk_drive_checks {
   remarks           String?
   geo_lat           Decimal? @db.Decimal(10, 7)
   geo_lng           Decimal? @db.Decimal(10, 7)
-  photo_url         String?  @db.VarChar(500)
+  photo_url         String?
   created_at        DateTime @default(now()) @db.Timestamp(6)
 
   police_station police_stations @relation(fields: [ps_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -1075,7 +1075,7 @@ model courier_checks {
   findings_notes             String?
   geo_lat                    Decimal? @db.Decimal(10, 7)
   geo_lng                    Decimal? @db.Decimal(10, 7)
-  photo_url                  String?  @db.VarChar(500)
+  photo_url                  String?
   created_at                 DateTime @default(now()) @db.Timestamp(6)
 
   police_station police_stations @relation(fields: [ps_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -1099,7 +1099,7 @@ model railway_checks {
   findings_notes          String?
   geo_lat                 Decimal? @db.Decimal(10, 7)
   geo_lng                 Decimal? @db.Decimal(10, 7)
-  photo_url               String?  @db.VarChar(500)
+  photo_url               String?
   created_at              DateTime @default(now()) @db.Timestamp(6)
 
   police_station police_stations @relation(fields: [ps_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -1122,7 +1122,7 @@ model bus_stand_checks {
   findings_notes         String?
   geo_lat                Decimal? @db.Decimal(10, 7)
   geo_lng                Decimal? @db.Decimal(10, 7)
-  photo_url              String?  @db.VarChar(500)
+  photo_url              String?
   created_at             DateTime @default(now()) @db.Timestamp(6)
 
   police_station police_stations @relation(fields: [ps_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -1146,7 +1146,7 @@ model rowdy_sheeter_checks {
   no_suspicious_activity Boolean  @default(false)
   geo_lat                Decimal? @db.Decimal(10, 7)
   geo_lng                Decimal? @db.Decimal(10, 7)
-  photo_url              String?  @db.VarChar(500)
+  photo_url              String?
   created_at             DateTime @default(now()) @db.Timestamp(6)
 
   police_station police_stations @relation(fields: [ps_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -1171,7 +1171,7 @@ model bound_over_checks {
   findings_notes         String?
   geo_lat                Decimal? @db.Decimal(10, 7)
   geo_lng                Decimal? @db.Decimal(10, 7)
-  photo_url              String?  @db.VarChar(500)
+  photo_url              String?
   created_at             DateTime @default(now()) @db.Timestamp(6)
 
   police_station police_stations @relation(fields: [ps_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -1197,7 +1197,7 @@ model vehicle_checks {
   findings_notes         String?
   geo_lat                Decimal? @db.Decimal(10, 7)
   geo_lng                Decimal? @db.Decimal(10, 7)
-  photo_url              String?  @db.VarChar(500)
+  photo_url              String?
   created_at             DateTime @default(now()) @db.Timestamp(6)
 
   police_station police_stations @relation(fields: [ps_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -1220,7 +1220,7 @@ model mv_act_checks {
   remarks        String?
   geo_lat        Decimal? @db.Decimal(10, 7)
   geo_lng        Decimal? @db.Decimal(10, 7)
-  photo_url      String?  @db.VarChar(500)
+  photo_url      String?
   created_at     DateTime @default(now()) @db.Timestamp(6)
 
   police_station police_stations @relation(fields: [ps_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -1244,7 +1244,7 @@ model petty_cases_checks {
   remarks                String?
   geo_lat                Decimal? @db.Decimal(10, 7)
   geo_lng                Decimal? @db.Decimal(10, 7)
-  photo_url              String?  @db.VarChar(500)
+  photo_url              String?
   created_at             DateTime @default(now()) @db.Timestamp(6)
 
   police_station police_stations @relation(fields: [ps_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -1266,7 +1266,7 @@ model palle_nidra_checks {
   no_suspicious_activity Boolean  @default(false)
   geo_lat                Decimal? @db.Decimal(10, 7)
   geo_lng                Decimal? @db.Decimal(10, 7)
-  photo_url              String?  @db.VarChar(500)
+  photo_url              String?
   created_at             DateTime @default(now()) @db.Timestamp(6)
 
   police_station police_stations @relation(fields: [ps_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -1289,7 +1289,7 @@ model drone_surveillance_checks {
   no_suspicious_activity Boolean  @default(false)
   geo_lat                Decimal? @db.Decimal(10, 7)
   geo_lng                Decimal? @db.Decimal(10, 7)
-  photo_url              String?  @db.VarChar(500)
+  photo_url              String?
   created_at             DateTime @default(now()) @db.Timestamp(6)
 
   police_station police_stations @relation(fields: [ps_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
