@@ -25,6 +25,7 @@ import UserManagement from './pages/admin/UserManagement';
 import TeamManagement from './pages/admin/TeamManagement';
 import AuditLogs from './pages/admin/AuditLogs';
 import DataImport from './pages/admin/DataImport';
+import DeleteOffender from './pages/admin/DeleteOffender';
 import DistrictAnalytics from './pages/DistrictAnalytics';
 import Enforcement from './pages/Enforcement';
 import VehiclesSeized from './pages/vehicles/VehiclesSeized';
@@ -128,6 +129,11 @@ createRoot(document.getElementById('root')).render(
               <Route path="admin/users" element={
                 <RoleGuard permission="USER_MANAGEMENT">
                   <UserManagement />
+                </RoleGuard>
+              } />
+              <Route path="admin/offenders" element={
+                <RoleGuard permission="USER_MANAGEMENT">
+                  <DeleteOffender />
                 </RoleGuard>
               } />
               <Route path="admin/audit-logs" element={

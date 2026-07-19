@@ -6,6 +6,61 @@ import { getCaseWhere } from '../utils/scope';
 import { paramId } from '../utils/params';
 import { broadcastEvent } from './sse.controller';
 
+const isValidText = (val: any): boolean => !val || /^[a-zA-Z0-9\s.,/-]*$/.test(String(val));
+const isValidSectionOfLaw = (val: any): boolean => !val || /^[a-zA-Z0-9\s()./,-]*$/.test(String(val));
+const isValidNumeric = (val: any): boolean => {
+  if (val === undefined || val === null || val === '') return true;
+  return /^\d*$/.test(String(val));
+};
+
+function toPhysicalPaths(relevantFilesStr: string | null | undefined): string | null {
+  if (!relevantFilesStr) return null;
+  try {
+    const files = JSON.parse(relevantFilesStr);
+    if (Array.isArray(files)) {
+      const mapped = files.map(f => {
+        if (f.url && f.url.startsWith('/api/uploads/')) {
+          return { ...f, url: `uploads/${f.url.substring('/api/uploads/'.length)}` };
+        }
+        return f;
+      });
+      return JSON.stringify(mapped);
+    }
+  } catch (e) {
+    return relevantFilesStr.split(',').map(url => {
+      if (url.startsWith('/api/uploads/')) {
+        return `uploads/${url.substring('/api/uploads/'.length)}`;
+      }
+      return url;
+    }).join(',');
+  }
+  return relevantFilesStr;
+}
+
+function toWebUrls(relevantFilesStr: string | null | undefined): string | null {
+  if (!relevantFilesStr) return null;
+  try {
+    const files = JSON.parse(relevantFilesStr);
+    if (Array.isArray(files)) {
+      const mapped = files.map(f => {
+        if (f.url && f.url.startsWith('uploads/')) {
+          return { ...f, url: `/api/uploads/${f.url.substring('uploads/'.length)}` };
+        }
+        return f;
+      });
+      return JSON.stringify(mapped);
+    }
+  } catch (e) {
+    return relevantFilesStr.split(',').map(path => {
+      if (path.startsWith('uploads/')) {
+        return `/api/uploads/${path.substring('uploads/'.length)}`;
+      }
+      return path;
+    }).join(',');
+  }
+  return relevantFilesStr;
+}
+
 function mapCaseData(data: any) {
   const mapped: Record<string, unknown> = {};
   if (data.firNo !== undefined || data.fir_no !== undefined) mapped.fir_no = data.firNo ?? data.fir_no;
@@ -24,7 +79,8 @@ function mapCaseData(data: any) {
     mapped.is_rowdy_sheet = data.isRowdySheet ?? data.is_rowdy_sheet;
   }
   if (data.relevantFiles !== undefined || data.relevant_files !== undefined) {
-    mapped.relevant_files = data.relevantFiles ?? data.relevant_files;
+    const rawVal = data.relevantFiles ?? data.relevant_files;
+    mapped.relevant_files = toPhysicalPaths(rawVal);
   }
   if (data.natureOfOffence !== undefined || data.nature_of_offence !== undefined) {
     mapped.nature_of_offence = data.natureOfOffence ?? data.nature_of_offence;
@@ -66,6 +122,34 @@ const caseInclude = {
 export const createCase = async (req: Request, res: Response) => {
   try {
     const data = req.body;
+
+    if (data.firNo && !isValidText(data.firNo)) return res.status(400).json({ message: 'FIR Number contains invalid special characters' });
+    if (data.sectionOfLaw && !isValidSectionOfLaw(data.sectionOfLaw)) return res.status(400).json({ message: 'Section of Law contains invalid characters' });
+    if (data.quantity && !/^\d*\.?\d*$/.test(String(data.quantity))) return res.status(400).json({ message: 'Quantity must be a valid number' });
+    if (data.streetValue && !isValidNumeric(data.streetValue)) return res.status(400).json({ message: 'Street Value must be a valid number' });
+    if (data.sourceLocation && !isValidText(data.sourceLocation)) return res.status(400).json({ message: 'Source Location contains invalid special characters' });
+    if (data.destinationLocation && !isValidText(data.destinationLocation)) return res.status(400).json({ message: 'Destination Location contains invalid special characters' });
+    
+    // Seizure
+    if (data.seizures && Array.isArray(data.seizures)) {
+      for (const s of data.seizures) {
+        if (s.contrabandKg && !/^\d*\.?\d*$/.test(String(s.contrabandKg))) return res.status(400).json({ message: 'Seizure contraband quantity must be a valid number' });
+        if (s.cashAmount && !isValidNumeric(s.cashAmount)) return res.status(400).json({ message: 'Seizure cash amount must be a valid number' });
+        if (s.vehiclesCount && !isValidNumeric(s.vehiclesCount)) return res.status(400).json({ message: 'Seizure vehicles count must be a valid number' });
+      }
+    }
+
+    // Seized Vehicles
+    if (data.seizedVehicles && Array.isArray(data.seizedVehicles)) {
+      for (const v of data.seizedVehicles) {
+        if (v.registrationNo && !/^[a-zA-Z0-9\s-]*$/.test(v.registrationNo)) return res.status(400).json({ message: `Vehicle Registration Number "${v.registrationNo}" contains invalid characters` });
+        if (v.makeModel && !isValidText(v.makeModel)) return res.status(400).json({ message: `Vehicle Make/Model "${v.makeModel}" contains invalid characters` });
+        if (v.color && !/^[a-zA-Z\s]*$/.test(v.color)) return res.status(400).json({ message: `Vehicle Color "${v.color}" contains invalid characters` });
+        if (v.ownerName && !isValidText(v.ownerName)) return res.status(400).json({ message: `Vehicle Owner Name "${v.ownerName}" contains invalid characters` });
+        if (v.seizureLocation && !isValidText(v.seizureLocation)) return res.status(400).json({ message: `Vehicle Seizure Location "${v.seizureLocation}" contains invalid characters` });
+      }
+    }
+
     const user = (req as any).user;
     const userId = user?.userId ? BigInt(user.userId) : null;
 
@@ -160,6 +244,34 @@ export const updateCase = async (req: Request, res: Response) => {
     const scope = getCaseWhere((req as any).user);
     const existing = await prisma.cases.findFirst({ where: { id, ...scope } });
     if (!existing) return res.status(404).json({ message: 'Case not found or access denied' });
+
+    const data = req.body;
+    if (data.firNo && !isValidText(data.firNo)) return res.status(400).json({ message: 'FIR Number contains invalid special characters' });
+    if (data.sectionOfLaw && !isValidSectionOfLaw(data.sectionOfLaw)) return res.status(400).json({ message: 'Section of Law contains invalid characters' });
+    if (data.quantity && !/^\d*\.?\d*$/.test(String(data.quantity))) return res.status(400).json({ message: 'Quantity must be a valid number' });
+    if (data.streetValue && !isValidNumeric(data.streetValue)) return res.status(400).json({ message: 'Street Value must be a valid number' });
+    if (data.sourceLocation && !isValidText(data.sourceLocation)) return res.status(400).json({ message: 'Source Location contains invalid special characters' });
+    if (data.destinationLocation && !isValidText(data.destinationLocation)) return res.status(400).json({ message: 'Destination Location contains invalid special characters' });
+    
+    // Seizure
+    if (data.seizures && Array.isArray(data.seizures)) {
+      for (const s of data.seizures) {
+        if (s.contrabandKg && !/^\d*\.?\d*$/.test(String(s.contrabandKg))) return res.status(400).json({ message: 'Seizure contraband quantity must be a valid number' });
+        if (s.cashAmount && !isValidNumeric(s.cashAmount)) return res.status(400).json({ message: 'Seizure cash amount must be a valid number' });
+        if (s.vehiclesCount && !isValidNumeric(s.vehiclesCount)) return res.status(400).json({ message: 'Seizure vehicles count must be a valid number' });
+      }
+    }
+
+    // Seized Vehicles
+    if (data.seizedVehicles && Array.isArray(data.seizedVehicles)) {
+      for (const v of data.seizedVehicles) {
+        if (v.registrationNo && !/^[a-zA-Z0-9\s-]*$/.test(v.registrationNo)) return res.status(400).json({ message: `Vehicle Registration Number "${v.registrationNo}" contains invalid characters` });
+        if (v.makeModel && !isValidText(v.makeModel)) return res.status(400).json({ message: `Vehicle Make/Model "${v.makeModel}" contains invalid characters` });
+        if (v.color && !/^[a-zA-Z\s]*$/.test(v.color)) return res.status(400).json({ message: `Vehicle Color "${v.color}" contains invalid characters` });
+        if (v.ownerName && !isValidText(v.ownerName)) return res.status(400).json({ message: `Vehicle Owner Name "${v.ownerName}" contains invalid characters` });
+        if (v.seizureLocation && !isValidText(v.seizureLocation)) return res.status(400).json({ message: `Vehicle Seizure Location "${v.seizureLocation}" contains invalid characters` });
+      }
+    }
 
     const updated = await prisma.$transaction(async (tx) => {
       const updatedCase = await tx.cases.update({
@@ -465,7 +577,7 @@ function toCaseResponse(c: any) {
     department: c.department,
     isHistorySheet: c.is_history_sheet,
     isRowdySheet: c.is_rowdy_sheet,
-    relevantFiles: c.relevant_files,
+    relevantFiles: toWebUrls(c.relevant_files),
     createdByName: c.users?.full_name,
     createdAt: c.created_at,
     updatedAt: c.updated_at,

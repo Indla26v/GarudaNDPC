@@ -1,7 +1,7 @@
 /**
  * GARUDA — Case Registration / Edit Form (Page 3) — Phase 1
  */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../api/axios';
 
@@ -24,6 +24,21 @@ const UNIT_OPTIONS = [
   { value: 'TABLETS', label: 'tablets' },
   { value: 'STRIPS', label: 'strips' },
   { value: 'PACKETS', label: 'packets' },
+];
+
+const isValidText = (val) => !val || /^[a-zA-Z0-9\s.,/-]*$/.test(val);
+const isValidSectionOfLaw = (val) => !val || /^[a-zA-Z0-9\s()./,-]*$/.test(val);
+const isValidNumeric = (val) => !val || /^\d*$/.test(String(val));
+const isValidPhone = (val) => !val || /^\+?[0-9\s-]*$/.test(val);
+
+const COUNTRY_CODES = [
+  { code: '+91', label: 'India (+91)', length: 10 },
+  { code: '+1', label: 'USA/Canada (+1)', length: 10 },
+  { code: '+44', label: 'UK (+44)', length: 10 },
+  { code: '+971', label: 'UAE (+971)', length: 9 },
+  { code: '+880', label: 'Bangladesh (+880)', length: 10 },
+  { code: '+977', label: 'Nepal (+977)', length: 10 },
+  { code: '+94', label: 'Sri Lanka (+94)', length: 9 }
 ];
 
 const inp = "w-full px-3 py-2.5 rounded-lg text-sm outline-none";
@@ -65,6 +80,16 @@ export default function CaseForm() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [fileUploading, setFileUploading] = useState(false);
+  const [snackbar, setSnackbar] = useState(null);
+
+  const showSnackbar = (type, message, duration = 4000) => {
+    setSnackbar({ type, message });
+    if (type !== 'info') {
+      setTimeout(() => {
+        setSnackbar(current => current && current.message === message ? null : current);
+      }, duration);
+    }
+  };
 
   const emptyVehicle = { vehicleType: 'TWO_WHEELER', registrationNo: '', makeModel: '', color: '', ownerName: '', ownerAddress: '', seizureLocation: '', remarks: '' };
 
@@ -153,17 +178,21 @@ export default function CaseForm() {
 
   const searchOffenders = async () => {
     if (!offenderSearch.trim()) return;
+    setSnackbar({ type: 'info', message: 'Searching for offenders...' });
     try {
       const res = await api.get('/offenders', { params: { query: offenderSearch, size: 10 } });
-      setOffenderResults(res.data.data?.content || []);
+      const content = res.data.data?.content || [];
+      setOffenderResults(content);
+      showSnackbar('success', `Search complete. Found ${content.length} match(es).`);
     } catch {
       setOffenderResults([]);
+      showSnackbar('error', 'Failed to search offenders.');
     }
   };
 
   const addAccused = (o) => {
     if (accused.some((a) => a.offenderId === o.id)) return;
-    setAccused([...accused, { offenderId: o.id, offenderName: o.fullName || o.full_name, arrestStatus: 'ARRESTED' }]);
+    setAccused([...accused, { offenderId: o.id, offenderName: o.fullName || o.full_name, arrestStatus: o.arrestStatus || 'ARRESTED' }]);
     setOffenderSearch('');
     setOffenderResults([]);
   };
@@ -215,6 +244,92 @@ export default function CaseForm() {
     e.preventDefault();
     setSaving(true);
     setError('');
+
+    // Case Form validation:
+    if (form.firNo && !isValidText(form.firNo)) {
+      setError('FIR Number contains invalid special characters');
+      setSaving(false);
+      return;
+    }
+    if (form.sectionOfLaw && !isValidSectionOfLaw(form.sectionOfLaw)) {
+      setError('Section of Law contains invalid characters');
+      setSaving(false);
+      return;
+    }
+    if (form.quantity && !/^\d*\.?\d*$/.test(String(form.quantity))) {
+      setError('Quantity must be a valid number');
+      setSaving(false);
+      return;
+    }
+    if (form.streetValue && !isValidNumeric(form.streetValue)) {
+      setError('Street Value must be a valid number');
+      setSaving(false);
+      return;
+    }
+    if (form.sourceLocation && !isValidText(form.sourceLocation)) {
+      setError('Source Location contains invalid special characters');
+      setSaving(false);
+      return;
+    }
+    if (form.destinationLocation && !isValidText(form.destinationLocation)) {
+      setError('Destination Location contains invalid special characters');
+      setSaving(false);
+      return;
+    }
+
+    // Seizure optional validation
+    if (seizure.contrabandKg && !/^\d*\.?\d*$/.test(seizure.contrabandKg)) {
+      setError('Seizure contraband quantity must be a valid number');
+      setSaving(false);
+      return;
+    }
+    if (seizure.cashAmount && !isValidNumeric(seizure.cashAmount)) {
+      setError('Seizure cash amount must be a valid number');
+      setSaving(false);
+      return;
+    }
+    if (seizure.vehiclesCount && !isValidNumeric(seizure.vehiclesCount)) {
+      setError('Seizure vehicles count must be a valid number');
+      setSaving(false);
+      return;
+    }
+
+    // Seized vehicles validation
+    if (hasVehicles) {
+      for (const v of seizedVehicles) {
+        if (!v.registrationNo?.trim()) {
+          setError('Vehicle Registration Number is required when vehicle seizure is enabled');
+          setSaving(false);
+          return;
+        }
+        if (!/^[a-zA-Z0-9\s-]*$/.test(v.registrationNo)) {
+          setError(`Vehicle Registration Number "${v.registrationNo}" contains invalid characters`);
+          setSaving(false);
+          return;
+        }
+        if (v.makeModel?.trim() && !isValidText(v.makeModel)) {
+          setError(`Vehicle Make/Model "${v.makeModel}" contains invalid characters`);
+          setSaving(false);
+          return;
+        }
+        if (v.color?.trim() && !/^[a-zA-Z\s]*$/.test(v.color)) {
+          setError(`Vehicle Color "${v.color}" contains invalid characters`);
+          setSaving(false);
+          return;
+        }
+        if (v.ownerName?.trim() && !isValidText(v.ownerName)) {
+          setError(`Vehicle Owner Name "${v.ownerName}" contains invalid characters`);
+          setSaving(false);
+          return;
+        }
+        if (v.seizureLocation?.trim() && !isValidText(v.seizureLocation)) {
+          setError(`Vehicle Seizure Location "${v.seizureLocation}" contains invalid characters`);
+          setSaving(false);
+          return;
+        }
+      }
+    }
+
     try {
       const payload = {
         ...form,
@@ -290,7 +405,9 @@ export default function CaseForm() {
                 <select name="psId" value={form.psId} onChange={handleChange} required className={inp} style={fieldStyle}>
                   <option value="">Select Station</option>
                   {stations.map((s) => (
-                    <option key={s.id} value={s.id}>{s.name} ({s.psCode || s.ps_code})</option>
+                    <option key={s.id} value={s.id}>
+                      {s.name}{(s.psCode || s.ps_code) ? ` (${s.psCode || s.ps_code})` : ''}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -711,6 +828,35 @@ export default function CaseForm() {
         stations={stations}
         currentPsId={form.psId}
       />
+      {snackbar && (
+        <div 
+          className={`fixed top-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 p-4 rounded-xl border shadow-xl transition-all duration-300 transform translate-y-0 scale-100 ${
+            snackbar.type === 'success' 
+              ? 'border-emerald-500 bg-emerald-950/90 text-emerald-100' 
+              : snackbar.type === 'info'
+              ? 'border-blue-500 bg-blue-950/90 text-blue-100'
+              : 'border-red-500 bg-red-950/90 text-red-100'
+          }`}
+          style={{ backdropFilter: 'blur(8px)' }}
+        >
+          {snackbar.type === 'success' && (
+            <svg className="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          )}
+          {snackbar.type === 'info' && (
+            <svg className="w-5 h-5 text-blue-400 animate-spin" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 7.89H18" />
+            </svg>
+          )}
+          {snackbar.type === 'error' && (
+            <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          )}
+          <span className="text-sm font-semibold">{snackbar.message}</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -727,11 +873,16 @@ function AddAccusedModal({ isOpen, onClose, onSaved, stations, currentPsId }) {
     aadhaarNo: '',
     phone: '',
     fullAddress: '',
-    photoUrl: ''
+    photoUrl: '',
+    arrestStatus: 'ARRESTED'
   });
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
+
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
+  const [cameraActive, setCameraActive] = useState(false);
 
   // Sync station ID with current form selection when opened
   useEffect(() => {
@@ -745,13 +896,94 @@ function AddAccusedModal({ isOpen, onClose, onSaved, stations, currentPsId }) {
         category: '',
         psId: currentPsId || '',
         aadhaarNo: '',
+        countryCode: '+91',
         phone: '',
         fullAddress: '',
-        photoUrl: ''
+        photoUrl: '',
+        arrestStatus: 'ARRESTED'
       });
       setError('');
+    } else {
+      // Clean up camera stream when modal is closed
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(t => t.stop());
+        streamRef.current = null;
+      }
+      setCameraActive(false);
     }
   }, [isOpen, currentPsId]);
+
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      streamRef.current = stream;
+      setCameraActive(true);
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play().catch(e => console.error("Error playing video stream:", e));
+        }
+      }, 50);
+    } catch (err) {
+      setError('Could not access camera. Please use file upload instead.');
+    }
+  };
+
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
+    }
+    setCameraActive(false);
+  };
+
+  const capturePhoto = () => {
+    if (!videoRef.current) return;
+    const canvas = document.createElement('canvas');
+    canvas.width = videoRef.current.videoWidth;
+    canvas.height = videoRef.current.videoHeight;
+    canvas.getContext('2d').drawImage(videoRef.current, 0, 0);
+    canvas.toBlob(async (blob) => {
+      stopCamera();
+      if (blob) {
+        const file = new File([blob], `photo_${Date.now()}.jpg`, { type: 'image/jpeg' });
+        await uploadFile(file);
+      }
+    }, 'image/jpeg', 0.85);
+  };
+
+  const handleFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    await uploadFile(file);
+  };
+
+  const uploadFile = async (file) => {
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Photo file size must be under 5MB');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('photo', file);
+
+    setUploading(true);
+    setError('');
+    try {
+      const res = await api.post('/offenders/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      if (res.data.data?.url) {
+        setModalForm(prev => ({ ...prev, photoUrl: res.data.data.url }));
+      } else {
+        setError('Upload succeeded but no URL was returned');
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to upload photo');
+    } finally {
+      setUploading(false);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -795,6 +1027,28 @@ function AddAccusedModal({ isOpen, onClose, onSaved, stations, currentPsId }) {
     if (!modalForm.fullName.trim()) return setError('Full name is required');
     if (!modalForm.psId) return setError('Police station is required');
 
+    // Validation
+    const aadhaarVal = (modalForm.aadhaarNo || '').trim();
+    if (aadhaarVal && !/^\d{12}$/.test(aadhaarVal)) {
+      return setError('Aadhaar must be exactly 12 digits and contain only numbers');
+    }
+    const phoneVal = (modalForm.phone || '').trim();
+    if (phoneVal) {
+      const cleanDigits = phoneVal.replace(/[^0-9]/g, '');
+      const countryConfig = COUNTRY_CODES.find(cc => cc.code === modalForm.countryCode) || { length: 10 };
+      if (cleanDigits.length !== countryConfig.length) {
+        return setError(`Mobile Number must be exactly ${countryConfig.length} digits for ${modalForm.countryCode}`);
+      }
+    }
+    const ageVal = (modalForm.age || '').trim();
+    if (ageVal && !/^\d*$/.test(ageVal)) {
+      return setError('Age must be a valid number');
+    }
+
+    if (!isValidText(modalForm.fullName)) return setError('Full Name contains invalid special characters');
+    if (!isValidText(modalForm.alias)) return setError('Alias contains invalid special characters');
+    if (!isValidText(modalForm.fatherHusbandName)) return setError("Father/Husband's Name contains invalid special characters");
+
     setSaving(true);
     setError('');
     try {
@@ -810,7 +1064,7 @@ function AddAccusedModal({ isOpen, onClose, onSaved, stations, currentPsId }) {
         fullAddress: modalForm.fullAddress.trim() || null,
         photoUrl: modalForm.photoUrl || null,
         contacts: modalForm.phone.trim()
-          ? [{ contactType: 'MOBILE_PRIMARY', value: modalForm.phone.trim(), notes: 'Primary' }]
+          ? [{ contactType: 'MOBILE_PRIMARY', value: `${modalForm.countryCode}${modalForm.phone.trim().replace(/[^0-9]/g, '')}`, notes: 'Primary' }]
           : []
       };
 
@@ -820,7 +1074,8 @@ function AddAccusedModal({ isOpen, onClose, onSaved, stations, currentPsId }) {
       if (newId) {
         onSaved({
           id: newId,
-          fullName: modalForm.fullName.trim()
+          fullName: modalForm.fullName.trim(),
+          arrestStatus: modalForm.arrestStatus || 'ARRESTED'
         });
         onClose();
       } else {
@@ -878,7 +1133,9 @@ function AddAccusedModal({ isOpen, onClose, onSaved, stations, currentPsId }) {
               <select name="psId" value={modalForm.psId} onChange={handleChange} required className="w-full px-3 py-2 rounded-lg text-sm outline-none cursor-pointer" style={{ background: 'var(--color-garuda-900)', border: '1px solid var(--color-garuda-600)', color: 'var(--color-garuda-100)' }}>
                 <option value="">Select PS</option>
                 {stations.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name} ({s.ps_code})</option>
+                  <option key={s.id} value={s.id}>
+                    {s.name}{s.ps_code ? ` (${s.ps_code})` : ''}
+                  </option>
                 ))}
               </select>
             </div>
@@ -928,44 +1185,112 @@ function AddAccusedModal({ isOpen, onClose, onSaved, stations, currentPsId }) {
 
             <div>
               <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--color-garuda-300)' }}>Mobile Number</label>
-              <input type="tel" name="phone" value={modalForm.phone} onChange={handleChange} placeholder="Primary phone number" className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={{ background: 'var(--color-garuda-900)', border: '1px solid var(--color-garuda-600)', color: 'var(--color-garuda-100)' }} />
+              <div className="flex gap-2">
+                <select name="countryCode" value={modalForm.countryCode} onChange={handleChange} className="px-2 py-2 rounded-lg text-sm outline-none cursor-pointer" style={{ background: 'var(--color-garuda-900)', border: '1px solid var(--color-garuda-600)', color: 'var(--color-garuda-100)' }}>
+                  {COUNTRY_CODES.map(cc => <option key={cc.code} value={cc.code}>{cc.code}</option>)}
+                </select>
+                <input 
+                  type="tel" 
+                  name="phone" 
+                  value={modalForm.phone} 
+                  onChange={e => {
+                    const val = e.target.value.replace(/[^0-9]/g, '');
+                    setModalForm(prev => ({ ...prev, phone: val }));
+                  }} 
+                  placeholder="Primary phone number" 
+                  className="flex-1 px-3 py-2 rounded-lg text-sm outline-none" 
+                  style={{ background: 'var(--color-garuda-900)', border: '1px solid var(--color-garuda-600)', color: 'var(--color-garuda-100)' }} 
+                  maxLength={COUNTRY_CODES.find(cc => cc.code === (modalForm.countryCode || '+91'))?.length || 10}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--color-garuda-300)' }}>Arrest Status</label>
+              <select name="arrestStatus" value={modalForm.arrestStatus} onChange={handleChange} className="w-full px-3 py-2 rounded-lg text-sm outline-none cursor-pointer" style={{ background: 'var(--color-garuda-900)', border: '1px solid var(--color-garuda-600)', color: 'var(--color-garuda-100)' }}>
+                <option value="ARRESTED">Arrested</option>
+                <option value="ABSCONDING">Absconding</option>
+                <option value="BAILED">Bailed</option>
+              </select>
             </div>
 
             <div className="md:col-span-2">
               <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--color-garuda-300)' }}>Photograph</label>
               <div className="flex items-center gap-4 p-3 rounded-lg border" style={{ background: 'var(--color-garuda-900)', borderColor: 'var(--color-garuda-600)' }}>
-                {modalForm.photoUrl ? (
-                  <div className="relative w-16 h-16 rounded-lg overflow-hidden border border-slate-700 bg-slate-900 flex-shrink-0">
-                    <img src={modalForm.photoUrl} alt="Preview" className="w-full h-full object-cover" />
-                    <button
-                      type="button"
-                      onClick={() => setModalForm(prev => ({ ...prev, photoUrl: '' }))}
-                      className="absolute inset-0 bg-black/60 flex items-center justify-center text-[10px] text-red-400 font-bold opacity-0 hover:opacity-100 transition-opacity cursor-pointer border-none"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ) : (
-                  <div className="w-16 h-16 rounded-lg border border-dashed border-slate-600 bg-slate-800/40 flex items-center justify-center flex-shrink-0 text-slate-500">
-                    {uploading ? (
-                      <span className="text-[10px] animate-pulse">...</span>
-                    ) : (
-                      <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                        <circle cx="12" cy="13" r="4" />
-                      </svg>
-                    )}
-                  </div>
-                )}
-                <div className="flex-1">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handlePhotoUpload}
-                    disabled={uploading}
-                    className="block w-full text-xs text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-accent-500/10 file:text-accent-400 hover:file:bg-accent-500/20 file:cursor-pointer"
-                  />
-                  <p className="text-[10px] text-slate-500 mt-1">PNG, JPG, or JPEG up to 5MB</p>
+                <div className="relative w-16 h-16 rounded-lg overflow-hidden border border-slate-700 bg-slate-900 flex-shrink-0 flex items-center justify-center text-slate-500">
+                  {modalForm.photoUrl ? (
+                    <>
+                      <img src={modalForm.photoUrl} alt="Preview" className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => setModalForm(prev => ({ ...prev, photoUrl: '' }))}
+                        className="absolute inset-0 bg-black/60 flex items-center justify-center text-[10px] text-red-400 font-bold opacity-0 hover:opacity-100 transition-opacity cursor-pointer border-none"
+                      >
+                        Remove
+                      </button>
+                    </>
+                  ) : cameraActive ? (
+                    <video ref={videoRef} className="w-full h-full object-cover" playsInline muted />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      {uploading ? (
+                        <span className="text-[10px] animate-pulse">...</span>
+                      ) : (
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                          <circle cx="12" cy="13" r="4" />
+                        </svg>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex-1 flex gap-2">
+                  {cameraActive ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={capturePhoto}
+                        disabled={uploading}
+                        className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded font-bold text-xs border-none cursor-pointer"
+                      >
+                        Capture
+                      </button>
+                      <button
+                        type="button"
+                        onClick={stopCamera}
+                        disabled={uploading}
+                        className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded font-bold text-xs border-none cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      {!modalForm.photoUrl && (
+                        <button
+                          type="button"
+                          onClick={startCamera}
+                          disabled={uploading}
+                          className="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded font-bold text-xs border-none cursor-pointer"
+                        >
+                          Capture
+                        </button>
+                      )}
+                      <label
+                        className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded font-bold text-xs cursor-pointer flex items-center justify-center select-none"
+                      >
+                        Upload
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleFileChange}
+                          disabled={uploading}
+                          className="hidden"
+                        />
+                      </label>
+                    </>
+                  )}
                 </div>
               </div>
             </div>

@@ -86,6 +86,7 @@ function useNavItems() {
       title: 'Administration',
       items: [
         { path: '/admin/users', label: 'User Management', icon: IconUsers, show: true },
+        { path: '/admin/offenders', label: 'Delete Offender', icon: IconTrash, show: true },
         { path: '/admin/teams', label: 'Team Management', icon: IconBuilding, show: true },
         { path: '/admin/audit-logs', label: 'Audit Logs', icon: IconAuditLog, show: true },
         { path: '/admin/import', label: 'DPR Import', icon: IconImport, show: true },

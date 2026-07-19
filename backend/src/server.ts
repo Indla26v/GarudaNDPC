@@ -77,7 +77,11 @@ const uploadsDir = isVercel
 app.use('/api/uploads', (req, res, next) => {
   res.setHeader('Content-Disposition', 'inline');
   res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('Content-Security-Policy', "script-src 'none'; object-src 'none'; base-uri 'none';");
+  if (req.path.toLowerCase().endsWith('.pdf')) {
+    res.setHeader('Content-Security-Policy', "script-src 'none'; object-src 'self'; base-uri 'none';");
+  } else {
+    res.setHeader('Content-Security-Policy', "script-src 'none'; object-src 'none'; base-uri 'none';");
+  }
   next();
 }, express.static(uploadsDir));
 

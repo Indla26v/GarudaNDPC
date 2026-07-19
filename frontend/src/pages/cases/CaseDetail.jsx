@@ -69,6 +69,15 @@ export default function CaseDetail() {
   const currentStageIdx = caseData ? STAGES.indexOf(caseData.stage) : -1;
   const canEdit = caseData && (perms.hasPermission?.('CASE_CREATE') || perms.hasMinRole?.('SI'));
 
+  let files = [];
+  if (caseData?.relevantFiles) {
+    try {
+      files = JSON.parse(caseData.relevantFiles);
+    } catch (e) {
+      files = caseData.relevantFiles.split(',').map(url => ({ name: url.split('/').pop(), url }));
+    }
+  }
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
@@ -153,58 +162,92 @@ export default function CaseDetail() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="rounded-xl p-6 space-y-3" style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}>
-              <h3 className="font-semibold" style={{ color: 'var(--color-garuda-200)' }}>Case Information</h3>
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div>
-                  <p className="text-xs" style={{ color: 'var(--color-garuda-500)' }}>FIR Number</p>
-                  <p style={{ color: 'var(--color-garuda-100)' }}>
-                    {loading ? <span className="inline-block w-20 h-4 bg-slate-700/60 animate-pulse rounded"></span> : caseData?.firNo}
-                  </p>
+            <div className="space-y-6">
+              <div className="rounded-xl p-6 space-y-3" style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}>
+                <h3 className="font-semibold" style={{ color: 'var(--color-garuda-200)' }}>Case Information</h3>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <p className="text-xs" style={{ color: 'var(--color-garuda-500)' }}>FIR Number</p>
+                    <p style={{ color: 'var(--color-garuda-100)' }}>
+                      {loading ? <span className="inline-block w-20 h-4 bg-slate-700/60 animate-pulse rounded"></span> : caseData?.firNo}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs" style={{ color: 'var(--color-garuda-500)' }}>Section of Law</p>
+                    <p style={{ color: 'var(--color-garuda-100)' }}>
+                      {loading ? <span className="inline-block w-24 h-4 bg-slate-700/60 animate-pulse rounded"></span> : caseData?.sectionOfLaw || '—'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs" style={{ color: 'var(--color-garuda-500)' }}>Station</p>
+                    <p style={{ color: 'var(--color-garuda-100)' }}>
+                      {loading ? <span className="inline-block w-28 h-4 bg-slate-700/60 animate-pulse rounded"></span> : caseData?.psName || '—'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs" style={{ color: 'var(--color-garuda-500)' }}>Contraband</p>
+                    <p style={{ color: 'var(--color-garuda-100)' }}>
+                      {loading ? <span className="inline-block w-32 h-4 bg-slate-700/60 animate-pulse rounded"></span> : (
+                        <>
+                          {caseData?.contrabandType ? CONTRABAND_LABELS[caseData.contrabandType] || caseData.contrabandType : '—'}
+                          {caseData?.quantity ? ` (${caseData.quantity} ${caseData.quantityUnit || ''})` : ''}
+                        </>
+                      )}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs" style={{ color: 'var(--color-garuda-500)' }}>Source → Destination</p>
+                    <p style={{ color: 'var(--color-garuda-100)' }}>
+                      {loading ? <span className="inline-block w-36 h-4 bg-slate-700/60 animate-pulse rounded"></span> : [caseData?.sourceLocation, caseData?.destinationLocation].filter(Boolean).join(' → ') || '—'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs" style={{ color: 'var(--color-garuda-500)' }}>Date</p>
+                    <p style={{ color: 'var(--color-garuda-100)' }}>
+                      {loading ? <span className="inline-block w-24 h-4 bg-slate-700/60 animate-pulse rounded"></span> : caseData?.caseDate ? new Date(caseData.caseDate).toLocaleDateString('en-IN') : '—'}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs" style={{ color: 'var(--color-garuda-500)' }}>Section of Law</p>
-                  <p style={{ color: 'var(--color-garuda-100)' }}>
-                    {loading ? <span className="inline-block w-24 h-4 bg-slate-700/60 animate-pulse rounded"></span> : caseData?.sectionOfLaw || '—'}
+                {loading ? (
+                  <div className="h-4 bg-slate-700/50 rounded w-full animate-pulse mt-2"></div>
+                ) : caseData?.intelligenceNotes && (
+                  <p className="text-sm pt-2" style={{ color: 'var(--color-garuda-300)' }}>
+                    <span className="text-xs" style={{ color: 'var(--color-garuda-500)' }}>Intelligence: </span>
+                    {caseData.intelligenceNotes}
                   </p>
-                </div>
-                <div>
-                  <p className="text-xs" style={{ color: 'var(--color-garuda-500)' }}>Station</p>
-                  <p style={{ color: 'var(--color-garuda-100)' }}>
-                    {loading ? <span className="inline-block w-28 h-4 bg-slate-700/60 animate-pulse rounded"></span> : caseData?.psName || '—'}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs" style={{ color: 'var(--color-garuda-500)' }}>Contraband</p>
-                  <p style={{ color: 'var(--color-garuda-100)' }}>
-                    {loading ? <span className="inline-block w-32 h-4 bg-slate-700/60 animate-pulse rounded"></span> : (
-                      <>
-                        {caseData?.contrabandType ? CONTRABAND_LABELS[caseData.contrabandType] || caseData.contrabandType : '—'}
-                        {caseData?.quantity ? ` (${caseData.quantity} ${caseData.quantityUnit || ''})` : ''}
-                      </>
-                    )}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs" style={{ color: 'var(--color-garuda-500)' }}>Source → Destination</p>
-                  <p style={{ color: 'var(--color-garuda-100)' }}>
-                    {loading ? <span className="inline-block w-36 h-4 bg-slate-700/60 animate-pulse rounded"></span> : [caseData?.sourceLocation, caseData?.destinationLocation].filter(Boolean).join(' → ') || '—'}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs" style={{ color: 'var(--color-garuda-500)' }}>Date</p>
-                  <p style={{ color: 'var(--color-garuda-100)' }}>
-                    {loading ? <span className="inline-block w-24 h-4 bg-slate-700/60 animate-pulse rounded"></span> : caseData?.caseDate ? new Date(caseData.caseDate).toLocaleDateString('en-IN') : '—'}
-                  </p>
-                </div>
+                )}
               </div>
-              {loading ? (
-                <div className="h-4 bg-slate-700/50 rounded w-full animate-pulse mt-2"></div>
-              ) : caseData?.intelligenceNotes && (
-                <p className="text-sm pt-2" style={{ color: 'var(--color-garuda-300)' }}>
-                  <span className="text-xs" style={{ color: 'var(--color-garuda-500)' }}>Intelligence: </span>
-                  {caseData.intelligenceNotes}
-                </p>
+
+              {!loading && files.length > 0 && (
+                <div className="rounded-xl p-6 space-y-3" style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}>
+                  <h3 className="font-semibold flex items-center gap-2" style={{ color: 'var(--color-garuda-200)' }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                      <polyline points="14 2 14 8 20 8" />
+                      <line x1="16" y1="13" x2="8" y2="13" />
+                      <line x1="16" y1="17" x2="8" y2="17" />
+                      <polyline points="10 9 9 9 8 9" />
+                    </svg>
+                    Case Documents ({files.length})
+                  </h3>
+                  <ul className="space-y-2">
+                    {files.map((file, idx) => (
+                      <li key={idx} className="flex items-center justify-between p-2.5 rounded-lg" style={{ background: 'var(--color-garuda-900)' }}>
+                        <span className="text-sm font-medium truncate max-w-[70%]" style={{ color: 'var(--color-garuda-100)' }}>
+                          {file.name}
+                        </span>
+                        <a
+                          href={file.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs px-3 py-1.5 rounded font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-colors"
+                        >
+                          View / Download
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               )}
             </div>
 

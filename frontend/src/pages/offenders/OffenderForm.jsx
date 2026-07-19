@@ -6,7 +6,10 @@ import { OffenderCaseHistory, OffenderInterrogationPanel, ImeiPanel } from '../.
 
 const CATEGORIES = ['INTERSTATE_LINK','FINANCIER','SUPPLIER','TRANSPORTER','LOCAL_KINGPIN','LOCAL_PEDDLER','CONSUMER'];
 const GENDERS = ['MALE','FEMALE','OTHER'];
-const PURCHASE_MODES = ['CASH','UPI','CREDIT','BARTER','OTHER'];
+const PURCHASE_MODES = ['CASH','UPI','CREDIT','BARTER','MIXED'];
+const ADDICTION_TYPES = ['GANJA_ONLY','GANJA_ALCOHOL','GANJA_OTHER_DRUGS','MULTIPLE'];
+const CONSUMPTION_FREQS = ['DAILY','WEEKLY','OCCASIONAL'];
+const PROCUREMENT_SOURCES = ['LOCAL','OUTSIDE_DISTRICT','ONLINE','COURIER'];
 const CORE_CONTACT_TYPES = ['MOBILE_PRIMARY','MOBILE_SECONDARY','MOBILE_SIBLING','GMAIL'];
 const SOCIAL_CONTACT_TYPES = ['WHATSAPP','TELEGRAM','INSTAGRAM','FACEBOOK','OTHER_SOCIAL'];
 const LINK_TYPES = ['CO_CONSUMER','PEDDLER','SUPPLIER','TRANSPORTER','KINGPIN'];
@@ -14,7 +17,17 @@ const FIN_TYPES = [
   { value: 'BANK_ACCOUNT_NO', label: 'Bank Account No' },
   { value: 'BANK_NAME', label: 'Bank Name' },
   { value: 'UPI_ID', label: 'UPI ID' },
-  { value: 'ATM_CARD', label: 'ATM Card No' },
+];
+const TEST_RESULTS = ['POSITIVE', 'NEGATIVE', 'PENDING'];
+
+const COUNTRY_CODES = [
+  { code: '+91', label: 'India (+91)', length: 10 },
+  { code: '+1', label: 'USA/Canada (+1)', length: 10 },
+  { code: '+44', label: 'UK (+44)', length: 10 },
+  { code: '+971', label: 'UAE (+971)', length: 9 },
+  { code: '+880', label: 'Bangladesh (+880)', length: 10 },
+  { code: '+977', label: 'Nepal (+977)', length: 10 },
+  { code: '+94', label: 'Sri Lanka (+94)', length: 9 }
 ];
 
 const BackIcon = ({ size = 20 }) => (
@@ -46,6 +59,15 @@ const inputStyle = {
 };
 const labelStyle = { color: 'var(--color-garuda-300)' };
 
+const isValidText = (val) => !val || /^[a-zA-Z0-9\s.,/-]*$/.test(val);
+const isValidSectionOfLaw = (val) => !val || /^[a-zA-Z0-9\s()./,-]*$/.test(val);
+const isValidPan = (val) => !val || /^[a-zA-Z0-9]{10}$/.test(val);
+const isValidIfsc = (val) => !val || /^[a-zA-Z0-9]{11}$/.test(val);
+const isValidUpiId = (val) => !val || /^[a-zA-Z0-9@._-]*$/.test(val);
+const isValidNumeric = (val) => !val || /^\d*$/.test(String(val));
+const isValidPhone = (val) => !val || /^\+?[0-9\s-]*$/.test(val);
+const isValidEmail = (val) => !val || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val);
+
 function Field({ label, children }) {
   return (
     <div>
@@ -70,6 +92,7 @@ export default function OffenderForm() {
   const [stations, setStations] = useState([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [sectionErrors, setSectionErrors] = useState({});
   const [snackbar, setSnackbar] = useState(null); // { type: 'success' | 'error', message: '' }
 
   // Photo upload state
@@ -137,7 +160,41 @@ export default function OffenderForm() {
         panCard: d.identityDocs?.panCard || d.panCard || '',
         photoUrl: d.photoUrl||'',
         previousCrimeHistory: d.previousCrimeHistory||false, historySheetStatus: d.historySheetStatus||'',
-        contacts: (d.contacts || []).filter(c => CORE_CONTACT_TYPES.includes(c.contactType || c.contact_type)),
+        contacts: (d.contacts || [])
+          .filter(c => CORE_CONTACT_TYPES.includes(c.contactType || c.contact_type))
+          .map(c => {
+            const isEmail = (c.contactType || c.contact_type) === 'GMAIL';
+            if (isEmail) {
+              return {
+                id: c.id,
+                contactType: c.contactType || c.contact_type,
+                value: c.value || '',
+                notes: c.notes || ''
+              };
+            } else {
+              let val = (c.value || '').trim().replace(/\s+/g, '');
+              let matchedCode = '+91';
+              let digits = val;
+              for (const cc of COUNTRY_CODES) {
+                if (val.startsWith(cc.code)) {
+                  matchedCode = cc.code;
+                  digits = val.substring(cc.code.length);
+                  break;
+                }
+              }
+              if (!val.startsWith('+')) {
+                matchedCode = '+91';
+                digits = val;
+              }
+              return {
+                id: c.id,
+                contactType: c.contactType || c.contact_type,
+                countryCode: matchedCode,
+                phoneDigits: digits,
+                notes: c.notes || ''
+              };
+            }
+          }),
         socialMedia: (() => {
           const loadedSocial = (d.contacts || [])
             .filter(c => SOCIAL_CONTACT_TYPES.includes(c.contactType || c.contact_type))
@@ -535,22 +592,110 @@ export default function OffenderForm() {
   const set = (key, val) => setForm(prev => ({ ...prev, [key]: val }));
 
   const handleSubmit = async (shouldRedirect = true, sectionName = '') => {
-    if (!form.fullName.trim()) { setError('Full name is required'); return; }
-    if (!form.psId) { setError('Police station is required'); return; }
-    
+    setError('');
+    setSectionErrors({});
+
+    const setFormError = (msg) => {
+      if (sectionName) {
+        setSectionErrors(prev => ({ ...prev, [sectionName]: msg }));
+        const sectionIdMap = {
+          'Basic Information': 'section-basic',
+          'Address Details': 'section-address',
+          'Phone & Email Contacts': 'section-contacts',
+          'Social Media & Messaging Profiles': 'section-social',
+          'Drug Profile': 'section-drug',
+          'Financial Details': 'section-financial',
+          'Criminal History': 'section-criminal',
+          'Supply Chain Links': 'section-links'
+        };
+        const targetId = sectionIdMap[sectionName];
+        if (targetId) {
+          document.getElementById(targetId)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      } else {
+        setError(msg);
+      }
+    };
+
+    if (!form.fullName.trim()) { setFormError('Full name is required'); return; }
+    if (!form.psId) { setFormError('Police station is required'); return; }
+
+    // Strict Aadhaar validation
+    const aadhaarVal = (form.aadhaarNo || '').trim();
+    if (aadhaarVal) {
+      const isMasked = aadhaarVal.includes('X') || aadhaarVal.includes('x') || aadhaarVal.includes('*');
+      if (isMasked) {
+        const cleanMasked = aadhaarVal.replace(/[^a-zA-Z0-9*]/g, '');
+        if (cleanMasked.length !== 12) {
+          setFormError('Aadhaar must be exactly 12 digits');
+          return;
+        }
+      } else {
+        if (!/^\d{12}$/.test(aadhaarVal)) {
+          setFormError('Aadhaar must be exactly 12 digits and contain only numbers');
+          return;
+        }
+      }
+    }
+
+    // Input fields text validation
+    if (!isValidText(form.fullName)) { setFormError('Full Name contains invalid special characters'); return; }
+    if (!isValidText(form.alias)) { setFormError('Alias contains invalid special characters'); return; }
+    if (!isValidText(form.fatherHusbandName)) { setFormError("Father/Husband's Name contains invalid special characters"); return; }
+    if (form.age && !isValidNumeric(form.age)) { setFormError('Age must be a valid number'); return; }
+    if (!isValidText(form.occupation)) { setFormError('Occupation contains invalid special characters'); return; }
+    if (form.monthlyIncome && !isValidNumeric(form.monthlyIncome)) { setFormError('Monthly Income must be a valid number'); return; }
+    if (!isValidText(form.landmark)) { setFormError('Landmark contains invalid special characters'); return; }
+    if (!isValidText(form.district)) { setFormError('District contains invalid special characters'); return; }
+    if (!isValidText(form.state)) { setFormError('State contains invalid special characters'); return; }
+    if (!isValidText(form.voterId)) { setFormError('Voter ID contains invalid special characters'); return; }
+    if (form.panCard && !isValidPan(form.panCard)) { setFormError('PAN Card must be exactly 10 alphanumeric characters'); return; }
+    if (!isValidSectionOfLaw(form.sectionOfLaw)) { setFormError('Section of Law contains invalid special characters'); return; }
+
+    // Contacts validation
+    for (const c of (form.contacts || [])) {
+      if (c.contactType === 'GMAIL') {
+        if (c.value?.trim()) {
+          if (!isValidEmail(c.value.trim())) {
+            setFormError('Please enter a valid Gmail/email address');
+            return;
+          }
+        }
+      } else {
+        if (c.phoneDigits?.trim()) {
+          const cleanDigits = c.phoneDigits.replace(/[^0-9]/g, '');
+          const countryConfig = COUNTRY_CODES.find(cc => cc.code === c.countryCode) || { length: 10 };
+          if (cleanDigits.length !== countryConfig.length) {
+            setFormError(`Phone number for ${c.contactType.replace('_', ' ')} must be exactly ${countryConfig.length} digits for ${c.countryCode}`);
+            return;
+          }
+        }
+      }
+    }
+
+    // Social Media validation
+    for (const s of (form.socialMedia || [])) {
+      if (s.value?.trim()) {
+        if (!isValidUpiId(s.value.trim())) {
+          setFormError(`Social media profile for ${s.contactType} contains invalid characters`);
+          return;
+        }
+      }
+    }
+
     // Financial validation:
     const financials = form.financials || [];
     
     for (const f of financials) {
       if (f.finType === 'BANK_ACCOUNT_NO' && f.value?.trim()) {
         if (!f.ifscValue?.trim()) {
-          setError('An IFSC Code is required for the Bank Account Number.');
+          setFormError('An IFSC Code is required for the Bank Account Number.');
           return;
         }
       }
       if (f.finType === 'UPI_ID' && f.value?.trim()) {
         if (!f.upiMobileValue?.trim()) {
-          setError('A UPI Linked Phone Number is required for the UPI ID.');
+          setFormError('A UPI Linked Phone Number is required for the UPI ID.');
           return;
         }
       }
@@ -598,13 +743,20 @@ export default function OffenderForm() {
       }
     });
 
-    setSaving(true); setError('');
+    setSaving(true);
     try {
       const { socialMedia, ...restForm } = form;
       const combinedContacts = [
         ...(form.contacts || [])
-          .filter(c => c.value?.trim())
-          .map(c => ({ contactType: c.contactType, value: c.value.trim(), notes: c.notes || '' })),
+          .filter(c => c.contactType === 'GMAIL' ? c.value?.trim() : c.phoneDigits?.trim())
+          .map(c => {
+            if (c.contactType === 'GMAIL') {
+              return { contactType: c.contactType, value: c.value.trim(), notes: c.notes || '' };
+            } else {
+              const cleanDigits = c.phoneDigits.replace(/[^0-9]/g, '');
+              return { contactType: c.contactType, value: `${c.countryCode}${cleanDigits}`, notes: c.notes || '' };
+            }
+          }),
         ...(form.socialMedia || [])
           .filter(s => s.value?.trim())
           .map(s => ({ contactType: s.contactType, value: s.value.trim(), notes: s.notes || '' }))
@@ -622,8 +774,12 @@ export default function OffenderForm() {
         await api.put(url, body);
         setSnackbar({ type: 'success', message: 'Profile updated successfully!' });
       } else {
-        await api.post('/offenders', body);
+        const res = await api.post('/offenders', body);
+        const newId = res.data?.data?.id;
         setSnackbar({ type: 'success', message: 'Profile created successfully!' });
+        if (newId && !shouldRedirect) {
+          navigate(`/offenders/${newId}/edit`, { replace: true });
+        }
       }
       if (shouldRedirect) {
         setTimeout(() => {
@@ -632,7 +788,7 @@ export default function OffenderForm() {
       }
     } catch (err) {
       const msg = err.response?.data?.message || 'Failed to save';
-      setError(msg);
+      setFormError(msg);
       setSnackbar({ type: 'error', message: msg });
     } finally {
       setSaving(false);
@@ -640,7 +796,7 @@ export default function OffenderForm() {
   };
 
   // Contact helpers
-  const addContact = () => set('contacts', [...form.contacts, { contactType:'MOBILE_PRIMARY', value:'', notes:'' }]);
+  const addContact = () => set('contacts', [...form.contacts, { contactType:'MOBILE_PRIMARY', countryCode:'+91', phoneDigits:'', notes:'' }]);
   const removeContact = (i) => set('contacts', form.contacts.filter((_, j) => j !== i));
   const updateContact = (i, key, val) => {
     const c = [...form.contacts]; c[i] = { ...c[i], [key]: val }; set('contacts', c);
@@ -845,6 +1001,11 @@ export default function OffenderForm() {
         <div className="col-span-12 lg:col-span-9 space-y-6">
           
           {/* Division 1: Basic Information */}
+          {sectionErrors['Basic Information'] && (
+            <div className="px-4 py-3 rounded-lg text-sm mb-3" style={{ background: 'rgba(239,68,68,0.15)', color: 'var(--color-danger-400)', border: '1px solid rgba(239,68,68,0.3)' }}>
+              {sectionErrors['Basic Information']}
+            </div>
+          )}
           <div id="section-basic" className="card rounded-xl p-6" style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}>
           <div className="flex justify-between items-center mb-6 pb-2 border-b" style={{ borderColor: 'var(--color-garuda-700)' }}>
             <h3 className="text-lg font-semibold" style={{ color: 'var(--color-accent-400)' }}>Basic Information</h3>
@@ -982,8 +1143,8 @@ export default function OffenderForm() {
                   </div>
                 ) : (
                   <div className="flex gap-2">
-                    <input maxLength={12} className={`${inp} flex-1`} style={inputStyle} value={form.aadhaarNo} onChange={e => set('aadhaarNo', e.target.value)} readOnly={aadhaarMasked && !aadhaarRevealed} />
-                    {aadhaarMasked && perms.hasMinRole('CI') && (
+                    <input maxLength={12} className={`${inp} flex-1`} style={inputStyle} value={form.aadhaarNo} onChange={e => set('aadhaarNo', e.target.value)} readOnly={isEdit && aadhaarMasked && !aadhaarRevealed} />
+                    {isEdit && aadhaarMasked && perms.hasMinRole('CI') && (
                       <button type="button" onClick={revealAadhaar} className="px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap" style={{ background: 'var(--color-garuda-600)', color: 'var(--color-garuda-100)' }}>
                         Reveal
                       </button>
@@ -998,6 +1159,11 @@ export default function OffenderForm() {
         </div>
 
         {/* Division 2: Address Details */}
+        {sectionErrors['Address Details'] && (
+          <div className="px-4 py-3 rounded-lg text-sm mb-3" style={{ background: 'rgba(239,68,68,0.15)', color: 'var(--color-danger-400)', border: '1px solid rgba(239,68,68,0.3)' }}>
+            {sectionErrors['Address Details']}
+          </div>
+        )}
         <div id="section-address" className="card rounded-xl p-6" style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}>
           <div className="flex justify-between items-center mb-4 pb-2 border-b" style={{ borderColor: 'var(--color-garuda-700)' }}>
             <h3 className="text-lg font-semibold" style={{ color: 'var(--color-accent-400)' }}>Address Details</h3>
@@ -1023,6 +1189,11 @@ export default function OffenderForm() {
         </div>
 
         {/* Division 3: Contacts */}
+        {sectionErrors['Phone & Email Contacts'] && (
+          <div className="px-4 py-3 rounded-lg text-sm mb-3" style={{ background: 'rgba(239,68,68,0.15)', color: 'var(--color-danger-400)', border: '1px solid rgba(239,68,68,0.3)' }}>
+            {sectionErrors['Phone & Email Contacts']}
+          </div>
+        )}
         <div id="section-contacts" className="card rounded-xl p-6" style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}>
           <div className="flex justify-between items-center mb-4 pb-2 border-b" style={{ borderColor: 'var(--color-garuda-700)' }}>
             <h3 className="text-lg font-semibold" style={{ color: 'var(--color-accent-400)' }}>Phone & Email Contacts</h3>
@@ -1043,7 +1214,9 @@ export default function OffenderForm() {
                 <div key={i} className="p-3 rounded-lg border relative" style={{ background: 'var(--color-garuda-900)', borderColor: 'var(--color-garuda-700)' }}>
                   <span className="absolute top-2 right-2 text-[10px] font-bold px-1.5 py-0.5 rounded animate-fade-in" style={{ background: 'var(--color-garuda-700)', color: 'var(--color-garuda-300)' }}>#{i + 1}</span>
                   <span className="block text-xs uppercase tracking-wider font-bold" style={{ color: 'var(--color-garuda-400)' }}>{c.contactType?.replace('_', ' ')}</span>
-                  <span className="block text-sm font-semibold mt-1 animate-fade-in" style={{ color: 'var(--color-garuda-100)' }}>{c.value || '—'}</span>
+                  <span className="block text-sm font-semibold mt-1 animate-fade-in" style={{ color: 'var(--color-garuda-100)' }}>
+                    {c.contactType === 'GMAIL' ? (c.value || '—') : `${c.countryCode || '+91'} ${c.phoneDigits || ''}`}
+                  </span>
                   {c.notes && <span className="block text-[11px] mt-0.5 animate-fade-in" style={{ color: 'var(--color-garuda-300)' }}>Note: {c.notes}</span>}
                 </div>
               ))}
@@ -1051,19 +1224,41 @@ export default function OffenderForm() {
             </div>
           ) : (
             <div className="space-y-4">
-              {form.contacts.map((c, i) => (
-                <div key={i} className="flex flex-col md:flex-row gap-3 items-center p-3 rounded-lg" style={{ background: 'var(--color-garuda-700)' }}>
-                  <div className="flex items-center gap-2.5 w-full md:w-auto">
-                    <span className="flex items-center justify-center text-xs font-bold w-6 h-6 rounded-full" style={{ background: 'var(--color-garuda-800)', color: 'var(--color-garuda-300)' }}>{i + 1}</span>
-                    <select className="px-2 py-2.5 rounded text-xs w-full md:w-auto cursor-pointer" style={inputStyle} value={c.contactType} onChange={e => updateContact(i, 'contactType', e.target.value)}>
-                      {CORE_CONTACT_TYPES.map(t => <option key={t} value={t}>{t.replace('_', ' ')}</option>)}
-                    </select>
+              {form.contacts.map((c, i) => {
+                const isEmail = c.contactType === 'GMAIL';
+                return (
+                  <div key={i} className="flex flex-col md:flex-row gap-3 items-center p-3 rounded-lg" style={{ background: 'var(--color-garuda-700)' }}>
+                    <div className="flex items-center gap-2.5 w-full md:w-auto">
+                      <span className="flex items-center justify-center text-xs font-bold w-6 h-6 rounded-full" style={{ background: 'var(--color-garuda-800)', color: 'var(--color-garuda-300)' }}>{i + 1}</span>
+                      <select className="px-2 py-2.5 rounded text-xs w-full md:w-auto cursor-pointer font-semibold outline-none" style={inputStyle} value={c.contactType} onChange={e => updateContact(i, 'contactType', e.target.value)}>
+                        {CORE_CONTACT_TYPES.map(t => <option key={t} value={t}>{t.replace('_', ' ')}</option>)}
+                      </select>
+                    </div>
+                    {isEmail ? (
+                      <input className="flex-1 px-3 py-2.5 rounded text-sm w-full" style={inputStyle} placeholder="e.g. email@gmail.com" value={c.value || ''} onChange={e => updateContact(i, 'value', e.target.value)} />
+                    ) : (
+                      <div className="flex-1 flex gap-2 w-full">
+                        <select className="px-2 py-2 rounded text-sm cursor-pointer font-semibold outline-none" style={inputStyle} value={c.countryCode || '+91'} onChange={e => updateContact(i, 'countryCode', e.target.value)}>
+                          {COUNTRY_CODES.map(cc => <option key={cc.code} value={cc.code}>{cc.code}</option>)}
+                        </select>
+                        <input 
+                          className="flex-1 px-3 py-2.5 rounded text-sm w-full" 
+                          style={inputStyle} 
+                          placeholder="e.g. 9848012345" 
+                          value={c.phoneDigits || ''} 
+                          onChange={e => {
+                            const val = e.target.value.replace(/[^0-9]/g, '');
+                            updateContact(i, 'phoneDigits', val);
+                          }} 
+                          maxLength={COUNTRY_CODES.find(cc => cc.code === (c.countryCode || '+91'))?.length || 10}
+                        />
+                      </div>
+                    )}
+                    <input className="w-full md:w-40 px-3 py-2.5 rounded text-sm" style={inputStyle} placeholder="Notes" value={c.notes||''} onChange={e => updateContact(i, 'notes', e.target.value)} />
+                    <button type="button" onClick={() => removeContact(i)} className="px-3 py-2.5 rounded-lg text-xs font-bold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] self-end md:self-start w-full md:w-auto">✕ Remove</button>
                   </div>
-                  <input className="flex-1 px-3 py-2.5 rounded text-sm w-full" style={inputStyle} placeholder="e.g. 9848012345 or email@gmail.com" value={c.value} onChange={e => updateContact(i, 'value', e.target.value)} />
-                  <input className="w-full md:w-40 px-3 py-2.5 rounded text-sm" style={inputStyle} placeholder="Notes" value={c.notes||''} onChange={e => updateContact(i, 'notes', e.target.value)} />
-                  <button type="button" onClick={() => removeContact(i)} className="px-3 py-2.5 rounded-lg text-xs font-bold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] self-end md:self-start w-full md:w-auto">✕ Remove</button>
-                </div>
-              ))}
+                );
+              })}
               <button type="button" onClick={addContact} className="px-4 py-2 rounded-lg text-sm font-medium cursor-pointer"
                 style={{ background: 'var(--color-garuda-600)', color: 'var(--color-garuda-200)' }}>+ Add Contact</button>
             </div>
@@ -1071,6 +1266,11 @@ export default function OffenderForm() {
         </div>
 
         {/* Division 3.5: Social Media */}
+        {sectionErrors['Social Media & Messaging Profiles'] && (
+          <div className="px-4 py-3 rounded-lg text-sm mb-3" style={{ background: 'rgba(239,68,68,0.15)', color: 'var(--color-danger-400)', border: '1px solid rgba(239,68,68,0.3)' }}>
+            {sectionErrors['Social Media & Messaging Profiles']}
+          </div>
+        )}
         <div id="section-social" className="card rounded-xl p-6" style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}>
           <div className="flex justify-between items-center mb-4 pb-2 border-b" style={{ borderColor: 'var(--color-garuda-700)' }}>
             <h3 className="text-lg font-semibold" style={{ color: 'var(--color-accent-400)' }}>Social Media & Messaging Profiles</h3>
@@ -1123,6 +1323,11 @@ export default function OffenderForm() {
         </div>
 
         {/* Division 4: Drug Profile */}
+        {sectionErrors['Drug Profile'] && (
+          <div className="px-4 py-3 rounded-lg text-sm mb-3" style={{ background: 'rgba(239,68,68,0.15)', color: 'var(--color-danger-400)', border: '1px solid rgba(239,68,68,0.3)' }}>
+            {sectionErrors['Drug Profile']}
+          </div>
+        )}
         <div id="section-drug" className="card rounded-xl p-6" style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}>
           <div className="flex justify-between items-center mb-4 pb-2 border-b" style={{ borderColor: 'var(--color-garuda-700)' }}>
             <h3 className="text-lg font-semibold" style={{ color: 'var(--color-accent-400)' }}>Drug Profile Details</h3>
@@ -1138,10 +1343,30 @@ export default function OffenderForm() {
             )}
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {renderField("Addiction Type", form.addictionType, <input className={inp} style={inputStyle} value={form.addictionType} onChange={e => set('addictionType', e.target.value)} placeholder="e.g. Ganja, Brown Sugar" />)}
-            {renderField("Consumption Frequency", form.consumptionFrequency, <input className={inp} style={inputStyle} value={form.consumptionFrequency} onChange={e => set('consumptionFrequency', e.target.value)} placeholder="e.g. Daily, Weekly" />)}
-            {renderField("Source of Procurement", form.sourceOfProcurement, <input className={inp} style={inputStyle} value={form.sourceOfProcurement} onChange={e => set('sourceOfProcurement', e.target.value)} />)}
-            {renderField("Test Result", form.testResult, <input className={inp} style={inputStyle} value={form.testResult} onChange={e => set('testResult', e.target.value)} placeholder="e.g. Positive, Negative" />)}
+            {renderField("Addiction Type", form.addictionType?.replace(/_/g, ' '),
+              <select className={sel} style={inputStyle} value={form.addictionType} onChange={e => set('addictionType', e.target.value)}>
+                <option value="">Select</option>
+                {ADDICTION_TYPES.map(t => <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>)}
+              </select>
+            )}
+            {renderField("Consumption Frequency", form.consumptionFrequency,
+              <select className={sel} style={inputStyle} value={form.consumptionFrequency} onChange={e => set('consumptionFrequency', e.target.value)}>
+                <option value="">Select</option>
+                {CONSUMPTION_FREQS.map(f => <option key={f} value={f}>{f}</option>)}
+              </select>
+            )}
+            {renderField("Source of Procurement", form.sourceOfProcurement?.replace(/_/g, ' '),
+              <select className={sel} style={inputStyle} value={form.sourceOfProcurement} onChange={e => set('sourceOfProcurement', e.target.value)}>
+                <option value="">Select</option>
+                {PROCUREMENT_SOURCES.map(s => <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>)}
+              </select>
+            )}
+            {renderField("Test Result", form.testResult, 
+              <select className={sel} style={inputStyle} value={form.testResult} onChange={e => set('testResult', e.target.value)}>
+                <option value="">Select</option>
+                {TEST_RESULTS.map(r => <option key={r} value={r}>{r}</option>)}
+              </select>
+            )}
             {renderField("Mode of Purchase", form.modeOfPurchase, 
               <select className={sel} style={inputStyle} value={form.modeOfPurchase} onChange={e => set('modeOfPurchase', e.target.value)}>
                 <option value="">Select</option>{PURCHASE_MODES.map(m => <option key={m} value={m}>{m}</option>)}
@@ -1153,6 +1378,11 @@ export default function OffenderForm() {
         </div>
 
         {/* Division 5: Financials */}
+        {sectionErrors['Financial Details'] && (
+          <div className="px-4 py-3 rounded-lg text-sm mb-3" style={{ background: 'rgba(239,68,68,0.15)', color: 'var(--color-danger-400)', border: '1px solid rgba(239,68,68,0.3)' }}>
+            {sectionErrors['Financial Details']}
+          </div>
+        )}
         <div id="section-financial" className="card rounded-xl p-6" style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}>
           <div className="flex justify-between items-center mb-4 pb-2 border-b" style={{ borderColor: 'var(--color-garuda-700)' }}>
             <h3 className="text-lg font-semibold" style={{ color: 'var(--color-accent-400)' }}>Financial Details</h3>
@@ -1213,7 +1443,14 @@ export default function OffenderForm() {
 
                     {fin.finType === 'UPI_ID' && (
                       <Field label="UPI Linked Phone Number *">
-                        <input className={inp} style={inputStyle} placeholder="e.g. 9848012345" value={fin.upiMobileValue || ''} onChange={e => updateFinancial(i, 'upiMobileValue', e.target.value)} />
+                        <input 
+                          className={inp} 
+                          style={inputStyle} 
+                          placeholder="e.g. 9848012345" 
+                          value={fin.upiMobileValue || ''} 
+                          onChange={e => updateFinancial(i, 'upiMobileValue', e.target.value.replace(/[^0-9]/g, ''))} 
+                          maxLength={10}
+                        />
                       </Field>
                     )}
 
@@ -1234,6 +1471,11 @@ export default function OffenderForm() {
         </div>
 
         {/* Division 6: Criminal History */}
+        {sectionErrors['Criminal History'] && (
+          <div className="px-4 py-3 rounded-lg text-sm mb-3" style={{ background: 'rgba(239,68,68,0.15)', color: 'var(--color-danger-400)', border: '1px solid rgba(239,68,68,0.3)' }}>
+            {sectionErrors['Criminal History']}
+          </div>
+        )}
         <div id="section-criminal" className="card rounded-xl p-6" style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}>
           <div className="flex justify-between items-center mb-4 pb-2 border-b" style={{ borderColor: 'var(--color-garuda-700)' }}>
             <h3 className="text-lg font-semibold" style={{ color: 'var(--color-accent-400)' }}>Criminal History</h3>
@@ -1311,6 +1553,11 @@ export default function OffenderForm() {
         </div>
 
         {/* Division 7: Supply Chain Links */}
+        {sectionErrors['Supply Chain Links'] && (
+          <div className="px-4 py-3 rounded-lg text-sm mb-3" style={{ background: 'rgba(239,68,68,0.15)', color: 'var(--color-danger-400)', border: '1px solid rgba(239,68,68,0.3)' }}>
+            {sectionErrors['Supply Chain Links']}
+          </div>
+        )}
         <div id="section-links" className="card rounded-xl p-6" style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}>
           <div className="flex justify-between items-center mb-4 pb-2 border-b" style={{ borderColor: 'var(--color-garuda-700)' }}>
             <h3 className="text-lg font-semibold" style={{ color: 'var(--color-accent-400)' }}>Supply Chain Links</h3>
@@ -1345,7 +1592,14 @@ export default function OffenderForm() {
                     {LINK_TYPES.map(t => <option key={t} value={t}>{t.replace('_', ' ')}</option>)}
                   </select>
                   <input className="px-3 py-2.5 rounded text-sm w-full" style={inputStyle} placeholder="Name" value={lk.linkedName||''} onChange={e => updateLink(i, 'linkedName', e.target.value)} />
-                  <input className="px-3 py-2.5 rounded text-sm w-full" style={inputStyle} placeholder="Contact" value={lk.linkedContact||''} onChange={e => updateLink(i, 'linkedContact', e.target.value)} />
+                  <input 
+                    className="px-3 py-2.5 rounded text-sm w-full" 
+                    style={inputStyle} 
+                    placeholder="Contact" 
+                    value={lk.linkedContact||''} 
+                    onChange={e => updateLink(i, 'linkedContact', e.target.value.replace(/[^0-9]/g, ''))} 
+                    maxLength={10}
+                  />
                   <input className="px-3 py-2.5 rounded text-sm w-full" style={inputStyle} placeholder="Notes" value={lk.notes||''} onChange={e => updateLink(i, 'notes', e.target.value)} />
                   <button type="button" onClick={() => removeLink(i)} className="px-3 py-2.5 rounded-lg text-xs font-bold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-1 sm:col-span-2 md:col-span-1">✕ Remove</button>
                 </div>

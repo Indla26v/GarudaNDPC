@@ -7,6 +7,34 @@ import { paramId } from '../utils/params';
 import { maskAadhaar, canRevealAadhaar } from '../utils/pii';
 import { broadcastEvent } from './sse.controller';
 
+const isValidText = (val: any): boolean => !val || /^[a-zA-Z0-9\s.,/-]*$/.test(String(val));
+const isValidSectionOfLaw = (val: any): boolean => !val || /^[a-zA-Z0-9\s()./,-]*$/.test(String(val));
+const isValidPan = (val: any): boolean => !val || /^[a-zA-Z0-9]{10}$/.test(String(val));
+const isValidIfsc = (val: any): boolean => !val || /^[a-zA-Z0-9]{11}$/.test(String(val));
+const isValidUpiId = (val: any): boolean => !val || /^[a-zA-Z0-9@._-]*$/.test(String(val));
+const isValidNumeric = (val: any): boolean => {
+  if (val === undefined || val === null || val === '') return true;
+  return /^\d*$/.test(String(val));
+};
+const isValidPhone = (val: any): boolean => !val || /^\+?[0-9\s-]*$/.test(String(val));
+const isValidEmail = (val: any): boolean => !val || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(val));
+const validateAadhaar = (val: any): string | null => {
+  if (!val) return null;
+  const s = String(val).trim();
+  const isMasked = s.includes('X') || s.includes('x') || s.includes('*');
+  if (isMasked) {
+    const cleanMasked = s.replace(/[^a-zA-Z0-9*]/g, '');
+    if (cleanMasked.length !== 12) {
+      return 'Aadhaar must be exactly 12 digits';
+    }
+  } else {
+    if (!/^\d{12}$/.test(s)) {
+      return 'Aadhaar must be exactly 12 digits and contain only numbers';
+    }
+  }
+  return null;
+};
+
 const STATE_CODES: Record<string, string> = {
   'andhra pradesh': 'AP',
   'ap': 'AP',
@@ -218,6 +246,114 @@ export const createOffender = async (req: Request, res: Response) => {
   try {
     const data = req.body;
 
+    const aadhaarNo = (data.aadhaarNo ?? data.identityDocs?.aadhaarNo ?? '') || null;
+    const aadhaarErr = validateAadhaar(aadhaarNo);
+    if (aadhaarErr) {
+      return res.status(400).json({ message: aadhaarErr });
+    }
+
+    if (!isValidText(data.fullName || data.full_name)) return res.status(400).json({ message: 'Full Name contains invalid special characters' });
+    if (!isValidText(data.alias)) return res.status(400).json({ message: 'Alias contains invalid special characters' });
+    if (!isValidText(data.fatherHusbandName || data.father_husband_name)) return res.status(400).json({ message: "Father/Husband's Name contains invalid special characters" });
+    if (data.age && !isValidNumeric(data.age)) return res.status(400).json({ message: 'Age must be a valid number' });
+    if (!isValidText(data.occupation)) return res.status(400).json({ message: 'Occupation contains invalid special characters' });
+    if (data.monthlyIncome && !isValidNumeric(data.monthlyIncome)) return res.status(400).json({ message: 'Monthly Income must be a valid number' });
+    if (!isValidText(data.landmark || data.landmarkArea || data.landmark_area)) return res.status(400).json({ message: 'Landmark contains invalid special characters' });
+    if (!isValidText(data.district)) return res.status(400).json({ message: 'District contains invalid special characters' });
+    if (!isValidText(data.state)) return res.status(400).json({ message: 'State contains invalid special characters' });
+    if (!isValidText(data.voterId || (data.identityDocs && data.identityDocs.voterId))) return res.status(400).json({ message: 'Voter ID contains invalid special characters' });
+    
+    const pan = data.panCard ?? data.identityDocs?.panCard;
+    if (pan && !isValidPan(pan)) return res.status(400).json({ message: 'PAN Card must be exactly 10 alphanumeric characters' });
+    
+    const secLaw = data.sectionOfLaw ?? data.drugProfile?.sectionOfLaw;
+    if (secLaw && !isValidSectionOfLaw(secLaw)) return res.status(400).json({ message: 'Section of Law contains invalid characters' });
+
+    // Validate contacts
+    if (data.contacts && Array.isArray(data.contacts)) {
+      for (const c of data.contacts) {
+        if (c.value) {
+          const type = c.contactType || c.contact_type;
+          if (type === 'GMAIL') {
+            if (!isValidEmail(c.value)) return res.status(400).json({ message: 'Invalid email address' });
+          } else if (['MOBILE_PRIMARY', 'MOBILE_SECONDARY', 'MOBILE_SIBLING'].includes(type)) {
+            if (!isValidPhone(c.value)) return res.status(400).json({ message: 'Phone number must contain only numbers' });
+            const valStr = String(c.value).trim().replace(/\s+/g, '');
+            const backendCountryCodes = [
+              { code: '+91', length: 10 },
+              { code: '+1', length: 10 },
+              { code: '+44', length: 10 },
+              { code: '+971', length: 9 },
+              { code: '+880', length: 10 },
+              { code: '+977', length: 10 },
+              { code: '+94', length: 9 }
+            ];
+            let matched = false;
+            for (const cc of backendCountryCodes) {
+              if (valStr.startsWith(cc.code)) {
+                matched = true;
+                const digits = valStr.substring(cc.code.length);
+                if (digits.length !== cc.length) {
+                  return res.status(400).json({ message: `Phone number for ${type.replace('_', ' ')} must be exactly ${cc.length} digits for ${cc.code}` });
+                }
+                break;
+              }
+            }
+            if (!matched) {
+              if (valStr.startsWith('+')) {
+                if (valStr.replace(/[^0-9]/g, '').length < 7) {
+                  return res.status(400).json({ message: 'Invalid phone number length' });
+                }
+              } else {
+                if (valStr.length !== 10) {
+                  return res.status(400).json({ message: 'Phone number must be exactly 10 digits for India (+91)' });
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Validate financials
+    if (data.financials && Array.isArray(data.financials)) {
+      for (const f of data.financials) {
+        const type = f.finType || f.fin_type;
+        if (f.value) {
+          if (type === 'BANK_ACCOUNT_NO') {
+            if (!isValidNumeric(f.value)) return res.status(400).json({ message: 'Bank Account Number must contain only numbers' });
+          } else if (type === 'UPI_ID') {
+            if (!isValidUpiId(f.value)) return res.status(400).json({ message: 'UPI ID contains invalid characters' });
+          } else if (type === 'IFSC_CODE') {
+            if (!isValidIfsc(f.value)) return res.status(400).json({ message: 'IFSC Code must be exactly 11 alphanumeric characters' });
+          } else if (type === 'UPI_LINKED_MOBILE') {
+            if (!isValidPhone(f.value)) return res.status(400).json({ message: 'UPI Linked Phone Number must contain only numbers' });
+          }
+        }
+        if (f.bankName && !isValidText(f.bankName)) return res.status(400).json({ message: 'Bank Name contains invalid special characters' });
+      }
+    }
+
+    // Validate criminal histories
+    if (data.criminalHistories && Array.isArray(data.criminalHistories)) {
+      for (const ch of data.criminalHistories) {
+        if (ch.previousCrNo && !isValidText(ch.previousCrNo)) return res.status(400).json({ message: 'Previous CR No contains invalid characters' });
+        if (ch.previousPs && !isValidText(ch.previousPs)) return res.status(400).json({ message: 'Previous PS contains invalid characters' });
+        if (ch.sectionsOfLaw && !isValidSectionOfLaw(ch.sectionsOfLaw)) return res.status(400).json({ message: 'Criminal History Section of Law contains invalid characters' });
+        if (ch.caseStage && !isValidText(ch.caseStage)) return res.status(400).json({ message: 'Case Stage contains invalid characters' });
+      }
+    }
+
+    // Validate supply chain links
+    if (data.supplyChainLinks && Array.isArray(data.supplyChainLinks)) {
+      for (const l of data.supplyChainLinks) {
+        const name = l.linkedName || l.linkedPersonName || l.linked_person_name;
+        const contact = l.linkedContact || l.linkedPersonContact || l.linked_person_contact;
+        if (name && !isValidText(name)) return res.status(400).json({ message: 'Linked person name contains invalid characters' });
+        if (contact && !isValidPhone(contact)) return res.status(400).json({ message: 'Linked person contact must contain only numbers' });
+      }
+    }
+
     if (data.financials && Array.isArray(data.financials)) {
       const hasBankAccount = data.financials.some((f: any) => (f.finType === 'BANK_ACCOUNT_NO' || f.fin_type === 'BANK_ACCOUNT_NO') && f.value?.trim());
       const hasIfsc = data.financials.some((f: any) => (f.finType === 'IFSC_CODE' || f.fin_type === 'IFSC_CODE') && f.value?.trim());
@@ -246,9 +382,8 @@ export const createOffender = async (req: Request, res: Response) => {
       notes: c.notes
     })) : [];
 
-    const aadhaarNo = data.aadhaarNo ?? data.identityDocs?.aadhaarNo ?? null;
-    const voterId = data.voterId ?? data.identityDocs?.voterId ?? null;
-    const panCard = data.panCard ?? data.identityDocs?.panCard ?? null;
+    const voterId = (data.voterId ?? data.identityDocs?.voterId ?? '') || null;
+    const panCard = (data.panCard ?? data.identityDocs?.panCard ?? '') || null;
 
     const identityDocsCreate = (aadhaarNo || voterId || panCard) ? {
       aadhaar_no: aadhaarNo,
@@ -256,25 +391,30 @@ export const createOffender = async (req: Request, res: Response) => {
       pan_card: panCard
     } : undefined;
 
-    const financialsCreate = data.financials ? data.financials.map((f: any) => ({
-      fin_type: f.finType || f.fin_type,
-      value: f.value,
-      bank_name: f.bankName || f.bank_name,
-      notes: f.notes
-    })) : [];
+    const financialsCreate = data.financials
+      ? data.financials
+          .filter((f: any) => (f.value ?? '').trim() !== '')
+          .map((f: any) => ({
+            fin_type: f.finType || f.fin_type,
+            value: f.value,
+            bank_name: (f.bankName || f.bank_name) || null,
+            notes: f.notes || null
+          }))
+      : [];
 
-    const addictionType = data.addictionType ?? data.drugProfile?.addictionType ?? null;
-    const consumptionFrequency = data.consumptionFrequency ?? data.drugProfile?.consumptionFrequency ?? null;
-    const sourceOfProcurement = data.sourceOfProcurement ?? data.drugProfile?.sourceOfProcurement ?? null;
-    const modeOfPurchase = data.modeOfPurchase ?? data.drugProfile?.modeOfPurchase ?? null;
-    const usualConsumptionSpot = data.usualConsumptionSpot ?? data.drugProfile?.usualConsumptionSpot ?? null;
-    const sectionOfLaw = data.sectionOfLaw ?? data.drugProfile?.sectionOfLaw ?? null;
+    const toEnum = (v: any): string | null => (v && typeof v === 'string' && v.trim()) ? v.trim().toUpperCase() : null;
+    const addictionType = toEnum(data.addictionType ?? data.drugProfile?.addictionType);
+    const consumptionFrequency = toEnum(data.consumptionFrequency ?? data.drugProfile?.consumptionFrequency);
+    const sourceOfProcurement = toEnum(data.sourceOfProcurement ?? data.drugProfile?.sourceOfProcurement);
+    const modeOfPurchase = toEnum(data.modeOfPurchase ?? data.drugProfile?.modeOfPurchase);
+    const usualConsumptionSpot = (data.usualConsumptionSpot ?? data.drugProfile?.usualConsumptionSpot) || null;
+    const sectionOfLaw = (data.sectionOfLaw ?? data.drugProfile?.sectionOfLaw) || null;
  
     const drugProfileCreate = (addictionType || consumptionFrequency || sourceOfProcurement || modeOfPurchase || usualConsumptionSpot || sectionOfLaw) ? {
-      addiction_type: addictionType,
-      consumption_frequency: consumptionFrequency,
-      source_of_procurement: sourceOfProcurement,
-      mode_of_purchase: modeOfPurchase,
+      addiction_type: addictionType as any,
+      consumption_frequency: consumptionFrequency as any,
+      source_of_procurement: sourceOfProcurement as any,
+      mode_of_purchase: modeOfPurchase as any,
       usual_consumption_spot: usualConsumptionSpot,
       section_of_law: sectionOfLaw
     } : undefined;
@@ -316,7 +456,7 @@ export const createOffender = async (req: Request, res: Response) => {
       age: data.age,
       gender: data.gender,
       category: data.category,
-      test_result: data.testResult || data.test_result,
+      test_result: (data.testResult || data.test_result)?.toUpperCase?.() || null,
       full_address: data.fullAddress || data.full_address || null,
       landmark_area: data.landmarkArea || data.landmark_area || null,
       district: data.district,
@@ -385,6 +525,114 @@ export const updateOffender = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const data = req.body;
+
+    const aadhaarNo = (data.aadhaarNo ?? data.identityDocs?.aadhaarNo ?? '') || null;
+    const aadhaarErr = validateAadhaar(aadhaarNo);
+    if (aadhaarErr) {
+      return res.status(400).json({ message: aadhaarErr });
+    }
+
+    if (data.fullName !== undefined && !isValidText(data.fullName)) return res.status(400).json({ message: 'Full Name contains invalid special characters' });
+    if (data.alias !== undefined && !isValidText(data.alias)) return res.status(400).json({ message: 'Alias contains invalid special characters' });
+    if (data.fatherHusbandName !== undefined && !isValidText(data.fatherHusbandName)) return res.status(400).json({ message: "Father/Husband's Name contains invalid special characters" });
+    if (data.age !== undefined && data.age !== null && !isValidNumeric(data.age)) return res.status(400).json({ message: 'Age must be a valid number' });
+    if (data.occupation !== undefined && !isValidText(data.occupation)) return res.status(400).json({ message: 'Occupation contains invalid special characters' });
+    if (data.monthlyIncome !== undefined && data.monthlyIncome !== null && !isValidNumeric(data.monthlyIncome)) return res.status(400).json({ message: 'Monthly Income must be a valid number' });
+    if (data.landmarkArea !== undefined && !isValidText(data.landmarkArea)) return res.status(400).json({ message: 'Landmark contains invalid special characters' });
+    if (data.district !== undefined && !isValidText(data.district)) return res.status(400).json({ message: 'District contains invalid special characters' });
+    if (data.state !== undefined && !isValidText(data.state)) return res.status(400).json({ message: 'State contains invalid special characters' });
+    if (data.voterId !== undefined && !isValidText(data.voterId)) return res.status(400).json({ message: 'Voter ID contains invalid special characters' });
+    
+    const pan = data.panCard ?? data.identityDocs?.panCard;
+    if (pan && !isValidPan(pan)) return res.status(400).json({ message: 'PAN Card must be exactly 10 alphanumeric characters' });
+    
+    const secLaw = data.sectionOfLaw ?? data.drugProfile?.sectionOfLaw;
+    if (secLaw && !isValidSectionOfLaw(secLaw)) return res.status(400).json({ message: 'Section of Law contains invalid characters' });
+
+    // Validate contacts
+    if (data.contacts && Array.isArray(data.contacts)) {
+      for (const c of data.contacts) {
+        if (c.value) {
+          const type = c.contactType || c.contact_type;
+          if (type === 'GMAIL') {
+            if (!isValidEmail(c.value)) return res.status(400).json({ message: 'Invalid email address' });
+          } else if (['MOBILE_PRIMARY', 'MOBILE_SECONDARY', 'MOBILE_SIBLING'].includes(type)) {
+            if (!isValidPhone(c.value)) return res.status(400).json({ message: 'Phone number must contain only numbers' });
+            const valStr = String(c.value).trim().replace(/\s+/g, '');
+            const backendCountryCodes = [
+              { code: '+91', length: 10 },
+              { code: '+1', length: 10 },
+              { code: '+44', length: 10 },
+              { code: '+971', length: 9 },
+              { code: '+880', length: 10 },
+              { code: '+977', length: 10 },
+              { code: '+94', length: 9 }
+            ];
+            let matched = false;
+            for (const cc of backendCountryCodes) {
+              if (valStr.startsWith(cc.code)) {
+                matched = true;
+                const digits = valStr.substring(cc.code.length);
+                if (digits.length !== cc.length) {
+                  return res.status(400).json({ message: `Phone number for ${type.replace('_', ' ')} must be exactly ${cc.length} digits for ${cc.code}` });
+                }
+                break;
+              }
+            }
+            if (!matched) {
+              if (valStr.startsWith('+')) {
+                if (valStr.replace(/[^0-9]/g, '').length < 7) {
+                  return res.status(400).json({ message: 'Invalid phone number length' });
+                }
+              } else {
+                if (valStr.length !== 10) {
+                  return res.status(400).json({ message: 'Phone number must be exactly 10 digits for India (+91)' });
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Validate financials
+    if (data.financials && Array.isArray(data.financials)) {
+      for (const f of data.financials) {
+        const type = f.finType || f.fin_type;
+        if (f.value) {
+          if (type === 'BANK_ACCOUNT_NO') {
+            if (!isValidNumeric(f.value)) return res.status(400).json({ message: 'Bank Account Number must contain only numbers' });
+          } else if (type === 'UPI_ID') {
+            if (!isValidUpiId(f.value)) return res.status(400).json({ message: 'UPI ID contains invalid characters' });
+          } else if (type === 'IFSC_CODE') {
+            if (!isValidIfsc(f.value)) return res.status(400).json({ message: 'IFSC Code must be exactly 11 alphanumeric characters' });
+          } else if (type === 'UPI_LINKED_MOBILE') {
+            if (!isValidPhone(f.value)) return res.status(400).json({ message: 'UPI Linked Phone Number must contain only numbers' });
+          }
+        }
+        if (f.bankName && !isValidText(f.bankName)) return res.status(400).json({ message: 'Bank Name contains invalid special characters' });
+      }
+    }
+
+    // Validate criminal histories
+    if (data.criminalHistories && Array.isArray(data.criminalHistories)) {
+      for (const ch of data.criminalHistories) {
+        if (ch.previousCrNo && !isValidText(ch.previousCrNo)) return res.status(400).json({ message: 'Previous CR No contains invalid characters' });
+        if (ch.previousPs && !isValidText(ch.previousPs)) return res.status(400).json({ message: 'Previous PS contains invalid characters' });
+        if (ch.sectionsOfLaw && !isValidSectionOfLaw(ch.sectionsOfLaw)) return res.status(400).json({ message: 'Criminal History Section of Law contains invalid characters' });
+        if (ch.caseStage && !isValidText(ch.caseStage)) return res.status(400).json({ message: 'Case Stage contains invalid characters' });
+      }
+    }
+
+    // Validate supply chain links
+    if (data.supplyChainLinks && Array.isArray(data.supplyChainLinks)) {
+      for (const l of data.supplyChainLinks) {
+        const name = l.linkedName || l.linkedPersonName || l.linked_person_name;
+        const contact = l.linkedContact || l.linkedPersonContact || l.linked_person_contact;
+        if (name && !isValidText(name)) return res.status(400).json({ message: 'Linked person name contains invalid characters' });
+        if (contact && !isValidPhone(contact)) return res.status(400).json({ message: 'Linked person contact must contain only numbers' });
+      }
+    }
 
     if (data.financials && Array.isArray(data.financials)) {
       const hasBankAccount = data.financials.some((f: any) => (f.finType === 'BANK_ACCOUNT_NO' || f.fin_type === 'BANK_ACCOUNT_NO') && f.value?.trim());
@@ -471,12 +719,12 @@ export const updateOffender = async (req: Request, res: Response) => {
            }))
          });
        }
-       let aadhaarNo = data.aadhaarNo ?? data.identityDocs?.aadhaarNo ?? null;
+       let aadhaarNo = (data.aadhaarNo ?? data.identityDocs?.aadhaarNo ?? '') || null;
        if (aadhaarNo && (aadhaarNo.includes('X') || aadhaarNo.includes('x') || aadhaarNo.includes('*'))) {
          aadhaarNo = existingDocs?.aadhaar_no ?? null;
        }
-       const voterId = data.voterId ?? data.identityDocs?.voterId ?? null;
-       const panCard = data.panCard ?? data.identityDocs?.panCard ?? null;
+       const voterId = (data.voterId ?? data.identityDocs?.voterId ?? '') || null;
+       const panCard = (data.panCard ?? data.identityDocs?.panCard ?? '') || null;
 
        if (aadhaarNo || voterId || panCard) {
          await tx.offender_identity_docs.create({
@@ -489,31 +737,35 @@ export const updateOffender = async (req: Request, res: Response) => {
          });
        }
        if (data.financials) {
-         await tx.offender_financials.createMany({
-           data: data.financials.map((f: any) => ({
-            offender_id: BigInt(id as string),
-            fin_type: f.finType || f.fin_type,
-            value: f.value,
-            bank_name: f.bankName || f.bank_name,
-            notes: f.notes
-           }))
-         });
+         const filteredFin = data.financials.filter((f: any) => (f.value ?? '').trim() !== '');
+         if (filteredFin.length > 0) {
+           await tx.offender_financials.createMany({
+             data: filteredFin.map((f: any) => ({
+              offender_id: BigInt(id as string),
+              fin_type: f.finType || f.fin_type,
+              value: f.value,
+              bank_name: (f.bankName || f.bank_name) || null,
+              notes: f.notes || null
+             }))
+           });
+         }
        }
-       const addictionType = data.addictionType ?? data.drugProfile?.addictionType ?? null;
-       const consumptionFrequency = data.consumptionFrequency ?? data.drugProfile?.consumptionFrequency ?? null;
-       const sourceOfProcurement = data.sourceOfProcurement ?? data.drugProfile?.sourceOfProcurement ?? null;
-       const modeOfPurchase = data.modeOfPurchase ?? data.drugProfile?.modeOfPurchase ?? null;
-       const usualConsumptionSpot = data.usualConsumptionSpot ?? data.drugProfile?.usualConsumptionSpot ?? null;
-       const sectionOfLaw = data.sectionOfLaw ?? data.drugProfile?.sectionOfLaw ?? null;
+       const toEnumU = (v: any): string | null => (v && typeof v === 'string' && v.trim()) ? v.trim().toUpperCase() : null;
+       const addictionType = toEnumU(data.addictionType ?? data.drugProfile?.addictionType);
+       const consumptionFrequency = toEnumU(data.consumptionFrequency ?? data.drugProfile?.consumptionFrequency);
+       const sourceOfProcurement = toEnumU(data.sourceOfProcurement ?? data.drugProfile?.sourceOfProcurement);
+       const modeOfPurchase = toEnumU(data.modeOfPurchase ?? data.drugProfile?.modeOfPurchase);
+       const usualConsumptionSpot = (data.usualConsumptionSpot ?? data.drugProfile?.usualConsumptionSpot) || null;
+       const sectionOfLaw = (data.sectionOfLaw ?? data.drugProfile?.sectionOfLaw) || null;
 
        if (addictionType || consumptionFrequency || sourceOfProcurement || modeOfPurchase || usualConsumptionSpot || sectionOfLaw) {
          await tx.offender_drug_profile.create({
            data: {
              offender_id: BigInt(id as string),
-             addiction_type: addictionType,
-             consumption_frequency: consumptionFrequency,
-             source_of_procurement: sourceOfProcurement,
-             mode_of_purchase: modeOfPurchase,
+             addiction_type: addictionType as any,
+             consumption_frequency: consumptionFrequency as any,
+             source_of_procurement: sourceOfProcurement as any,
+             mode_of_purchase: modeOfPurchase as any,
              usual_consumption_spot: usualConsumptionSpot,
              section_of_law: sectionOfLaw
            }

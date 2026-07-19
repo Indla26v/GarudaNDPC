@@ -6,6 +6,7 @@ import {
   updateUser,
   deactivateUser,
   getAuditLogs,
+  deleteOffenderDirect,
 } from '../controllers/admin.controller';
 import {
   getTeams,
@@ -30,6 +31,7 @@ router.get('/users/:id', requirePermission('USER_MANAGEMENT'), getUserById);
 router.post('/users', requirePermission('USER_MANAGEMENT'), createUser);
 router.put('/users/:id', requirePermission('USER_MANAGEMENT'), updateUser);
 router.delete('/users/:id', requirePermission('USER_MANAGEMENT'), deactivateUser);
+router.delete('/offenders/:id', requirePermission('USER_MANAGEMENT'), deleteOffenderDirect);
 
 // Audit Logs — ADMIN only
 router.get('/audit-logs', requirePermission('AUDIT_LOGS'), getAuditLogs);

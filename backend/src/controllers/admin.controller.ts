@@ -280,3 +280,73 @@ export const getAuditLogs = async (req: Request, res: Response) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+
+// ── Direct Delete Offender (SP/Admin only) ───────────────────────────
+export const deleteOffenderDirect = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    if (!id) {
+      return res.status(400).json({ message: 'Offender ID is required' });
+    }
+    const offenderId = BigInt(id as string);
+    
+    // First verify it exists
+    const offender = await prisma.offenders.findUnique({
+      where: { id: offenderId }
+    });
+    if (!offender) {
+      return res.status(404).json({ message: 'Offender not found' });
+    }
+
+    await prisma.$transaction(async (tx) => {
+      // Direct delete associated records where onDelete: NoAction in schema.prisma:
+      await tx.case_accused.deleteMany({ where: { offender_id: offenderId } });
+      await tx.intelligence_inputs.deleteMany({ where: { offender_id: offenderId } });
+      await tx.supply_chain_links.deleteMany({
+        where: {
+          OR: [
+            { offender_id: offenderId },
+            { linked_offender_id: offenderId }
+          ]
+        }
+      });
+      await tx.enforcement_checks.updateMany({
+        where: { matched_offender_id: offenderId },
+        data: { matched_offender_id: null }
+      });
+      await tx.enforcement_checks.updateMany({
+        where: { committed_offender_id: offenderId },
+        data: { committed_offender_id: null }
+      });
+      await tx.transaction_records.updateMany({
+        where: { matched_offender_id: offenderId },
+        data: { matched_offender_id: null }
+      });
+
+      // Purge all related detail records
+      await tx.offender_contacts.deleteMany({ where: { offender_id: offenderId } });
+      await tx.offender_drug_profile.deleteMany({ where: { offender_id: offenderId } });
+      await tx.offender_financials.deleteMany({ where: { offender_id: offenderId } });
+      await tx.offender_identity_docs.deleteMany({ where: { offender_id: offenderId } });
+      await tx.imei_records.deleteMany({ where: { offender_id: offenderId } });
+      await tx.surveillance_records.deleteMany({ where: { offender_id: offenderId } });
+      await tx.interrogation_sessions.deleteMany({ where: { offender_id: offenderId } });
+      await tx.finance_upload_batches.deleteMany({ where: { offender_id: offenderId } });
+      await tx.transaction_records.deleteMany({ where: { offender_id: offenderId } });
+      await tx.social_media_intel.deleteMany({ where: { offender_id: offenderId } });
+      await tx.messaging_intel.deleteMany({ where: { offender_id: offenderId } });
+      
+      await tx.offenders.delete({
+        where: { id: offenderId }
+      });
+    });
+
+    await logAudit('DELETE', 'OFFENDER', offenderId, req, `Direct deletion of offender profile ID: ${id}, Name: ${offender.full_name}`);
+
+    res.json(successResponse(null, 'Offender profile deleted successfully'));
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error during direct offender deletion' });
+  }
+};
+
