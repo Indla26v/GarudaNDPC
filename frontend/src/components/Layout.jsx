@@ -78,16 +78,6 @@ function useNavItems() {
         },
       ],
     },
-    {
-      title: 'Workflows',
-      items: [
-        { path: '/deletion-requests', label: 'Deletions', icon: IconTrash, show: true },
-        {
-          path: '/edit-requests', label: 'Edit Requests', icon: IconEdit,
-          show: perms.canApproveEdit || perms.canRequestEdit
-        },
-      ],
-    },
   ];
 
   // SP (system admin) also sees Administration section

@@ -1003,7 +1003,7 @@ export const confirmDprImport = async (req: Request, res: Response) => {
       // Saves directly to separate south_india_databank database/table and NOT standard cases/offenders!
       if (importType === 'AP_LO') {
         try {
-          await prisma.south_india_databank.create({
+          await (prisma as any).south_india_databank.create({
             data: {
               crNo: row.crNo,
               secOfLaw: row.secOfLaw || null,
