@@ -541,3 +541,40 @@ export const updateOffender = async (req: Request, res: Response) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+
+export const getDatabankRecords = async (req: Request, res: Response) => {
+  try {
+    const records = await (prisma as any).south_india_databank.findMany({
+      orderBy: { created_at: 'desc' }
+    });
+    
+    const serializedRecords = records.map((r: any) => ({
+      id: Number(r.id),
+      crNo: r.crNo,
+      secOfLaw: r.secOfLaw,
+      policeStation: r.policeStation,
+      psDistrict: r.district,
+      accusedDetails: r.accusedDetails,
+      mandal: r.mandal,
+      accusedDistrict: r.accusedDistrict,
+      state: r.state,
+      branch: r.branch,
+      name: r.accusedDetails.split(',')[0]?.replace(/^A\d+\.\s*/, '') || 'Unknown',
+      district: r.accusedDistrict || r.district,
+      contraband: 'Ganja',
+      casesCount: 1,
+      lastSighting: r.created_at.toISOString().split('T')[0],
+      risk: 'Medium',
+      aadhaar: 'XXXX-XXXX-XXXX',
+      phone: 'Not specified',
+      vehicles: 'Not specified',
+      associates: 'Not specified',
+      history: []
+    }));
+
+    res.json(successResponse(serializedRecords));
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};

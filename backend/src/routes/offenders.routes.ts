@@ -3,7 +3,8 @@ import {
   getOffenders, 
   getOffenderById, 
   createOffender, 
-  updateOffender 
+  updateOffender,
+  getDatabankRecords
 } from '../controllers/offenders.controller';
 import { exportOffendersCsv, getOffenderHistorySheet, getOffenderHistorySheetPdf } from '../controllers/export.controller';
 import { getImeiRecords, createImeiRecord, updateImeiRecord } from '../controllers/imei.controller';
@@ -18,6 +19,7 @@ const router = Router();
 router.use(authenticate);
 
 // All authenticated users can view & search (scoped by PS in controller)
+router.get('/databank/records', getDatabankRecords);
 router.get('/', getOffenders);
 router.get('/export', exportOffendersCsv);
 router.get('/:offenderId/interrogations', getInterrogations);

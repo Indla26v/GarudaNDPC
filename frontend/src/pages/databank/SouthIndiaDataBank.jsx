@@ -18,130 +18,109 @@ const STATES = [
 
 const INITIAL_LO_OFFENDERS = [
   {
-    id: 1,
-    name: "Karthik Raja",
-    state: "TN",
-    district: "Coimbatore",
-    contraband: "Ganja (Sativa)",
-    casesCount: 3,
-    lastSighting: "2026-06-25",
-    risk: "High",
-    aadhaar: "XXXX-XXXX-8921",
-    phone: "+91 98453 12345",
-    vehicles: "TN-37-BY-8822 (Tata Safari - Black)",
-    associates: "Ranganathan, Murugan",
+    id: 1, crNo: '145/2024', secOfLaw: 'Sec 20(b)(ii)(C) NDPS Act',
+    policeStation: 'Chittoor I-Town', psDistrict: 'Chittoor',
+    accusedDetails: 'A1. Nagaraju Naik, Age 32, S/O Ramaiah Naik',
+    mandal: 'Chittoor', accusedDistrict: 'Chittoor', state: 'AP',
+    // legacy fields kept for dossier modal & search
+    name: 'Nagaraju Naik', district: 'Chittoor', contraband: 'Ganja & Red Sanders',
+    casesCount: 7, lastSighting: '2026-07-05', risk: 'High',
+    aadhaar: 'XXXX-XXXX-1234', phone: '+91 99887 76655',
+    vehicles: 'AP-03-TX-5432 (Mahindra Scorpio - White)',
+    associates: 'Govindaswamy, Ramu Naik',
     history: [
-      { fir: "FIR 44/2025", ps: "Coimbatore B1", sections: "Sec 20(b)(ii)(B) NDPS Act", date: "2025-04-12" },
-      { fir: "FIR 112/2025", ps: "Salem Town", sections: "Sec 20(b)(ii)(C) NDPS Act", date: "2025-08-30" },
-      { fir: "FIR 08/2026", ps: "Madurai Othakadai", sections: "Sec 22(c) NDPS Act", date: "2026-01-15" }
+      { fir: 'FIR 145/2024', ps: 'Chittoor I-Town', sections: 'Sec 20(b)(ii)(C) NDPS Act', date: '2024-09-05' },
+      { fir: 'FIR 202/2025', ps: 'Palamaner PS', sections: 'Sec 20(b)(ii)(C) NDPS Act', date: '2025-11-20' }
     ]
   },
   {
-    id: 2,
-    name: "Devendra Gowda",
-    state: "KA",
-    district: "Bengaluru Rural",
-    contraband: "MDMA Crystals",
-    casesCount: 5,
-    lastSighting: "2026-07-02",
-    risk: "High",
-    aadhaar: "XXXX-XXXX-4532",
-    phone: "+91 88764 99201",
-    vehicles: "KA-51-MD-9080 (Hyundai Creta - White)",
-    associates: "Santhosh M., Vinay Kumar",
+    id: 2, crNo: '44/2025', secOfLaw: 'Sec 20(b)(ii)(B) NDPS Act',
+    policeStation: 'Coimbatore B1', psDistrict: 'Coimbatore',
+    accusedDetails: 'A1. Karthik Raja, Age 28, S/O Rajkumar',
+    mandal: 'Coimbatore South', accusedDistrict: 'Coimbatore', state: 'TN',
+    name: 'Karthik Raja', district: 'Coimbatore', contraband: 'Ganja (Sativa)',
+    casesCount: 3, lastSighting: '2026-06-25', risk: 'High',
+    aadhaar: 'XXXX-XXXX-8921', phone: '+91 98453 12345',
+    vehicles: 'TN-37-BY-8822 (Tata Safari - Black)',
+    associates: 'Ranganathan, Murugan',
     history: [
-      { fir: "FIR 201/2024", ps: "Electronic City", sections: "Sec 22(c) NDPS Act", date: "2024-11-05" },
-      { fir: "FIR 15/2025", ps: "Kengeri PS", sections: "Sec 22(b) NDPS Act", date: "2025-02-18" },
-      { fir: "FIR 99/2025", ps: "Hosur Border Check", sections: "Sec 8(c) r/w 22 NDPS Act", date: "2025-09-02" }
+      { fir: 'FIR 44/2025', ps: 'Coimbatore B1', sections: 'Sec 20(b)(ii)(B) NDPS Act', date: '2025-04-12' },
+      { fir: 'FIR 112/2025', ps: 'Salem Town', sections: 'Sec 20(b)(ii)(C) NDPS Act', date: '2025-08-30' },
+      { fir: 'FIR 08/2026', ps: 'Madurai Othakadai', sections: 'Sec 20(b)(ii)(C) NDPS Act', date: '2026-01-15' }
     ]
   },
   {
-    id: 3,
-    name: "Faizal Rahim",
-    state: "KL",
-    district: "Palakkad",
-    contraband: "Hashish Oil",
-    casesCount: 2,
-    lastSighting: "2026-06-12",
-    risk: "Medium",
-    aadhaar: "XXXX-XXXX-1102",
-    phone: "+91 90442 88310",
-    vehicles: "KL-09-AH-4112 (Royal Enfield - Bullet)",
-    associates: "Subair P.K., Jaleel",
+    id: 3, crNo: '201/2024', secOfLaw: 'Sec 22(c) NDPS Act',
+    policeStation: 'Electronic City', psDistrict: 'Bengaluru Rural',
+    accusedDetails: 'A1. Devendra Gowda, Age 35, S/O Basavanna',
+    mandal: 'Anekal', accusedDistrict: 'Bengaluru Rural', state: 'KA',
+    name: 'Devendra Gowda', district: 'Bengaluru Rural', contraband: 'MDMA Crystals',
+    casesCount: 5, lastSighting: '2026-07-02', risk: 'High',
+    aadhaar: 'XXXX-XXXX-4532', phone: '+91 88764 99201',
+    vehicles: 'KA-51-MD-9080 (Hyundai Creta - White)',
+    associates: 'Santhosh M., Vinay Kumar',
     history: [
-      { fir: "FIR 32/2025", ps: "Walayar", sections: "Sec 20(b)(ii)(A) NDPS Act", date: "2025-03-22" },
-      { fir: "FIR 184/2025", ps: "Thrissur West", sections: "Sec 22(b) NDPS Act", date: "2025-12-10" }
+      { fir: 'FIR 201/2024', ps: 'Electronic City', sections: 'Sec 22(c) NDPS Act', date: '2024-11-05' },
+      { fir: 'FIR 15/2025', ps: 'Kengeri PS', sections: 'Sec 22(b) NDPS Act', date: '2025-02-18' }
     ]
   },
   {
-    id: 4,
-    name: "Srinivas Rao",
-    state: "TS",
-    district: "Khammam",
-    contraband: "Ganja (Liquid / Oil)",
-    casesCount: 4,
-    lastSighting: "2026-07-04",
-    risk: "High",
-    aadhaar: "XXXX-XXXX-9876",
-    phone: "+91 77654 32109",
-    vehicles: "TS-04-ER-2244 (Mahindra Bolero)",
-    associates: "K. Mallesh, Venkatesh",
+    id: 4, crNo: '110/2024', secOfLaw: 'Sec 20(b)(ii)(C) NDPS Act',
+    policeStation: 'Khammam Urban', psDistrict: 'Khammam',
+    accusedDetails: 'A1. Srinivas Rao, Age 40, S/O Venkata Rao',
+    mandal: 'Khammam', accusedDistrict: 'Khammam', state: 'TS',
+    name: 'Srinivas Rao', district: 'Khammam', contraband: 'Ganja (Liquid / Oil)',
+    casesCount: 4, lastSighting: '2026-07-04', risk: 'High',
+    aadhaar: 'XXXX-XXXX-9876', phone: '+91 77654 32109',
+    vehicles: 'TS-04-ER-2244 (Mahindra Bolero)',
+    associates: 'K. Mallesh, Venkatesh',
     history: [
-      { fir: "FIR 110/2024", ps: "Khammam Urban", sections: "Sec 20(b)(ii)(C) NDPS Act", date: "2024-07-19" },
-      { fir: "FIR 56/2025", ps: "Wyra PS", sections: "Sec 20(b)(ii)(B) NDPS Act", date: "2025-05-04" }
+      { fir: 'FIR 110/2024', ps: 'Khammam Urban', sections: 'Sec 20(b)(ii)(C) NDPS Act', date: '2024-07-19' },
+      { fir: 'FIR 56/2025', ps: 'Wyra PS', sections: 'Sec 20(b)(ii)(B) NDPS Act', date: '2025-05-04' }
     ]
   },
   {
-    id: 5,
-    name: "Arivalagan P.",
-    state: "TN",
-    district: "Madurai",
-    contraband: "Methamphetamine",
-    casesCount: 6,
-    lastSighting: "2026-06-30",
-    risk: "High",
-    aadhaar: "XXXX-XXXX-6712",
-    phone: "+91 94441 55670",
-    vehicles: "TN-59-Z-0099 (Maruti Swift - Red)",
-    associates: "Selvam, Kathir",
+    id: 5, crNo: '32/2025', secOfLaw: 'Sec 20(b)(ii)(A) NDPS Act',
+    policeStation: 'Walayar', psDistrict: 'Palakkad',
+    accusedDetails: 'A1. Faizal Rahim, Age 30, S/O Abdul Rahim',
+    mandal: 'Walayar', accusedDistrict: 'Palakkad', state: 'KL',
+    name: 'Faizal Rahim', district: 'Palakkad', contraband: 'Hashish Oil',
+    casesCount: 2, lastSighting: '2026-06-12', risk: 'Medium',
+    aadhaar: 'XXXX-XXXX-1102', phone: '+91 90442 88310',
+    vehicles: 'KL-09-AH-4112 (Royal Enfield - Bullet)',
+    associates: 'Subair P.K., Jaleel',
     history: [
-      { fir: "FIR 88/2024", ps: "Madurai City", sections: "Sec 22(c) NDPS Act", date: "2024-08-11" },
-      { fir: "FIR 244/2025", ps: "Trichy Junction", sections: "Sec 22(c) NDPS Act", date: "2025-10-23" }
+      { fir: 'FIR 32/2025', ps: 'Walayar', sections: 'Sec 20(b)(ii)(A) NDPS Act', date: '2025-03-22' },
+      { fir: 'FIR 184/2025', ps: 'Thrissur West', sections: 'Sec 22(b) NDPS Act', date: '2025-12-10' }
     ]
   },
   {
-    id: 6,
-    name: "Justin Joseph",
-    state: "KL",
-    district: "Wayanad",
-    contraband: "MDMA Pills",
-    casesCount: 1,
-    lastSighting: "2026-07-01",
-    risk: "Low",
-    aadhaar: "XXXX-XXXX-3345",
-    phone: "+91 98950 44221",
-    vehicles: "KL-12-Q-7788 (Yamaha R15 - Blue)",
-    associates: "Nikhil George",
+    id: 6, crNo: '88/2024', secOfLaw: 'Sec 22(c) NDPS Act',
+    policeStation: 'Madurai City', psDistrict: 'Madurai',
+    accusedDetails: 'A1. Arivalagan P., Age 27, S/O Palani',
+    mandal: 'Madurai South', accusedDistrict: 'Madurai', state: 'TN',
+    name: 'Arivalagan P.', district: 'Madurai', contraband: 'Methamphetamine',
+    casesCount: 6, lastSighting: '2026-06-30', risk: 'High',
+    aadhaar: 'XXXX-XXXX-6712', phone: '+91 94441 55670',
+    vehicles: 'TN-59-Z-0099 (Maruti Swift - Red)',
+    associates: 'Selvam, Kathir',
     history: [
-      { fir: "FIR 12/2026", ps: "Kalpetta PS", sections: "Sec 22(a) NDPS Act", date: "2026-02-28" }
+      { fir: 'FIR 88/2024', ps: 'Madurai City', sections: 'Sec 22(c) NDPS Act', date: '2024-08-11' },
+      { fir: 'FIR 244/2025', ps: 'Trichy Junction', sections: 'Sec 22(c) NDPS Act', date: '2025-10-23' }
     ]
   },
   {
-    id: 7,
-    name: "Nagaraju Naik",
-    state: "AP",
-    district: "Chittoor",
-    contraband: "Ganja & Red Sanders",
-    casesCount: 7,
-    lastSighting: "2026-07-05",
-    risk: "High",
-    aadhaar: "XXXX-XXXX-1234",
-    phone: "+91 99887 76655",
-    vehicles: "AP-03-TX-5432 (Mahindra Scorpio - White)",
-    associates: "Govindaswamy, Ramu Naik",
+    id: 7, crNo: '12/2026', secOfLaw: 'Sec 22(a) NDPS Act',
+    policeStation: 'Kalpetta PS', psDistrict: 'Wayanad',
+    accusedDetails: 'A1. Justin Joseph, Age 24, S/O Joseph K.',
+    mandal: 'Kalpetta', accusedDistrict: 'Wayanad', state: 'KL',
+    name: 'Justin Joseph', district: 'Wayanad', contraband: 'MDMA Pills',
+    casesCount: 1, lastSighting: '2026-07-01', risk: 'Low',
+    aadhaar: 'XXXX-XXXX-3345', phone: '+91 98950 44221',
+    vehicles: 'KL-12-Q-7788 (Yamaha R15 - Blue)',
+    associates: 'Nikhil George',
     history: [
-      { fir: "FIR 145/2024", ps: "Chittoor I-Town", sections: "Sec 20(b)(ii)(C) NDPS Act", date: "2024-09-05" },
-      { fir: "FIR 202/2025", ps: "Palamaner PS", sections: "Sec 20(b)(ii)(C) NDPS Act", date: "2025-11-20" }
+      { fir: 'FIR 12/2026', ps: 'Kalpetta PS', sections: 'Sec 22(a) NDPS Act', date: '2026-02-28' }
     ]
   }
 ];
@@ -326,24 +305,12 @@ const INITIAL_PE_OFFENDERS = [
   }
 ];
 
-const INITIAL_ALERTS = [
-  { id: 101, source: "KA STF", type: "Lookout", text: "Suspected White Hyundai Creta (KA-51-MD-9080) carrying synthetic drugs heading towards AP border via Kolar checkpost.", date: "2026-07-06 18:30" },
-  { id: 102, source: "TN Narcotics Intelligence", type: "Wanted Escapee", text: "Accused Karthik Raja spotted near Hosur, suspected to cross into Bangalore Rural or Kuppam (AP). Keep high vigil.", date: "2026-07-05 14:15" },
-  { id: 103, source: "KL Excise Department", type: "Border Check", text: "Enhanced checking on NH 544 (Walayar border) following intelligence on synthetic drug flow from Bengaluru to Kochi.", date: "2026-07-04 09:00" },
-  { id: 104, source: "AP Narcotics Bureau", type: "Bolo Alert", text: "Interstate smuggler Srinivas Rao actively coordinating bulk liquid ganja movements across Khammam (TS) and East Godavari (AP).", date: "2026-07-03 11:45" }
-];
-
-const INITIAL_OPERATIONS = [
-  { id: 201, title: "Op Border Clean - AP & TS Joint Action", description: "Joint highway checking conducted at Kodad border. Seized 45 kg of commercial ganja, arrested 2 interstate suppliers.", date: "2026-06-28", status: "Completed" },
-  { id: 202, title: "Op Tri-State Net - KA, TN & AP Cyber analytics", description: "Interstate cell tracked down and arrested 4 drug lords operating across Bengaluru, Hosur, and Kuppam.", date: "2026-06-15", status: "Completed" },
-  { id: 203, title: "Op Western Ghats - KL & TN Border Check", description: "Forest checkpoints coordination to block clandestine transport of Hashish Oil from remote areas of Idukki to Madurai.", date: "2026-05-20", status: "Completed" }
-];
+// INITIAL_ALERTS and INITIAL_OPERATIONS removed — page is now a pure state-level directory
 
 export default function SouthIndiaDataBank() {
   const perms = usePermissions();
   
   // Tab states
-  const [activeSubTab, setActiveSubTab] = useState('directory'); // 'directory' | 'alerts' | 'operations'
   const [activeBranch, setActiveBranch] = useState('LO'); // 'LO' | 'GRP' | 'PE'
   
   // Independent state selectors for each branch
@@ -359,8 +326,6 @@ export default function SouthIndiaDataBank() {
   const [grpOffenders, setGrpOffenders] = useState(INITIAL_GRP_OFFENDERS);
   const [peOffenders, setPeOffenders] = useState(INITIAL_PE_OFFENDERS);
 
-  const [alerts, setAlerts] = useState(INITIAL_ALERTS);
-  const [operations, setOperations] = useState(INITIAL_OPERATIONS);
 
   // Modals state
   const [dossierOffender, setDossierOffender] = useState(null);
@@ -397,6 +362,27 @@ export default function SouthIndiaDataBank() {
     };
   }, []);
 
+  useEffect(() => {
+    const fetchRecords = async () => {
+      try {
+        const response = await api.get('/offenders/databank/records');
+        if (response.data && response.data.success) {
+          const fetched = response.data.data || [];
+          const loFromDB = fetched.filter(item => item.branch === 'LO').map(item => ({ ...item, id: `db_${item.id}` }));
+          const grpFromDB = fetched.filter(item => item.branch === 'GRP').map(item => ({ ...item, id: `db_${item.id}` }));
+          const peFromDB = fetched.filter(item => item.branch === 'PE').map(item => ({ ...item, id: `db_${item.id}` }));
+
+          setLoOffenders([...loFromDB, ...INITIAL_LO_OFFENDERS]);
+          setGrpOffenders([...grpFromDB, ...INITIAL_GRP_OFFENDERS]);
+          setPeOffenders([...peFromDB, ...INITIAL_PE_OFFENDERS]);
+        }
+      } catch (error) {
+        console.error('Failed to fetch databank records:', error);
+      }
+    };
+    fetchRecords();
+  }, []);
+
   // Helper properties to get currently active branch configuration
   const activeOffendersList = activeBranch === 'LO' ? loOffenders : activeBranch === 'GRP' ? grpOffenders : peOffenders;
   const currentBranchStateFilter = activeBranch === 'LO' ? loState : activeBranch === 'GRP' ? grpState : peState;
@@ -420,7 +406,7 @@ export default function SouthIndiaDataBank() {
       date: `${sightingForm.date} ${sightingForm.time}`
     };
 
-    setAlerts([newAlert, ...alerts]);
+    // Alert logged (would be sent to backend in production)
 
     // Update offender's last sighting date in the correct list
     if (activeBranch === 'LO') {
@@ -450,19 +436,39 @@ export default function SouthIndiaDataBank() {
 
   // Filter offenders for currently selected branch
   const filteredOffenders = activeOffendersList.filter(offender => {
-    const matchesState = currentBranchStateFilter === 'ALL' || offender.state === currentBranchStateFilter;
+    const stateMapping = {
+      'andhra pradesh': 'AP',
+      'telangana': 'TS',
+      'karnataka': 'KA',
+      'tamil nadu': 'TN',
+      'kerala': 'KL',
+      'ap': 'AP',
+      'ts': 'TS',
+      'ka': 'KA',
+      'tn': 'TN',
+      'kl': 'KL'
+    };
+    const offenderStateCode = stateMapping[(offender.state || '').toLowerCase().trim()] || offender.state;
+    const matchesState = currentBranchStateFilter === 'ALL' || offenderStateCode === currentBranchStateFilter;
     
     const query = searchQuery.toLowerCase().trim();
     const matchesSearch = !query || 
-      offender.name.toLowerCase().includes(query) ||
-      offender.district.toLowerCase().includes(query) ||
-      offender.aadhaar.includes(query) ||
-      offender.phone.includes(query) ||
-      offender.vehicles.toLowerCase().includes(query) ||
-      offender.contraband.toLowerCase().includes(query);
+      (offender.name || '').toLowerCase().includes(query) ||
+      (offender.accusedDetails || '').toLowerCase().includes(query) ||
+      (offender.crNo || '').toLowerCase().includes(query) ||
+      (offender.policeStation || '').toLowerCase().includes(query) ||
+      (offender.district || '').toLowerCase().includes(query) ||
+      (offender.psDistrict || '').toLowerCase().includes(query) ||
+      (offender.accusedDistrict || '').toLowerCase().includes(query) ||
+      (offender.mandal || '').toLowerCase().includes(query) ||
+      (offender.secOfLaw || '').toLowerCase().includes(query) ||
+      (offender.aadhaar || '').includes(query) ||
+      (offender.phone || '').includes(query) ||
+      (offender.vehicles || '').toLowerCase().includes(query) ||
+      (offender.contraband || '').toLowerCase().includes(query);
 
     const matchesContraband = selectedContraband === 'ALL' || 
-      offender.contraband.toLowerCase().includes(selectedContraband.toLowerCase());
+      (offender.contraband || '').toLowerCase().includes(selectedContraband.toLowerCase());
 
     return matchesState && matchesSearch && matchesContraband;
   });
@@ -648,44 +654,8 @@ export default function SouthIndiaDataBank() {
           })}
         </div>
 
-        {/* Main Tab Controls */}
-        <div className="flex border-b border-slate-200 dark:border-slate-800">
-          <button
-            onClick={() => setActiveSubTab('directory')}
-            className={`px-5 py-3 text-sm font-semibold border-b-2 transition-all cursor-pointer ${
-              activeSubTab === 'directory'
-                ? 'border-blue-600 text-blue-600 dark:text-blue-400'
-                : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-slate-200'
-            }`}
-          >
-            Cross-Border Directory
-          </button>
-          <button
-            onClick={() => setActiveSubTab('alerts')}
-            className={`px-5 py-3 text-sm font-semibold border-b-2 transition-all relative cursor-pointer ${
-              activeSubTab === 'alerts'
-                ? 'border-blue-600 text-blue-600 dark:text-blue-400'
-                : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-slate-200'
-            }`}
-          >
-            Inter-State Alerts
-            <span className="absolute top-2 right-1.5 w-2 h-2 rounded-full bg-red-500"></span>
-          </button>
-          <button
-            onClick={() => setActiveSubTab('operations')}
-            className={`px-5 py-3 text-sm font-semibold border-b-2 transition-all cursor-pointer ${
-              activeSubTab === 'operations'
-                ? 'border-blue-600 text-blue-600 dark:text-blue-400'
-                : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-slate-200'
-            }`}
-          >
-            Joint Operations Feed
-          </button>
-        </div>
-
-        {/* TAB CONTENT: DIRECTORY */}
-        {activeSubTab === 'directory' && (
-          <div className="space-y-4">
+        {/* Directory Content (no sub-tabs — pure state-level directory) */}
+        <div className="space-y-4">
             
             {/* Search Filters Bar */}
             <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col md:flex-row gap-4 items-center">
@@ -697,7 +667,7 @@ export default function SouthIndiaDataBank() {
                 </span>
                 <input
                   type="text"
-                  placeholder="Search Suspect Name, Contact, Vehicle, Local Region, Contraband..."
+                  placeholder="Search Cr. No., Accused, Police Station, District..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full pl-9 pr-4 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
@@ -742,80 +712,60 @@ export default function SouthIndiaDataBank() {
               ))}
             </div>
 
-            {/* Directory Table */}
+            {/* Directory Table — AP State L&O Police Schema */}
             <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                      <th className="px-5 py-3">Offender Details</th>
-                      <th className="px-5 py-3">Origin State</th>
-                      <th className="px-5 py-3">Key Contraband / Seizure</th>
-                      <th className="px-5 py-3">Active Cases</th>
-                      <th className="px-5 py-3">Last Sighting</th>
-                      <th className="px-5 py-3">Risk Tier</th>
-                      <th className="px-5 py-3 text-right">Actions</th>
+                      <th className="px-4 py-3 whitespace-nowrap">Cr. No.</th>
+                      <th className="px-4 py-3 whitespace-nowrap">Sec of Law</th>
+                      <th className="px-4 py-3 whitespace-nowrap">Police Station</th>
+                      <th className="px-4 py-3 whitespace-nowrap">District</th>
+                      <th className="px-4 py-3 whitespace-nowrap min-w-[200px]">Accused Details</th>
+                      <th className="px-4 py-3 whitespace-nowrap">Mandal</th>
+                      <th className="px-4 py-3 whitespace-nowrap">Accused District</th>
+                      <th className="px-4 py-3 whitespace-nowrap">State</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-xs">
                     {filteredOffenders.length > 0 ? (
                       filteredOffenders.map(offender => (
                         <tr key={offender.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors">
-                          <td className="px-5 py-4">
-                            <div className="font-bold text-sm text-slate-900 dark:text-white">{offender.name}</div>
-                            <div className="text-[10px] text-slate-400 mt-0.5">Phone: {offender.phone} | Aadhar: {offender.aadhaar}</div>
+                          <td className="px-4 py-3 font-bold text-blue-600 dark:text-blue-400 whitespace-nowrap">
+                            {offender.crNo}
                           </td>
-                          <td className="px-5 py-4">
-                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase border ${
+                          <td className="px-4 py-3 text-slate-700 dark:text-slate-300 max-w-[180px]">
+                            <span className="line-clamp-2">{offender.secOfLaw}</span>
+                          </td>
+                          <td className="px-4 py-3 font-medium text-slate-800 dark:text-slate-200 whitespace-nowrap">
+                            {offender.policeStation}
+                          </td>
+                          <td className="px-4 py-3 text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                            {offender.psDistrict}
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="font-semibold text-slate-900 dark:text-white text-[11px]">{offender.accusedDetails}</div>
+                            <div className="text-[10px] text-slate-400 mt-0.5">{offender.phone} | {offender.aadhaar}</div>
+                          </td>
+                          <td className="px-4 py-3 text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                            {offender.mandal}
+                          </td>
+                          <td className="px-4 py-3 text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                            {offender.accusedDistrict}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase border ${
                               STATES.find(s => s.code === offender.state)?.color
                             }`}>
-                              <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
-                              {STATES.find(s => s.code === offender.state)?.name} ({offender.district})
+                              {offender.state}
                             </span>
-                          </td>
-                          <td className="px-5 py-4 font-medium text-slate-700 dark:text-slate-300">
-                            {offender.contraband}
-                          </td>
-                          <td className="px-5 py-4">
-                            <span className="bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded font-bold">
-                              {offender.casesCount} Cases
-                            </span>
-                          </td>
-                          <td className="px-5 py-4 text-slate-500 dark:text-slate-400 font-medium">
-                            {offender.lastSighting}
-                          </td>
-                          <td className="px-5 py-4">
-                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                              offender.risk === 'High' 
-                                ? 'bg-red-100 dark:bg-red-950/40 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900/30'
-                                : offender.risk === 'Medium'
-                                ? 'bg-amber-100 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-900/30'
-                                : 'bg-slate-100 dark:bg-slate-950 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800'
-                            }`}>
-                              {offender.risk} Risk
-                            </span>
-                          </td>
-                          <td className="px-5 py-4 text-right">
-                            <div className="flex justify-end gap-2">
-                              <button
-                                onClick={() => setDossierOffender(offender)}
-                                className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded font-semibold transition-all cursor-pointer"
-                              >
-                                Dossier
-                              </button>
-                              <button
-                                onClick={() => setReportingOffender(offender)}
-                                className="px-2.5 py-1 bg-blue-600 dark:bg-blue-600 text-white hover:bg-blue-700 dark:hover:bg-blue-500 rounded font-semibold transition-all flex items-center gap-1 cursor-pointer"
-                              >
-                                <IconWarning size={12} /> Log Sighting
-                              </button>
-                            </div>
                           </td>
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan="7" className="px-5 py-10 text-center text-slate-400">
+                        <td colSpan="9" className="px-5 py-10 text-center text-slate-400">
                           No suspects found matching filters for this branch.
                         </td>
                       </tr>
@@ -825,85 +775,6 @@ export default function SouthIndiaDataBank() {
               </div>
             </div>
           </div>
-        )}
-
-        {/* TAB CONTENT: ALERTS */}
-        {activeSubTab === 'alerts' && (
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h2 className="text-lg font-bold text-slate-900 dark:text-white">Active Inter-State Lookout Feed</h2>
-              <span className="text-xs text-slate-400 font-medium">Refreshed: Real-time</span>
-            </div>
-
-            <div className="grid gap-3">
-              {alerts.map(alert => (
-                <div 
-                  key={alert.id} 
-                  className={`p-4 rounded-xl border flex flex-col md:flex-row md:items-start justify-between gap-4 transition-all hover:-translate-y-0.5 duration-200 ${
-                    alert.type === 'Lookout'
-                      ? 'bg-red-50/50 dark:bg-red-950/15 border-red-200 dark:border-red-900/20'
-                      : alert.type === 'Sighting Logged'
-                      ? 'bg-emerald-50/40 dark:bg-emerald-950/10 border-emerald-200 dark:border-emerald-900/20'
-                      : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800'
-                  }`}
-                >
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                        alert.type === 'Lookout'
-                          ? 'bg-red-100 dark:bg-red-950/50 text-red-700 dark:text-red-400'
-                          : alert.type === 'Sighting Logged'
-                          ? 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400'
-                          : 'bg-blue-100 dark:bg-blue-950/50 text-blue-700 dark:text-blue-400'
-                      }`}>
-                        {alert.type}
-                      </span>
-                      <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300">Origin: {alert.source}</span>
-                    </div>
-                    <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed font-medium">
-                      {alert.text}
-                    </p>
-                  </div>
-                  <div className="text-[10px] text-slate-400 dark:text-slate-500 whitespace-nowrap self-end md:self-start">
-                    {alert.date}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* TAB CONTENT: OPERATIONS */}
-        {activeSubTab === 'operations' && (
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h2 className="text-lg font-bold text-slate-900 dark:text-white">Inter-State Coordinated Operations</h2>
-              <span className="text-xs text-emerald-500 font-bold bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-1 rounded-md border border-emerald-100 dark:border-emerald-900/30">Active Operations Desk</span>
-            </div>
-
-            <div className="grid md:grid-cols-3 gap-4">
-              {operations.map(op => (
-                <div key={op.id} className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col justify-between gap-4">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold text-slate-400">{op.date}</span>
-                      <span className="bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900/30 px-2 py-0.5 rounded text-[10px] font-bold">
-                        {op.status}
-                      </span>
-                    </div>
-                    <h3 className="font-bold text-sm text-slate-900 dark:text-white line-clamp-1">{op.title}</h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-3 leading-relaxed">
-                      {op.description}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400 font-semibold cursor-pointer border-t border-slate-100 dark:border-slate-800 pt-3 hover:text-blue-700 transition-colors">
-                    View Joint Action Logs <IconArrowRight size={14} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
 
       </div>
 

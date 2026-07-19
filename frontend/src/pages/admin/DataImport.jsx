@@ -176,12 +176,13 @@ export default function DataImport() {
     newData[index][field] = value;
     
     // Basic inline validation check
-    if (importType === 'UNIFIED' || importType === 'CASE') {
-      if (field === 'crNo' || field === 'psName') {
+    if (importType === 'UNIFIED' || importType === 'CASE' || importType === 'AP_LO') {
+      if (field === 'crNo' || field === 'psName' || field === 'accusedDetails') {
         const errors = [];
         if (!newData[index].crNo) errors.push('Missing "Cr. No."');
         if (!newData[index].psName) errors.push('Unknown station');
         if (importType === 'UNIFIED' && !newData[index].accusedName) errors.push('Missing "Accused Name"');
+        if (importType === 'AP_LO' && !newData[index].accusedDetails) errors.push('Missing "Accused Details"');
         newData[index].errors = errors;
         newData[index].isValid = errors.length === 0;
       }
@@ -266,6 +267,7 @@ export default function DataImport() {
                 className="select select-sm max-w-[200px]"
               >
                 <option value="UNIFIED">Unified DPR (All Data)</option>
+                <option value="AP_LO">AP State L&O Police Data</option>
                 <option value="CONSUMER">Consumers Only</option>
                 <option value="OFFENDER">Offenders Only</option>
                 <option value="CASE">Cases Only</option>
@@ -324,7 +326,18 @@ export default function DataImport() {
                   <th className="px-3 py-3 font-semibold text-[11px] tracking-wider uppercase border-b whitespace-nowrap" style={{ color: 'var(--color-garuda-400)', borderColor: 'var(--color-garuda-700)' }}>Row</th>
                   <th className="px-3 py-3 font-semibold text-[11px] tracking-wider uppercase border-b whitespace-nowrap" style={{ color: 'var(--color-garuda-400)', borderColor: 'var(--color-garuda-700)' }}>Status</th>
                   
-                  {importType === 'OFFENDER' ? (
+                  {importType === 'AP_LO' ? (
+                    <>
+                      <th className="px-3 py-3 font-semibold text-[11px] tracking-wider uppercase border-b min-w-[100px]" style={{ color: 'var(--color-garuda-400)', borderColor: 'var(--color-garuda-700)' }}>CR No.</th>
+                      <th className="px-3 py-3 font-semibold text-[11px] tracking-wider uppercase border-b min-w-[120px]" style={{ color: 'var(--color-garuda-400)', borderColor: 'var(--color-garuda-700)' }}>Sec. of Law</th>
+                      <th className="px-3 py-3 font-semibold text-[11px] tracking-wider uppercase border-b min-w-[140px]" style={{ color: 'var(--color-garuda-400)', borderColor: 'var(--color-garuda-700)' }}>PS Name</th>
+                      <th className="px-3 py-3 font-semibold text-[11px] tracking-wider uppercase border-b min-w-[120px]" style={{ color: 'var(--color-garuda-400)', borderColor: 'var(--color-garuda-700)' }}>District</th>
+                      <th className="px-3 py-3 font-semibold text-[11px] tracking-wider uppercase border-b min-w-[200px]" style={{ color: 'var(--color-garuda-400)', borderColor: 'var(--color-garuda-700)' }}>Accused Details</th>
+                      <th className="px-3 py-3 font-semibold text-[11px] tracking-wider uppercase border-b min-w-[120px]" style={{ color: 'var(--color-garuda-400)', borderColor: 'var(--color-garuda-700)' }}>Mandal</th>
+                      <th className="px-3 py-3 font-semibold text-[11px] tracking-wider uppercase border-b min-w-[120px]" style={{ color: 'var(--color-garuda-400)', borderColor: 'var(--color-garuda-700)' }}>Accused District</th>
+                      <th className="px-3 py-3 font-semibold text-[11px] tracking-wider uppercase border-b min-w-[100px]" style={{ color: 'var(--color-garuda-400)', borderColor: 'var(--color-garuda-700)' }}>State</th>
+                    </>
+                  ) : importType === 'OFFENDER' ? (
                     <>
                       <th className="px-3 py-3 font-semibold text-[11px] tracking-wider uppercase border-b min-w-[140px]" style={{ color: 'var(--color-garuda-400)', borderColor: 'var(--color-garuda-700)' }}>PS Name</th>
                       <th className="px-3 py-3 font-semibold text-[11px] tracking-wider uppercase border-b min-w-[160px]" style={{ color: 'var(--color-garuda-400)', borderColor: 'var(--color-garuda-700)' }}>Name</th>
@@ -397,7 +410,34 @@ export default function DataImport() {
                       )}
                     </td>
                     
-                    {importType === 'OFFENDER' ? (
+                    {importType === 'AP_LO' ? (
+                      <>
+                        <td className="px-2 py-2 align-top">
+                          <input type="text" value={row.crNo || ''} onChange={(e) => handleFieldChange(idx, 'crNo', e.target.value)} className={`w-full bg-transparent outline-none px-2 py-1.5 rounded-md border transition-all text-xs font-medium focus:ring-2 focus:ring-blue-500/30 ${!row.crNo ? 'border-red-400 bg-red-50 text-red-600 placeholder-red-400 dark:border-red-500/40 dark:bg-red-500/5 dark:text-red-400 dark:placeholder-red-700' : 'border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-blue-500'}`} style={{ color: row.crNo ? 'var(--color-garuda-200)' : undefined }} placeholder="CR No." />
+                        </td>
+                        <td className="px-2 py-2 align-top">
+                          <input type="text" value={row.secOfLaw || ''} onChange={(e) => handleFieldChange(idx, 'secOfLaw', e.target.value)} className="w-full bg-transparent outline-none px-2 py-1.5 rounded-md border border-transparent transition-all text-xs hover:border-slate-300 dark:hover:border-slate-600 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30" style={{ color: 'var(--color-garuda-200)' }} placeholder="Section" />
+                        </td>
+                        <td className="px-2 py-2 align-top">
+                          <input type="text" value={row.psName || row.psCode || ''} onChange={(e) => handleFieldChange(idx, 'psName', e.target.value)} className={`w-full bg-transparent outline-none px-2 py-1.5 rounded-md border transition-all text-xs font-medium focus:ring-2 focus:ring-blue-500/30 ${!row.psId ? 'border-red-400 bg-red-50 text-red-600 placeholder-red-400 dark:border-red-500/40 dark:bg-red-500/5 dark:text-red-400 dark:placeholder-red-700' : 'border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-blue-500'}`} style={{ color: row.psId ? 'var(--color-garuda-200)' : undefined }} placeholder="PS Name" title={!row.psId ? "Police Station not found in DB" : "Valid PS"} />
+                        </td>
+                        <td className="px-2 py-2 align-top">
+                          <input type="text" value={row.district || ''} onChange={(e) => handleFieldChange(idx, 'district', e.target.value)} className="w-full bg-transparent outline-none px-2 py-1.5 rounded-md border border-transparent transition-all text-xs hover:border-slate-300 dark:hover:border-slate-600 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30" style={{ color: 'var(--color-garuda-300)' }} placeholder="District" />
+                        </td>
+                        <td className="px-2 py-2 align-top">
+                          <textarea rows="2" value={row.accusedDetails || ''} onChange={(e) => handleFieldChange(idx, 'accusedDetails', e.target.value)} className={`w-full bg-transparent outline-none px-2 py-1.5 rounded-md border transition-all text-xs focus:ring-2 focus:ring-blue-500/30 ${!row.accusedDetails ? 'border-red-400 dark:border-red-500/40 dark:bg-red-500/5 dark:text-red-400' : 'border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-blue-500'}`} style={{ color: row.accusedDetails ? 'var(--color-garuda-300)' : undefined }} placeholder="Accused Details" />
+                        </td>
+                        <td className="px-2 py-2 align-top">
+                          <input type="text" value={row.mandal || ''} onChange={(e) => handleFieldChange(idx, 'mandal', e.target.value)} className="w-full bg-transparent outline-none px-2 py-1.5 rounded-md border border-transparent transition-all text-xs hover:border-slate-300 dark:hover:border-slate-600 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30" style={{ color: 'var(--color-garuda-300)' }} placeholder="Mandal" />
+                        </td>
+                        <td className="px-2 py-2 align-top">
+                          <input type="text" value={row.accusedDistrict || ''} onChange={(e) => handleFieldChange(idx, 'accusedDistrict', e.target.value)} className="w-full bg-transparent outline-none px-2 py-1.5 rounded-md border border-transparent transition-all text-xs hover:border-slate-300 dark:hover:border-slate-600 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30" style={{ color: 'var(--color-garuda-300)' }} placeholder="Accused District" />
+                        </td>
+                        <td className="px-2 py-2 align-top">
+                          <input type="text" value={row.state || ''} onChange={(e) => handleFieldChange(idx, 'state', e.target.value)} className="w-full bg-transparent outline-none px-2 py-1.5 rounded-md border border-transparent transition-all text-xs hover:border-slate-300 dark:hover:border-slate-600 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30" style={{ color: 'var(--color-garuda-300)' }} placeholder="State" />
+                        </td>
+                      </>
+                    ) : importType === 'OFFENDER' ? (
                       <>
                         <td className="px-2 py-2 align-top"><input type="text" value={row.psName || ''} onChange={(e) => handleFieldChange(idx, 'psName', e.target.value)} className={`w-full bg-transparent outline-none px-2 py-1.5 rounded-md border transition-all text-xs font-medium focus:ring-2 focus:ring-blue-500/30 ${!row.psId ? 'border-red-400 dark:border-red-500/40 dark:bg-red-500/5 dark:text-red-400' : 'border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-blue-500'}`} style={{ color: row.psId ? 'var(--color-garuda-200)' : undefined }} placeholder="PS Name" /></td>
                         <td className="px-2 py-2 align-top"><input type="text" value={row.accusedName || ''} onChange={(e) => handleFieldChange(idx, 'accusedName', e.target.value)} className={`w-full bg-transparent outline-none px-2 py-1.5 rounded-md border transition-all text-xs focus:ring-2 focus:ring-blue-500/30 ${!row.accusedName ? 'border-red-400 dark:border-red-500/40 dark:bg-red-500/5 dark:text-red-400' : 'border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-blue-500'}`} style={{ color: row.accusedName ? 'var(--color-garuda-300)' : undefined }} placeholder="Name" /></td>

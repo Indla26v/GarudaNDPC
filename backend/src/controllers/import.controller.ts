@@ -649,7 +649,62 @@ export const previewDprExcel = async (req: Request, res: Response) => {
       const psCodeRaw = pick(row, 'PS Code', 'ps_code');
       const ps = findPS(psNameRaw, psCodeRaw, psByName, psByCode);
 
-      if (importType === 'OFFENDER') {
+      if (importType === 'AP_LO') {
+        const crNo = cleanString(pick(row, 'Cr. No.', 'Cr No', 'CR No.', 'CR No', 'Cr.No & Year', 'Cr.No. & Year')) || '';
+        const secOfLaw = cleanString(pick(row, 'Sec of Law', 'Section of Law', 'Sec. of Law')) || '';
+        const accusedDetails = cleanString(pick(row, 'Accused Details', 'AccusedDetails')) || '';
+        const mandal = cleanString(pick(row, 'Mandal')) || '';
+        const state = cleanString(pick(row, 'State')) || 'AP';
+
+        const districtKeys: string[] = [];
+        for (const k of Object.keys(row)) {
+          const nk = normKey(k);
+          if (nk === 'district' || nk.startsWith('district')) {
+            districtKeys.push(k);
+          }
+        }
+        
+        let district = '';
+        let accusedDistrict = '';
+        if (districtKeys.length >= 2) {
+          const k0 = districtKeys[0] as string;
+          const k1 = districtKeys[1] as string;
+          district = cleanString(String(row[k0])) || '';
+          accusedDistrict = cleanString(String(row[k1])) || '';
+        } else if (districtKeys.length === 1) {
+          const k0 = districtKeys[0] as string;
+          district = cleanString(String(row[k0])) || '';
+          accusedDistrict = district;
+        } else {
+          district = cleanString(pick(row, 'District')) || '';
+          accusedDistrict = district;
+        }
+
+        const errors: string[] = [];
+        if (!crNo) errors.push('Missing "Cr. No."');
+        if (!psNameRaw) errors.push('Missing Police Station');
+        if (!accusedDetails) errors.push('Missing "Accused Details"');
+
+        previewData.push({
+          id: `row_${i}`,
+          originalRow: i + 2,
+          crNo,
+          psName: psNameRaw,
+          psCode: psCodeRaw,
+          psId: ps ? Number(ps.id) : -1,
+          stationType: ps ? ps.station_type : 'POLICE',
+          psDistrict: ps ? ps.district : '',
+          psState: ps ? ps.state : '',
+          secOfLaw,
+          district,
+          accusedDetails,
+          mandal,
+          accusedDistrict,
+          state,
+          errors,
+          isValid: errors.length === 0,
+        });
+      } else if (importType === 'OFFENDER') {
         // ── Parse "Details of the Accused" column (name, age, father) ──
         const detailsRaw = pick(row, 'Details of the Accused/ Peddler (Full name, age, father name)',
           'Details of the Accused', 'Details of Accused', 'Accused Details', 'AccusedDetails', 'Full Name', 'Name');
@@ -743,7 +798,7 @@ export const previewDprExcel = async (req: Request, res: Response) => {
           // PS
           psName: psNameRaw,
           psCode: psCodeRaw,
-          psId: ps ? Number(ps.id) : null,
+          psId: ps ? Number(ps.id) : -1,
           psDistrict: ps ? ps.district : '',
           psState: ps ? ps.state : '',
           stationType: ps ? ps.station_type : 'POLICE',
@@ -827,11 +882,11 @@ export const previewDprExcel = async (req: Request, res: Response) => {
         const errors: string[] = [];
         if (importType === 'UNIFIED' || importType === 'CASE') {
           if (!crNo) errors.push('Missing "Cr. No."');
-          if (!ps) errors.push(`Unknown station "${psNameRaw || psCodeRaw}"`);
+          if (!psNameRaw) errors.push('Missing Police Station');
           if (importType === 'UNIFIED' && (!accusedDetails && !parsedAccused.fullName)) errors.push('Missing "Accused Details"');
         } else if (importType === 'CONSUMER') {
           if (!parsedAccused.fullName) errors.push('Missing "Name"');
-          if (!ps) errors.push(`Unknown station "${psNameRaw || psCodeRaw}"`);
+          if (!psNameRaw) errors.push('Missing Police Station');
         }
 
         previewData.push({
@@ -840,7 +895,7 @@ export const previewDprExcel = async (req: Request, res: Response) => {
           crNo,
           psName: psNameRaw,
           psCode: psCodeRaw,
-          psId: ps ? Number(ps.id) : null,
+          psId: ps ? Number(ps.id) : -1,
           stationType: ps ? ps.station_type : 'POLICE',
           psDistrict: ps ? ps.district : '',
           psState: ps ? ps.state : '',
@@ -906,7 +961,33 @@ export const confirmDprImport = async (req: Request, res: Response) => {
       }
 
       // Re-match PS dynamically in case psName was edited/corrected in frontend grid
-      const matchedPS = findPS(row.psName, row.psCode, psByName, psByCode);
+      let matchedPS = findPS(row.psName, row.psCode, psByName, psByCode);
+      if (!matchedPS && row.psName) {
+        const cleanedName = cleanPSName(row.psName);
+        const psName = cleanedName || row.psName;
+        const searchKey = normPS(psName);
+        const psCode = (searchKey.toUpperCase() || 'GEN').substring(0, 20);
+
+        let existingPS = await prisma.police_stations.findUnique({
+          where: { ps_code: psCode }
+        });
+
+        if (!existingPS) {
+          existingPS = await prisma.police_stations.create({
+            data: {
+              name: psName,
+              ps_code: psCode,
+              district: row.district || row.psDistrict || 'Unknown District',
+              state: row.state || row.psState || 'Andhra Pradesh',
+              station_type: 'POLICE'
+            }
+          });
+          psByName.set(normKey(psName), existingPS);
+          psByCode.set(normKey(psCode), existingPS);
+        }
+        matchedPS = existingPS;
+      }
+
       if (matchedPS) {
         row.psId = Number(matchedPS.id);
         row.stationType = matchedPS.station_type;
@@ -916,6 +997,32 @@ export const confirmDprImport = async (req: Request, res: Response) => {
         stats.skipped++;
         stats.errors.push(`Row ${row.originalRow}: Police station "${row.psName || ''}" not found`);
         continue;
+      }
+
+      // ── AP_LO (AP State L&O Police Data) import type ──
+      // Saves directly to separate south_india_databank database/table and NOT standard cases/offenders!
+      if (importType === 'AP_LO') {
+        try {
+          await prisma.south_india_databank.create({
+            data: {
+              crNo: row.crNo,
+              secOfLaw: row.secOfLaw || null,
+              policeStation: row.psName || 'Unknown Station',
+              district: row.district || row.psDistrict || 'Unknown District',
+              accusedDetails: row.accusedDetails || '',
+              mandal: row.mandal || null,
+              accusedDistrict: row.accusedDistrict || null,
+              state: row.state || 'AP',
+              branch: 'LO',
+            }
+          });
+          stats.offendersCreated++;
+          continue; // Bypasses standard case/offender import pipelines!
+        } catch (err: any) {
+          stats.skipped++;
+          stats.errors.push(`Row ${row.originalRow}: Failed to import to databank: ${err?.message || err}`);
+          continue;
+        }
       }
 
       try {
@@ -1155,8 +1262,8 @@ export const confirmDprImport = async (req: Request, res: Response) => {
           continue; // Skip the UNIFIED/CONSUMER block below
         }
 
-        // ── UNIFIED / CASE logic ──
-        if (importType === 'UNIFIED' || importType === 'CASE') {
+        // ── UNIFIED / CASE / AP_LO logic ──
+        if (importType === 'UNIFIED' || importType === 'CASE' || importType === 'AP_LO') {
           const existingCase = await prisma.cases.findFirst({
             where: { fir_no: row.crNo, ps_id: row.psId },
           });
@@ -1207,10 +1314,26 @@ export const confirmDprImport = async (req: Request, res: Response) => {
           }
         }
 
-        if (importType === 'UNIFIED' || importType === 'CONSUMER' || importType === 'OFFENDER') {
+        if (importType === 'UNIFIED' || importType === 'CONSUMER' || importType === 'OFFENDER' || importType === 'AP_LO') {
           let offendersToProcess: any[] = [];
           
-          if (row.accusedName) {
+          if (importType === 'AP_LO') {
+            const accusedLines = (row.accusedDetails || '').split(/(?=A\d+\b)/i).map((l: string) => l.trim()).filter(Boolean);
+            for (const line of accusedLines) {
+              const parsed = parseAccusedDetails(line);
+              offendersToProcess.push({
+                fullName: cleanString(parsed.fullName),
+                guardianName: cleanString(parsed.guardianName),
+                age: parsed.age,
+                address: cleanString(parsed.address),
+                phone: cleanString(parsed.phone),
+                email: cleanString(parsed.email),
+                caste: cleanString(parsed.caste),
+                mandal: cleanString(row.mandal || parsed.mandal),
+                district: cleanString(row.accusedDistrict || parsed.district),
+              });
+            }
+          } else if (row.accusedName) {
             offendersToProcess.push({
               fullName: cleanString(row.accusedName),
               guardianName: cleanString(row.accusedGuardian),

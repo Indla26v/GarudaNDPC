@@ -17,6 +17,28 @@ const FIN_TYPES = [
   { value: 'ATM_CARD', label: 'ATM Card No' },
 ];
 
+const BackIcon = ({ size = 20 }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+    <line x1="19" y1="12" x2="5" y2="12"></line>
+    <polyline points="12 19 5 12 12 5"></polyline>
+  </svg>
+);
+
+const PrintIcon = ({ size = 20 }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+    <polyline points="6 9 6 2 18 2 18 9"></polyline>
+    <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+    <rect x="6" y="14" width="12" height="8"></rect>
+  </svg>
+);
+
+const EditIcon = ({ size = 20 }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+  </svg>
+);
+
 const inputStyle = {
   background: 'var(--color-garuda-700)',
   border: '1px solid var(--color-garuda-600)',
@@ -512,7 +534,7 @@ export default function OffenderForm() {
 
   const set = (key, val) => setForm(prev => ({ ...prev, [key]: val }));
 
-  const handleSubmit = async (shouldRedirect = true) => {
+  const handleSubmit = async (shouldRedirect = true, sectionName = '') => {
     if (!form.fullName.trim()) { setError('Full name is required'); return; }
     if (!form.psId) { setError('Police station is required'); return; }
     
@@ -596,7 +618,8 @@ export default function OffenderForm() {
         financials: flattenedFinancials
       };
       if (isEdit) {
-        await api.put(`/offenders/${id}`, body);
+        const url = sectionName ? `/offenders/${id}?section=${encodeURIComponent(sectionName)}` : `/offenders/${id}`;
+        await api.put(url, body);
         setSnackbar({ type: 'success', message: 'Profile updated successfully!' });
       } else {
         await api.post('/offenders', body);
@@ -747,10 +770,59 @@ export default function OffenderForm() {
     ? (form.category === 'CONSUMER' ? 'Edit Consumer Profile' : 'Edit Offender Profile')
     : (form.category === 'CONSUMER' ? 'Consumer Details' : 'Offender Details');
 
+  const quickAccessSections = [
+    { id: 'section-basic', label: 'Basic Info', show: true },
+    { id: 'section-address', label: 'Address Details', show: true },
+    { id: 'section-contacts', label: 'Contacts', show: true },
+    { id: 'section-social', label: 'Social Media', show: true },
+    { id: 'section-drug', label: 'Drug Profile', show: true },
+    { id: 'section-financial', label: 'Financial Details', show: true },
+    { id: 'section-criminal', label: 'Criminal History', show: true },
+    { id: 'section-links', label: 'Supply Chain Links', show: true },
+    { id: 'section-cases', label: 'Case History', show: isEdit || isView },
+    { id: 'section-interrogation', label: 'Interrogation', show: isEdit || isView },
+    { id: 'section-imei', label: 'IMEI Register', show: isEdit || isView },
+  ].filter(s => s.show);
+
   return (
-    <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
+    <div className="max-w-7xl mx-auto space-y-6 animate-fade-in relative">
+      {/* Floating Sticky Action Icons */}
+      <div className="flex justify-end sticky top-4 z-40 h-0 overflow-visible pointer-events-none">
+        <div className="flex items-center gap-2 pointer-events-auto mr-4 sm:mr-6 lg:mr-0">
+          {isView && perms.hasPermission('OFFENDER_EDIT') && (
+            <button
+              onClick={() => navigate(`/offenders/${id}/edit`)}
+              title="Edit Profile"
+              className="p-2.5 rounded-xl border-none cursor-pointer transition-all duration-200 hover:scale-105 active:scale-95 shadow-md flex items-center justify-center text-white"
+              style={{ background: 'linear-gradient(135deg, var(--color-accent-500), var(--color-accent-400))' }}
+            >
+              <EditIcon size={18} />
+            </button>
+          )}
+          {(isEdit || isView) && (
+            <button 
+              type="button" 
+              onClick={printProfile} 
+              title="Print Profile"
+              className="p-2.5 rounded-xl border-none cursor-pointer transition-all duration-200 hover:scale-105 active:scale-95 shadow-md flex items-center justify-center text-white"
+              style={{ background: '#475569' }}
+            >
+              <PrintIcon size={18} />
+            </button>
+          )}
+          <button 
+            onClick={() => navigate('/offenders')} 
+            title="Go Back"
+            className="p-2.5 rounded-xl border-none cursor-pointer transition-all duration-200 hover:scale-105 active:scale-95 shadow-md flex items-center justify-center text-white"
+            style={{ background: '#334155' }}
+          >
+            <BackIcon size={18} />
+          </button>
+        </div>
+      </div>
+
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 pb-4 border-b border-slate-200/50 dark:border-slate-800/50">
         <div>
           <h1 className="text-2xl font-bold" style={{ color: 'var(--color-garuda-50)' }}>
             {pageTitle}
@@ -758,27 +830,6 @@ export default function OffenderForm() {
           <p className="text-sm mt-1" style={{ color: 'var(--color-garuda-400)' }}>
             {isView ? 'View profile details and associated records' : 'Fill in the information across all sections'}
           </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {isView && perms.hasPermission('OFFENDER_EDIT') && (
-            <button
-              onClick={() => navigate(`/offenders/${id}/edit`)}
-              className="px-4 py-2 rounded-lg text-sm font-semibold cursor-pointer whitespace-nowrap"
-              style={{ background: 'linear-gradient(135deg, var(--color-accent-500), var(--color-accent-400))', color: '#fff' }}
-            >
-              Edit Profile
-            </button>
-          )}
-          {(isEdit || isView) && (
-            <>
-              <button type="button" onClick={printProfile} className="px-4 py-2 rounded-lg text-sm cursor-pointer whitespace-nowrap"
-                style={{ background: 'var(--color-garuda-600)', color: 'var(--color-garuda-100)' }}>Print Profile</button>
-              <button type="button" onClick={downloadPdfHistorySheet} className="px-4 py-2 rounded-lg text-sm cursor-pointer whitespace-nowrap"
-                style={{ background: '#ef4444', color: '#fff' }}>⬇ Download Case History Sheet</button>
-            </>
-          )}
-          <button onClick={() => navigate('/offenders')} className="px-4 py-2 rounded-lg text-sm cursor-pointer whitespace-nowrap"
-            style={{ background: 'var(--color-garuda-700)', color: 'var(--color-garuda-200)' }}>← Back</button>
         </div>
       </div>
 
@@ -788,17 +839,19 @@ export default function OffenderForm() {
         </div>
       )}
 
-      {/* Profile Form / View Content - Single Page with Divisions */}
-      <div className="space-y-6">
-        
-        {/* Division 1: Basic Information */}
-        <div className="card rounded-xl p-6" style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}>
+      {/* Main Grid Wrapper */}
+      <div className="grid grid-cols-12 gap-6 items-start">
+        {/* Left Form Fields */}
+        <div className="col-span-12 lg:col-span-9 space-y-6">
+          
+          {/* Division 1: Basic Information */}
+          <div id="section-basic" className="card rounded-xl p-6" style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}>
           <div className="flex justify-between items-center mb-6 pb-2 border-b" style={{ borderColor: 'var(--color-garuda-700)' }}>
             <h3 className="text-lg font-semibold" style={{ color: 'var(--color-accent-400)' }}>Basic Information</h3>
             {!isView && (
               <button 
                 type="button" 
-                onClick={() => handleSubmit(false)} 
+                onClick={() => handleSubmit(false, 'Basic Information')} 
                 className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white border-none cursor-pointer transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-sm"
                 style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)' }}
               >
@@ -861,17 +914,27 @@ export default function OffenderForm() {
                         </div>
                       </div>
                     ) : (
-                      <div className="flex flex-col gap-3">
+                      <div className="flex flex-col gap-3 w-full">
                         <button type="button" onClick={startCamera} disabled={uploadingPhoto}
-                          className="w-full px-4 py-2 rounded-lg text-xs font-bold cursor-pointer flex items-center justify-center gap-2 transition-all border"
-                          style={{ background: 'rgba(233,115,25,0.1)', color: '#e97319', borderColor: 'rgba(233,115,25,0.3)' }}>
-                          📷 Use Live Camera
+                          className="w-full px-4 py-2.5 rounded-lg text-xs font-bold cursor-pointer flex items-center justify-center gap-2 transition-all border hover:scale-[1.02] active:scale-[0.98]"
+                          style={{ background: 'rgba(233,115,25,0.08)', color: '#e97319', borderColor: 'rgba(233,115,25,0.25)' }}>
+                          Capture
                         </button>
-                        <div className="text-center text-xs font-medium" style={{ color: 'var(--color-garuda-500)' }}>or</div>
-                        <input type="file" accept="image/*" capture="environment" onChange={handleFileChange} disabled={uploadingPhoto}
-                          className="block w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:cursor-pointer"
-                          style={{ color: 'var(--color-garuda-400)' }} />
-                        {uploadingPhoto && <span className="text-xs animate-pulse text-center" style={{ color: 'var(--color-garuda-400)' }}>Uploading…</span>}
+                        <div className="text-center text-xs font-semibold" style={{ color: 'var(--color-garuda-400)' }}>or</div>
+                        <div className="w-full">
+                          <label className="w-full px-4 py-2.5 rounded-lg text-xs font-bold cursor-pointer flex items-center justify-center gap-2 transition-all border text-center hover:scale-[1.02] active:scale-[0.98]"
+                            style={{ background: 'var(--color-garuda-600)', color: 'var(--color-garuda-100)', borderColor: 'var(--color-garuda-500)' }}>
+                            Upload
+                            <input 
+                              type="file" 
+                              accept="image/*" 
+                              onChange={handleFileChange} 
+                              disabled={uploadingPhoto}
+                              className="hidden" 
+                            />
+                          </label>
+                        </div>
+                        {uploadingPhoto && <span className="text-xs animate-pulse text-center font-semibold" style={{ color: 'var(--color-garuda-400)' }}>Uploading…</span>}
                       </div>
                     )}
                   </div>
@@ -935,13 +998,13 @@ export default function OffenderForm() {
         </div>
 
         {/* Division 2: Address Details */}
-        <div className="card rounded-xl p-6" style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}>
+        <div id="section-address" className="card rounded-xl p-6" style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}>
           <div className="flex justify-between items-center mb-4 pb-2 border-b" style={{ borderColor: 'var(--color-garuda-700)' }}>
             <h3 className="text-lg font-semibold" style={{ color: 'var(--color-accent-400)' }}>Address Details</h3>
             {!isView && (
               <button 
                 type="button" 
-                onClick={() => handleSubmit(false)} 
+                onClick={() => handleSubmit(false, 'Address Details')} 
                 className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white border-none cursor-pointer transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-sm"
                 style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)' }}
               >
@@ -960,13 +1023,13 @@ export default function OffenderForm() {
         </div>
 
         {/* Division 3: Contacts */}
-        <div className="card rounded-xl p-6" style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}>
+        <div id="section-contacts" className="card rounded-xl p-6" style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}>
           <div className="flex justify-between items-center mb-4 pb-2 border-b" style={{ borderColor: 'var(--color-garuda-700)' }}>
             <h3 className="text-lg font-semibold" style={{ color: 'var(--color-accent-400)' }}>Phone & Email Contacts</h3>
             {!isView && (
               <button 
                 type="button" 
-                onClick={() => handleSubmit(false)} 
+                onClick={() => handleSubmit(false, 'Phone & Email Contacts')} 
                 className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white border-none cursor-pointer transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-sm"
                 style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)' }}
               >
@@ -998,7 +1061,7 @@ export default function OffenderForm() {
                   </div>
                   <input className="flex-1 px-3 py-2.5 rounded text-sm w-full" style={inputStyle} placeholder="e.g. 9848012345 or email@gmail.com" value={c.value} onChange={e => updateContact(i, 'value', e.target.value)} />
                   <input className="w-full md:w-40 px-3 py-2.5 rounded text-sm" style={inputStyle} placeholder="Notes" value={c.notes||''} onChange={e => updateContact(i, 'notes', e.target.value)} />
-                  <button type="button" onClick={() => removeContact(i)} className="px-3 py-2 rounded text-xs text-red-400 cursor-pointer self-end md:self-start w-full md:w-auto" style={{ background: 'rgba(239,68,68,0.15)' }}>✕ Remove</button>
+                  <button type="button" onClick={() => removeContact(i)} className="px-3 py-2.5 rounded-lg text-xs font-bold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] self-end md:self-start w-full md:w-auto">✕ Remove</button>
                 </div>
               ))}
               <button type="button" onClick={addContact} className="px-4 py-2 rounded-lg text-sm font-medium cursor-pointer"
@@ -1008,13 +1071,13 @@ export default function OffenderForm() {
         </div>
 
         {/* Division 3.5: Social Media */}
-        <div className="card rounded-xl p-6" style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}>
+        <div id="section-social" className="card rounded-xl p-6" style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}>
           <div className="flex justify-between items-center mb-4 pb-2 border-b" style={{ borderColor: 'var(--color-garuda-700)' }}>
             <h3 className="text-lg font-semibold" style={{ color: 'var(--color-accent-400)' }}>Social Media & Messaging Profiles</h3>
             {!isView && (
               <button 
                 type="button" 
-                onClick={() => handleSubmit(false)} 
+                onClick={() => handleSubmit(false, 'Social Media & Messaging Profiles')} 
                 className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white border-none cursor-pointer transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-sm"
                 style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)' }}
               >
@@ -1050,7 +1113,7 @@ export default function OffenderForm() {
                   </div>
                   <input className="flex-1 px-3 py-2 rounded-lg text-sm w-full outline-none" style={inputStyle} placeholder="Username or Profile Link" value={s.value} onChange={e => updateSocialMedia(i, 'value', e.target.value)} />
                   <input className="w-full md:w-64 px-3 py-2 rounded-lg text-sm outline-none" style={inputStyle} placeholder="Notes" value={s.notes||''} onChange={e => updateSocialMedia(i, 'notes', e.target.value)} />
-                  <button type="button" onClick={() => removeSocialMedia(i)} className="px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer border flex items-center justify-center gap-1 w-full md:w-auto transition-colors duration-200 hover:bg-red-500/20" style={{ background: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.2)', color: '#ef4444' }}>✕ Remove</button>
+                  <button type="button" onClick={() => removeSocialMedia(i)} className="px-4 py-2.5 rounded-lg text-xs font-bold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-1 w-full md:w-auto">✕ Remove</button>
                 </div>
               ))}
               <button type="button" onClick={addSocialMedia} className="px-4 py-2 rounded-lg text-sm font-medium cursor-pointer"
@@ -1060,13 +1123,13 @@ export default function OffenderForm() {
         </div>
 
         {/* Division 4: Drug Profile */}
-        <div className="card rounded-xl p-6" style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}>
+        <div id="section-drug" className="card rounded-xl p-6" style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}>
           <div className="flex justify-between items-center mb-4 pb-2 border-b" style={{ borderColor: 'var(--color-garuda-700)' }}>
             <h3 className="text-lg font-semibold" style={{ color: 'var(--color-accent-400)' }}>Drug Profile Details</h3>
             {!isView && (
               <button 
                 type="button" 
-                onClick={() => handleSubmit(false)} 
+                onClick={() => handleSubmit(false, 'Drug Profile')} 
                 className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white border-none cursor-pointer transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-sm"
                 style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)' }}
               >
@@ -1090,13 +1153,13 @@ export default function OffenderForm() {
         </div>
 
         {/* Division 5: Financials */}
-        <div className="card rounded-xl p-6" style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}>
+        <div id="section-financial" className="card rounded-xl p-6" style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}>
           <div className="flex justify-between items-center mb-4 pb-2 border-b" style={{ borderColor: 'var(--color-garuda-700)' }}>
             <h3 className="text-lg font-semibold" style={{ color: 'var(--color-accent-400)' }}>Financial Details</h3>
             {!isView && (
               <button 
                 type="button" 
-                onClick={() => handleSubmit(false)} 
+                onClick={() => handleSubmit(false, 'Financial Details')} 
                 className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white border-none cursor-pointer transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-sm"
                 style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)' }}
               >
@@ -1129,7 +1192,7 @@ export default function OffenderForm() {
                 <div key={i} className="p-4 rounded-lg space-y-3" style={{ background: 'var(--color-garuda-700)' }}>
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--color-garuda-400)' }}>Entry #{i + 1}</span>
-                    <button type="button" onClick={() => removeFinancial(i)} className="px-2 py-1 rounded text-xs text-red-400 cursor-pointer" style={{ background: 'rgba(239,68,68,0.15)' }}>✕ Remove</button>
+                    <button type="button" onClick={() => removeFinancial(i)} className="px-2.5 py-1.5 rounded-lg text-xs font-bold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98]">✕ Remove</button>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <Field label="Type">
@@ -1171,13 +1234,13 @@ export default function OffenderForm() {
         </div>
 
         {/* Division 6: Criminal History */}
-        <div className="card rounded-xl p-6" style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}>
+        <div id="section-criminal" className="card rounded-xl p-6" style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}>
           <div className="flex justify-between items-center mb-4 pb-2 border-b" style={{ borderColor: 'var(--color-garuda-700)' }}>
             <h3 className="text-lg font-semibold" style={{ color: 'var(--color-accent-400)' }}>Criminal History</h3>
             {!isView && (
               <button 
                 type="button" 
-                onClick={() => handleSubmit(false)} 
+                onClick={() => handleSubmit(false, 'Criminal History')} 
                 className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white border-none cursor-pointer transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-sm"
                 style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)' }}
               >
@@ -1238,7 +1301,7 @@ export default function OffenderForm() {
                   <input className="px-3 py-2.5 rounded text-sm w-full" style={inputStyle} placeholder="Previous PS" value={ch.previousPs} onChange={e => updateCrimHistory(i, 'previousPs', e.target.value)} />
                   <input className="px-3 py-2.5 rounded text-sm w-full" style={inputStyle} placeholder="Sections of Law" value={ch.sectionsOfLaw} onChange={e => updateCrimHistory(i, 'sectionsOfLaw', e.target.value)} />
                   <input className="px-3 py-2.5 rounded text-sm w-full" style={inputStyle} placeholder="Case Stage" value={ch.caseStage} onChange={e => updateCrimHistory(i, 'caseStage', e.target.value)} />
-                  <button type="button" onClick={() => removeCrimHistory(i)} className="px-2 py-2 rounded text-xs text-red-400 cursor-pointer flex items-center justify-center bg-red-500/10 hover:bg-red-500/20 sm:col-span-2 md:col-span-1 border border-red-500/20">✕ Remove</button>
+                  <button type="button" onClick={() => removeCrimHistory(i)} className="px-3 py-2.5 rounded-lg text-xs font-bold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-1 sm:col-span-2 md:col-span-1">✕ Remove</button>
                 </div>
               ))}
               <button type="button" onClick={addCrimHistory} className="px-4 py-2 rounded-lg text-sm font-medium cursor-pointer"
@@ -1248,13 +1311,13 @@ export default function OffenderForm() {
         </div>
 
         {/* Division 7: Supply Chain Links */}
-        <div className="card rounded-xl p-6" style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}>
+        <div id="section-links" className="card rounded-xl p-6" style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}>
           <div className="flex justify-between items-center mb-4 pb-2 border-b" style={{ borderColor: 'var(--color-garuda-700)' }}>
             <h3 className="text-lg font-semibold" style={{ color: 'var(--color-accent-400)' }}>Supply Chain Links</h3>
             {!isView && (
               <button 
                 type="button" 
-                onClick={() => handleSubmit(false)} 
+                onClick={() => handleSubmit(false, 'Supply Chain Links')} 
                 className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white border-none cursor-pointer transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-sm"
                 style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)' }}
               >
@@ -1284,7 +1347,7 @@ export default function OffenderForm() {
                   <input className="px-3 py-2.5 rounded text-sm w-full" style={inputStyle} placeholder="Name" value={lk.linkedName||''} onChange={e => updateLink(i, 'linkedName', e.target.value)} />
                   <input className="px-3 py-2.5 rounded text-sm w-full" style={inputStyle} placeholder="Contact" value={lk.linkedContact||''} onChange={e => updateLink(i, 'linkedContact', e.target.value)} />
                   <input className="px-3 py-2.5 rounded text-sm w-full" style={inputStyle} placeholder="Notes" value={lk.notes||''} onChange={e => updateLink(i, 'notes', e.target.value)} />
-                  <button type="button" onClick={() => removeLink(i)} className="px-2 py-2 rounded text-xs text-red-400 cursor-pointer flex items-center justify-center bg-red-500/10 hover:bg-red-500/20 sm:col-span-2 md:col-span-1 border border-red-500/20">✕ Remove</button>
+                  <button type="button" onClick={() => removeLink(i)} className="px-3 py-2.5 rounded-lg text-xs font-bold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-1 sm:col-span-2 md:col-span-1">✕ Remove</button>
                 </div>
               ))}
               <button type="button" onClick={addLink} className="px-4 py-2 rounded-lg text-sm font-medium cursor-pointer"
@@ -1295,15 +1358,27 @@ export default function OffenderForm() {
 
         {/* Division 8: Case History (Edit & View only) */}
         {(isEdit || isView) && (
-          <div className="card rounded-xl p-6" style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}>
-            <h3 className="text-lg font-semibold mb-4 pb-2 border-b" style={{ borderColor: 'var(--color-garuda-700)', color: 'var(--color-accent-400)' }}>Case History</h3>
+          <div id="section-cases" className="card rounded-xl p-6" style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}>
+            <div className="flex justify-between items-center mb-4 pb-2 border-b" style={{ borderColor: 'var(--color-garuda-700)' }}>
+              <h3 className="text-lg font-semibold" style={{ color: 'var(--color-accent-400)' }}>Case History</h3>
+              <button 
+                type="button" 
+                onClick={downloadPdfHistorySheet} 
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white border-none cursor-pointer bg-red-600 hover:bg-red-700 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-sm flex items-center gap-1.5"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                Download History Sheet
+              </button>
+            </div>
             <OffenderCaseHistory offenderId={id} isEdit={isEdit} />
           </div>
         )}
 
         {/* Division 9: Interrogation (Edit & View only) */}
         {(isEdit || isView) && (
-          <div className="card rounded-xl p-6" style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}>
+          <div id="section-interrogation" className="card rounded-xl p-6" style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}>
             <h3 className="text-lg font-semibold mb-4 pb-2 border-b" style={{ borderColor: 'var(--color-garuda-700)', color: 'var(--color-accent-400)' }}>Interrogation Sessions</h3>
             <OffenderInterrogationPanel offenderId={id} />
           </div>
@@ -1311,11 +1386,29 @@ export default function OffenderForm() {
 
         {/* Division 10: IMEI Register (Edit & View only) */}
         {(isEdit || isView) && (
-          <div className="card rounded-xl p-6" style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}>
+          <div id="section-imei" className="card rounded-xl p-6" style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}>
             <h3 className="text-lg font-semibold mb-4 pb-2 border-b" style={{ borderColor: 'var(--color-garuda-700)', color: 'var(--color-accent-400)' }}>IMEI Register</h3>
             <ImeiPanel offenderId={id} isEdit={isEdit} />
           </div>
         )}
+        </div>
+
+        {/* Right Sticky Quick Access Panel */}
+        <div className="hidden lg:block lg:col-span-3 sticky top-24 self-start">
+          <div className="pl-4 border-l-2 border-slate-300 space-y-2">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-4 px-2">Quick Navigation</p>
+            {quickAccessSections.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => document.getElementById(s.id)?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+                className="w-full text-left px-2 py-1.5 rounded-lg text-xs font-semibold block transition-all cursor-pointer border-none bg-transparent text-slate-700 hover:text-orange-600 hover:bg-slate-100"
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* Footer Submit Button */}

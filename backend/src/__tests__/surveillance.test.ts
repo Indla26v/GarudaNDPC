@@ -11,7 +11,7 @@ describe('Surveillance API', () => {
     shoToken = jwt.sign({
       userId: '1',
       role: 'SHO',
-      department: 'POLICE',
+      department: 'CYBER_ANALYTICS',
       policeStationId: '1',
       district: 'Tirupati',
       divisionId: null,
