@@ -305,7 +305,53 @@ const INITIAL_PE_OFFENDERS = [
   }
 ];
 
-// INITIAL_ALERTS and INITIAL_OPERATIONS removed — page is now a pure state-level directory
+const getRecordState = (offender) => {
+  const dist = (offender.psDistrict || offender.district || '').toLowerCase().trim();
+  const psName = (offender.policeStation || '').toLowerCase().trim();
+  
+  const apDistricts = [
+    'alluri sitharama raju', 'anakapalli', 'ananthapuramu (anantapur)', 'annamayya', 'bapatla', 
+    'chittoor', 'dr. b.r. ambedkar konaseema', 'east godavari', 'eluru', 'guntur', 'kakinada', 
+    'krishna', 'kurnool', 'nandyal', 'ntr', 'palnadu', 'parvathipuram manyam', 'prakasam', 
+    'sri potti sriramulu nellore', 'sri sathya sai', 'srikakulam', 'tirupati', 'visakhapatnam', 
+    'vizianagaram', 'west godavari', 'ysr kadapa', 'anantagiri'
+  ];
+  if (apDistricts.includes(dist) || psName.includes('tirupati') || psName.includes('chittoor') || dist === 'chittoor excise') {
+    return 'AP';
+  }
+  
+  const tsDistricts = ['khammam', 'secunderabad junction', 'secunderabad', 'kazipet', 'nizamabad', 'kamareddy', 'hyderabad', 'warangal', 'karimnagar', 'nalgonda'];
+  if (tsDistricts.includes(dist) || psName.includes('khammam') || psName.includes('secunderabad') || psName.includes('kazipet') || psName.includes('kamareddy')) {
+    return 'TS';
+  }
+  
+  const kaDistricts = ['bengaluru rural', 'yasvantpur rly stn', 'yasvantpur', 'bangalore', 'kengeri', 'electronic city', 'mysore', 'mangalore', 'hubli'];
+  if (kaDistricts.includes(dist) || psName.includes('electronic city') || psName.includes('kengeri') || psName.includes('yasvantpur') || psName.includes('bangalore')) {
+    return 'KA';
+  }
+  
+  const tnDistricts = ['coimbatore', 'madurai', 'salem', 'trichy', 'chennai', 'chennai central', 'coimbatore south'];
+  if (tnDistricts.includes(dist) || psName.includes('coimbatore') || psName.includes('madurai') || psName.includes('salem') || psName.includes('trichy') || psName.includes('chennai')) {
+    return 'TN';
+  }
+  
+  const klDistricts = ['wayanad', 'palakkad', 'walayar', 'thrissur', 'trivandrum', 'ernakulam', 'kozhikode', 'kalpetta'];
+  if (klDistricts.includes(dist) || psName.includes('walayar') || psName.includes('palakkad') || psName.includes('thrissur') || psName.includes('kalpetta')) {
+    return 'KL';
+  }
+  
+  const offenderState = (offender.state || '').toUpperCase().trim();
+  if (['AP', 'TS', 'KA', 'TN', 'KL'].includes(offenderState)) {
+    return offenderState;
+  }
+  if (offenderState === 'ANDHRA PRADESH') return 'AP';
+  if (offenderState === 'TELANGANA') return 'TS';
+  if (offenderState === 'KARNATAKA') return 'KA';
+  if (offenderState === 'TAMIL NADU') return 'TN';
+  if (offenderState === 'KERALA') return 'KL';
+  
+  return 'AP';
+};
 
 export default function SouthIndiaDataBank() {
   const perms = usePermissions();
@@ -447,8 +493,8 @@ export default function SouthIndiaDataBank() {
       'tn': 'TN',
       'kl': 'KL'
     };
-    const offenderStateCode = stateMapping[(offender.state || '').toLowerCase().trim()] || offender.state;
-    const matchesState = currentBranchStateFilter === 'ALL' || offenderStateCode === currentBranchStateFilter;
+    const recordStateCode = getRecordState(offender);
+    const matchesState = currentBranchStateFilter === 'ALL' || recordStateCode === currentBranchStateFilter;
     
     const query = searchQuery.toLowerCase().trim();
     const matchesSearch = !query || 
@@ -621,7 +667,7 @@ export default function SouthIndiaDataBank() {
             { code: 'TN', name: 'Tamil Nadu', colorClass: 'border-red-100 dark:border-red-950/40 bg-red-50/5 text-red-600 dark:text-red-400' },
             { code: 'KL', name: 'Kerala', colorClass: 'border-emerald-100 dark:border-emerald-950/40 bg-emerald-50/5 text-emerald-600 dark:text-emerald-400' }
           ].map(state => {
-            const list = activeOffendersList.filter(o => o.state === state.code);
+            const list = activeOffendersList.filter(o => getRecordState(o) === state.code);
             const accusedCount = list.length;
             const casesCount = list.reduce((sum, o) => sum + o.casesCount, 0);
             return (
