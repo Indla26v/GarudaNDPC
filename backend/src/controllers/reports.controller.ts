@@ -182,7 +182,7 @@ export const getMonthlyAbstractReport = async (req: Request, res: Response) => {
       }
       const stat = stationsMap.get(psName);
       stat.caseCount += 1;
-      stat.arrestCount += c.case_accused.filter((ca: any) => ca.arrest_status === 'ARRESTED').length;
+      stat.arrestCount += c.case_accused.filter((ca: any) => ['POLICE_CUSTODY', 'JUDICIAL_CUSTODY'].includes(ca.arrest_status)).length;
       for (const s of c.seizures) {
         stat.contrabandKg += s.contraband_kg ? Number(s.contraband_kg) : 0;
         stat.cashAmount += s.cash_amount ? Number(s.cash_amount) : 0;
@@ -224,7 +224,7 @@ export const getYearlyComparisonReport = async (req: Request, res: Response) => 
         const year = new Date(c.case_date).getFullYear();
         if (yearlyStats[year]) {
           yearlyStats[year].cases += 1;
-          yearlyStats[year].arrests += c.case_accused.filter((ca: any) => ca.arrest_status === 'ARRESTED').length;
+          yearlyStats[year].arrests += c.case_accused.filter((ca: any) => ['POLICE_CUSTODY', 'JUDICIAL_CUSTODY'].includes(ca.arrest_status)).length;
           if (c.stage === 'CONVICTED') {
             yearlyStats[year].convictions += 1;
           }
@@ -297,7 +297,7 @@ export const getBailExpiryAlertsReport = async (req: Request, res: Response) => 
 
     const bails = await prisma.case_accused.findMany({
       where: {
-        arrest_status: 'BAILED',
+        arrest_status: 'ON_BAIL',
         cases: psFilter
       },
       include: {

@@ -184,7 +184,7 @@ export const createCase = async (req: Request, res: Response) => {
           data: accusedList.map((a: any) => ({
             case_id: created.id,
             offender_id: BigInt(a.offenderId || a.offender_id),
-            arrest_status: a.arrestStatus || a.arrest_status || 'ARRESTED',
+            arrest_status: a.arrestStatus || a.arrest_status || 'POLICE_CUSTODY',
             arrest_date: a.arrestDate || a.arrest_date ? new Date(a.arrestDate || a.arrest_date) : null,
           })),
         });
@@ -446,7 +446,7 @@ export const updateAccused = async (req: Request, res: Response) => {
     // ── Detect and log arrest status transitions ─────────────────────────
     for (const incoming of accusedData) {
       const offId = String(incoming.offenderId || incoming.offender_id);
-      const newStatus = incoming.arrestStatus || incoming.arrest_status || 'ARRESTED';
+      const newStatus = incoming.arrestStatus || incoming.arrest_status || 'POLICE_CUSTODY';
       const existing = existingMap.get(offId);
 
       if (existing && existing.arrest_status !== newStatus) {
@@ -476,7 +476,7 @@ export const updateAccused = async (req: Request, res: Response) => {
           : existing?.previous_ps_id 
             ? BigInt(existing.previous_ps_id) 
             : null,
-        arrest_status: a.arrestStatus || a.arrest_status || existing?.arrest_status || 'ARRESTED',
+        arrest_status: a.arrestStatus || a.arrest_status || existing?.arrest_status || 'POLICE_CUSTODY',
         arrest_date: a.arrestDate || a.arrest_date 
           ? new Date(a.arrestDate || a.arrest_date) 
           : existing?.arrest_date 

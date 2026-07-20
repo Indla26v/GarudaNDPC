@@ -235,13 +235,13 @@ async function main() {
       });
 
       // Create case_accused link
-      let arrestStatus: 'ARRESTED' | 'ABSCONDING' | 'BAILED' = 'ARRESTED';
+      let arrestStatus: 'POLICE_CUSTODY' | 'JUDICIAL_CUSTODY' | 'ON_BAIL' | 'ABSCONDING' | 'RELEASED' = 'POLICE_CUSTODY';
       if (stage === 'CONVICTED') {
-        arrestStatus = 'ARRESTED';
+        arrestStatus = 'POLICE_CUSTODY';
       } else if ((i * 2 + j) % 5 === 0) {
         arrestStatus = 'ABSCONDING';
       } else if ((i * 2 + j) % 3 === 0) {
-        arrestStatus = 'BAILED';
+        arrestStatus = 'ON_BAIL';
       }
 
       await prisma.case_accused.create({
@@ -250,7 +250,7 @@ async function main() {
           offender_id: offender.id,
           arrest_status: arrestStatus,
           arrest_date: arrestStatus === 'ABSCONDING' ? null : caseDate,
-          bail_date: arrestStatus === 'BAILED' ? new Date(caseDate.getTime() + 10 * 24 * 60 * 60 * 1000) : null
+          bail_date: arrestStatus === 'ON_BAIL' ? new Date(caseDate.getTime() + 10 * 24 * 60 * 60 * 1000) : null
         }
       });
 
@@ -290,9 +290,9 @@ async function main() {
       
       await prisma.case_accused.createMany({
         data: [
-          { case_id: crossCase.id, offender_id: kingpin.id, arrest_status: 'ARRESTED', arrest_date: new Date('2026-06-16') },
-          { case_id: crossCase.id, offender_id: peddler.id, arrest_status: 'ARRESTED', arrest_date: new Date('2026-06-17') },
-          { case_id: crossCase.id, offender_id: consumer.id, arrest_status: 'BAILED', arrest_date: new Date('2026-06-18') }
+          { case_id: crossCase.id, offender_id: kingpin.id, arrest_status: 'POLICE_CUSTODY', arrest_date: new Date('2026-06-16') },
+          { case_id: crossCase.id, offender_id: peddler.id, arrest_status: 'POLICE_CUSTODY', arrest_date: new Date('2026-06-17') },
+          { case_id: crossCase.id, offender_id: consumer.id, arrest_status: 'ON_BAIL', arrest_date: new Date('2026-06-18') }
         ]
       });
       console.log(`Created cross-PS case (FIR CROSS/2026/001) involving 3 offenders from different stations.`);

@@ -562,7 +562,7 @@ export const importDprExcel = async (req: Request, res: Response) => {
               data: {
                 case_id: caseId,
                 offender_id: offender.id,
-                arrest_status: arrestStatus.toUpperCase().includes('ABS') ? 'ABSCONDING' : 'ARRESTED',
+                arrest_status: arrestStatus.toUpperCase().includes('ABS') ? 'ABSCONDING' : 'POLICE_CUSTODY',
               },
             });
           }
@@ -1253,7 +1253,7 @@ export const confirmDprImport = async (req: Request, res: Response) => {
               const linked = await prisma.case_accused.findFirst({ where: { case_id: caseId, offender_id: offender.id } });
               if (!linked) {
                 await prisma.case_accused.create({
-                  data: { case_id: caseId, offender_id: offender.id, arrest_status: 'ARRESTED' }
+                  data: { case_id: caseId, offender_id: offender.id, arrest_status: 'POLICE_CUSTODY' }
                 });
               }
             }
@@ -1476,7 +1476,7 @@ export const confirmDprImport = async (req: Request, res: Response) => {
                   data: {
                     case_id: caseId,
                     offender_id: offender.id,
-                    arrest_status: (row.arrestStatus || '').toUpperCase().includes('ABS') ? 'ABSCONDING' : 'ARRESTED',
+                    arrest_status: (row.arrestStatus || '').toUpperCase().includes('ABS') ? 'ABSCONDING' : 'POLICE_CUSTODY',
                   },
                 });
               }

@@ -319,7 +319,6 @@ export default function SouthIndiaDataBank() {
   const [peState, setPeState] = useState('ALL');
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedContraband, setSelectedContraband] = useState('ALL');
 
   // Offenders state split by department
   const [loOffenders, setLoOffenders] = useState(INITIAL_LO_OFFENDERS);
@@ -467,10 +466,7 @@ export default function SouthIndiaDataBank() {
       (offender.vehicles || '').toLowerCase().includes(query) ||
       (offender.contraband || '').toLowerCase().includes(query);
 
-    const matchesContraband = selectedContraband === 'ALL' || 
-      (offender.contraband || '').toLowerCase().includes(selectedContraband.toLowerCase());
-
-    return matchesState && matchesSearch && matchesContraband;
+    return matchesState && matchesSearch;
   });
 
   // Department Branch Sidebar Items Configuration
@@ -674,20 +670,16 @@ export default function SouthIndiaDataBank() {
                 />
               </div>
 
-              {/* Contraband Select */}
+              {/* State Select */}
               <div className="w-full md:w-48">
                 <select
-                  value={selectedContraband}
-                  onChange={(e) => setSelectedContraband(e.target.value)}
+                  value={currentBranchStateFilter}
+                  onChange={(e) => handleStateFilterChange(e.target.value)}
                   className="w-full py-2 px-3 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 >
-                  <option value="ALL">All Contraband</option>
-                  <option value="Ganja">Ganja</option>
-                  <option value="MDMA">MDMA</option>
-                  <option value="Hashish">Hashish Oil</option>
-                  <option value="Charas">Charas</option>
-                  <option value="Meth">Methamphetamine</option>
-                  <option value="Alprazolam">Alprazolam</option>
+                  {STATES.map(st => (
+                    <option key={st.code} value={st.code}>{st.name}</option>
+                  ))}
                 </select>
               </div>
             </div>

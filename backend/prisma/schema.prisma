@@ -31,7 +31,7 @@ model case_accused {
   offender_id     BigInt
   previous_cr_no  String?          @db.VarChar(50)
   previous_ps_id  BigInt?
-  arrest_status   arrest_status    @default(ARRESTED)
+  arrest_status   arrest_status    @default(POLICE_CUSTODY)
   arrest_date     DateTime?        @db.Date
   bail_date       DateTime?        @db.Date
   bail_conditions String?
@@ -634,9 +634,11 @@ enum addiction_type {
 }
 
 enum arrest_status {
-  ARRESTED
+  POLICE_CUSTODY
+  JUDICIAL_CUSTODY
+  ON_BAIL
   ABSCONDING
-  BAILED
+  RELEASED
 }
 
 enum audit_action {

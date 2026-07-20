@@ -52,8 +52,8 @@ async function main() {
       updated_at: new Date(),
       case_accused: {
         create: [
-          { offender_id: offenders[0]!.id, arrest_status: 'ARRESTED', arrest_date: new Date() },
-          { offender_id: offenders[1]!.id, arrest_status: 'ARRESTED', arrest_date: new Date() },
+          { offender_id: offenders[0]!.id, arrest_status: 'POLICE_CUSTODY', arrest_date: new Date() },
+          { offender_id: offenders[1]!.id, arrest_status: 'POLICE_CUSTODY', arrest_date: new Date() },
           { offender_id: offenders[2]!.id, arrest_status: 'ABSCONDING' },
         ]
       },
@@ -101,10 +101,10 @@ async function main() {
       updated_at: new Date(),
       case_accused: {
         create: [
-          { offender_id: offenders[3]!.id, arrest_status: 'ARRESTED', arrest_date: new Date() },
-          { offender_id: offenders[4]!.id, arrest_status: 'ARRESTED', arrest_date: new Date() },
-          { offender_id: offenders[0]!.id, arrest_status: 'BAILED', arrest_date: new Date(), bail_date: new Date() },
-          { offender_id: offenders[1]!.id, arrest_status: 'ARRESTED', arrest_date: new Date() },
+          { offender_id: offenders[3]!.id, arrest_status: 'POLICE_CUSTODY', arrest_date: new Date() },
+          { offender_id: offenders[4]!.id, arrest_status: 'POLICE_CUSTODY', arrest_date: new Date() },
+          { offender_id: offenders[0]!.id, arrest_status: 'ON_BAIL', arrest_date: new Date(), bail_date: new Date() },
+          { offender_id: offenders[1]!.id, arrest_status: 'POLICE_CUSTODY', arrest_date: new Date() },
         ]
       },
       seizures: {

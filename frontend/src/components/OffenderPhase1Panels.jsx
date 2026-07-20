@@ -2,6 +2,44 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api/axios';
 
+const ARREST_STATUS_META = {
+  POLICE_CUSTODY: {
+    label: 'Police Custody',
+    desc: 'Police Custody (Locked up at the police station)',
+    color: '#a855f7',
+    bg: 'rgba(168, 85, 247, 0.15)',
+    border: 'rgba(168, 85, 247, 0.3)'
+  },
+  JUDICIAL_CUSTODY: {
+    label: 'Judicial Custody',
+    desc: 'Judicial Custody (Sent to prison/jail)',
+    color: '#3b82f6',
+    bg: 'rgba(59, 130, 246, 0.15)',
+    border: 'rgba(59, 130, 246, 0.3)'
+  },
+  ON_BAIL: {
+    label: 'on Bail',
+    desc: 'on Bail (Temporary freedom during trial)',
+    color: '#f59e0b',
+    bg: 'rgba(245, 158, 11, 0.15)',
+    border: 'rgba(245, 158, 11, 0.3)'
+  },
+  ABSCONDING: {
+    label: 'Absconding',
+    desc: 'Absconding (Wanted / On the run)',
+    color: '#ef4444',
+    bg: 'rgba(239, 68, 68, 0.15)',
+    border: 'rgba(239, 68, 68, 0.3)'
+  },
+  RELEASED: {
+    label: 'Released / Free',
+    desc: 'Released / Free (Set free permanently because they were Acquitted)',
+    color: '#22c55e',
+    bg: 'rgba(34, 197, 94, 0.15)',
+    border: 'rgba(34, 197, 94, 0.3)'
+  }
+};
+
 const inputStyle = {
   background: 'var(--color-garuda-700)',
   border: '1px solid var(--color-garuda-600)',
@@ -58,7 +96,7 @@ export function OffenderCaseHistory({ offenderId, isEdit }) {
     <ul className="space-y-2">
       {cases.map((c) => {
         const offenderAccusedObj = c.accused?.find(a => String(a.offenderId) === String(offenderId));
-        const arrestStatus = offenderAccusedObj?.arrestStatus || 'ARRESTED';
+        const arrestStatus = offenderAccusedObj?.arrestStatus || 'POLICE_CUSTODY';
 
         return (
           <li key={c.id} className="p-3 rounded-lg flex items-center justify-between gap-4" style={{ background: 'var(--color-garuda-900)' }}>
@@ -76,25 +114,25 @@ export function OffenderCaseHistory({ offenderId, isEdit }) {
                   onChange={(e) => handleStatusChange(c.id, e.target.value)}
                   className="px-2 py-1 rounded-md text-xs font-semibold outline-none cursor-pointer"
                   style={{
-                    background: arrestStatus === 'ABSCONDING' ? 'rgba(239,68,68,0.15)' : arrestStatus === 'BAILED' ? 'rgba(245,158,11,0.15)' : 'rgba(34,197,94,0.15)',
-                    color: arrestStatus === 'ABSCONDING' ? '#ef4444' : arrestStatus === 'BAILED' ? '#f59e0b' : '#22c55e',
-                    border: `1px solid ${arrestStatus === 'ABSCONDING' ? 'rgba(239,68,68,0.3)' : arrestStatus === 'BAILED' ? 'rgba(245,158,11,0.3)' : 'rgba(34,197,94,0.3)'}`,
+                    background: ARREST_STATUS_META[arrestStatus]?.bg || 'rgba(34,197,94,0.15)',
+                    color: ARREST_STATUS_META[arrestStatus]?.color || '#22c55e',
+                    border: `1px solid ${ARREST_STATUS_META[arrestStatus]?.border || 'rgba(34,197,94,0.3)'}`,
                   }}
                 >
-                  <option value="ARRESTED">Arrested</option>
-                  <option value="ABSCONDING">Absconding</option>
-                  <option value="BAILED">Bailed</option>
+                  {Object.entries(ARREST_STATUS_META).map(([key, meta]) => (
+                    <option key={key} value={key}>{meta.desc}</option>
+                  ))}
                 </select>
               ) : (
                 <span
                   className="px-2.5 py-1 rounded-md text-xs font-semibold"
                   style={{
-                    background: arrestStatus === 'ABSCONDING' ? 'rgba(239,68,68,0.15)' : arrestStatus === 'BAILED' ? 'rgba(245,158,11,0.15)' : 'rgba(34,197,94,0.15)',
-                    color: arrestStatus === 'ABSCONDING' ? '#ef4444' : arrestStatus === 'BAILED' ? '#f59e0b' : '#22c55e',
-                    border: `1px solid ${arrestStatus === 'ABSCONDING' ? 'rgba(239,68,68,0.3)' : arrestStatus === 'BAILED' ? 'rgba(245,158,11,0.3)' : 'rgba(34,197,94,0.3)'}`,
+                    background: ARREST_STATUS_META[arrestStatus]?.bg || 'rgba(34,197,94,0.15)',
+                    color: ARREST_STATUS_META[arrestStatus]?.color || '#22c55e',
+                    border: `1px solid ${ARREST_STATUS_META[arrestStatus]?.border || 'rgba(34,197,94,0.3)'}`,
                   }}
                 >
-                  {arrestStatus.charAt(0) + arrestStatus.slice(1).toLowerCase()}
+                  {ARREST_STATUS_META[arrestStatus]?.label || arrestStatus}
                 </span>
               )}
 

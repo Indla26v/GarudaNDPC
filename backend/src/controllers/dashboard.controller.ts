@@ -81,7 +81,7 @@ export const getDashboardSummary = async (req: Request, res: Response) => {
     const totalCases = await prisma.cases.count({ where: caseWhere });
     const totalOffenders = await prisma.offenders.count({ where: offenderWhere });
     const totalArrests = await prisma.case_accused.count({
-      where: { ...caseAccusedWhere, arrest_status: 'ARRESTED' },
+      where: { ...caseAccusedWhere, arrest_status: { in: ['POLICE_CUSTODY', 'JUDICIAL_CUSTODY'] } },
     });
     const totalAbsconders = await prisma.case_accused.count({
       where: { ...caseAccusedWhere, arrest_status: 'ABSCONDING' },
@@ -179,7 +179,7 @@ export const getDashboardSummary = async (req: Request, res: Response) => {
       `SELECT EXTRACT(YEAR FROM c.case_date)::int AS year, COUNT(*)::bigint AS count
        FROM case_accused ca
        JOIN cases c ON c.id = ca.case_id
-       WHERE ca.arrest_status = 'ARRESTED' AND c.case_date IS NOT NULL ${psCondition}
+       WHERE ca.arrest_status IN ('POLICE_CUSTODY', 'JUDICIAL_CUSTODY') AND c.case_date IS NOT NULL ${psCondition}
        GROUP BY 1
        ORDER BY 1`
     );
@@ -263,7 +263,7 @@ export const getDashboardSummary = async (req: Request, res: Response) => {
 
       const stationCaseWhere: any = { ps_id: psId };
       const stationOffenderWhere: any = { ps_id: psId };
-      const stationArrestsWhere: any = { cases: { ps_id: psId }, arrest_status: 'ARRESTED' };
+      const stationArrestsWhere: any = { cases: { ps_id: psId }, arrest_status: { in: ['POLICE_CUSTODY', 'JUDICIAL_CUSTODY'] } };
       const stationAbscondingWhere: any = { cases: { ps_id: psId }, arrest_status: 'ABSCONDING' };
       const stationSeizureWhere: any = { cases: { ps_id: psId } };
 
@@ -389,7 +389,7 @@ export const getDashboardSummary = async (req: Request, res: Response) => {
         status: { in: ['ACTIVE', 'ABSCONDING'] },
         case_accused: {
           none: {
-            arrest_status: 'ARRESTED'
+            arrest_status: { in: ['POLICE_CUSTODY', 'JUDICIAL_CUSTODY'] }
           }
         }
       },

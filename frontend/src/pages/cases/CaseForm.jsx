@@ -5,6 +5,44 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../api/axios';
 
+export const ARREST_STATUS_META = {
+  POLICE_CUSTODY: {
+    label: 'Police Custody',
+    desc: 'Police Custody (Locked up at the police station)',
+    color: '#a855f7',
+    bg: 'rgba(168, 85, 247, 0.15)',
+    border: 'rgba(168, 85, 247, 0.3)'
+  },
+  JUDICIAL_CUSTODY: {
+    label: 'Judicial Custody',
+    desc: 'Judicial Custody (Sent to prison/jail)',
+    color: '#3b82f6',
+    bg: 'rgba(59, 130, 246, 0.15)',
+    border: 'rgba(59, 130, 246, 0.3)'
+  },
+  ON_BAIL: {
+    label: 'on Bail',
+    desc: 'on Bail (Temporary freedom during trial)',
+    color: '#f59e0b',
+    bg: 'rgba(245, 158, 11, 0.15)',
+    border: 'rgba(245, 158, 11, 0.3)'
+  },
+  ABSCONDING: {
+    label: 'Absconding',
+    desc: 'Absconding (Wanted / On the run)',
+    color: '#ef4444',
+    bg: 'rgba(239, 68, 68, 0.15)',
+    border: 'rgba(239, 68, 68, 0.3)'
+  },
+  RELEASED: {
+    label: 'Released / Free',
+    desc: 'Released / Free (Set free permanently because they were Acquitted)',
+    color: '#22c55e',
+    bg: 'rgba(34, 197, 94, 0.15)',
+    border: 'rgba(34, 197, 94, 0.3)'
+  }
+};
+
 const CONTRABAND_OPTIONS = [
   { value: 'DRY_GANJA', label: 'Dry Ganja' },
   { value: 'GANJA_OIL', label: 'Ganja Oil' },
@@ -81,6 +119,7 @@ export default function CaseForm() {
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [fileUploading, setFileUploading] = useState(false);
   const [snackbar, setSnackbar] = useState(null);
+  const [sectionErrors, setSectionErrors] = useState({});
 
   const showSnackbar = (type, message, duration = 4000) => {
     setSnackbar({ type, message });
@@ -131,7 +170,7 @@ export default function CaseForm() {
       setAccused((c.accused || []).map((a) => ({
         offenderId: a.offenderId,
         offenderName: a.offenderName,
-        arrestStatus: a.arrestStatus || 'ARRESTED',
+        arrestStatus: a.arrestStatus || 'POLICE_CUSTODY',
       })));
       if (c.seizures?.[0]) {
         const s = c.seizures[0];
@@ -192,7 +231,7 @@ export default function CaseForm() {
 
   const addAccused = (o) => {
     if (accused.some((a) => a.offenderId === o.id)) return;
-    setAccused([...accused, { offenderId: o.id, offenderName: o.fullName || o.full_name, arrestStatus: o.arrestStatus || 'ARRESTED' }]);
+    setAccused([...accused, { offenderId: o.id, offenderName: o.fullName || o.full_name, arrestStatus: o.arrestStatus || 'POLICE_CUSTODY' }]);
     setOffenderSearch('');
     setOffenderResults([]);
   };
@@ -240,91 +279,110 @@ export default function CaseForm() {
     setUploadedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (e, shouldRedirect = true, sectionName = '') => {
+    if (e && e.preventDefault) e.preventDefault();
     setSaving(true);
     setError('');
+    setSectionErrors({});
 
-    // Case Form validation:
-    if (form.firNo && !isValidText(form.firNo)) {
-      setError('FIR Number contains invalid special characters');
+    const setFormError = (msg) => {
+      if (sectionName) {
+        setSectionErrors(prev => ({ ...prev, [sectionName]: msg }));
+        const sectionIdMap = {
+          'Case Details': 'section-details',
+          'Contraband & Route': 'section-contraband',
+          'Accused': 'section-accused',
+          'Seizure (optional)': 'section-seizure',
+          'Seized Vehicles': 'section-vehicles',
+          'Relevant PDF Files': 'section-files'
+        };
+        const targetId = sectionIdMap[sectionName];
+        if (targetId) {
+          document.getElementById(targetId)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      } else {
+        setError(msg);
+      }
       setSaving(false);
-      return;
-    }
-    if (form.sectionOfLaw && !isValidSectionOfLaw(form.sectionOfLaw)) {
-      setError('Section of Law contains invalid characters');
-      setSaving(false);
-      return;
-    }
-    if (form.quantity && !/^\d*\.?\d*$/.test(String(form.quantity))) {
-      setError('Quantity must be a valid number');
-      setSaving(false);
-      return;
-    }
-    if (form.streetValue && !isValidNumeric(form.streetValue)) {
-      setError('Street Value must be a valid number');
-      setSaving(false);
-      return;
-    }
-    if (form.sourceLocation && !isValidText(form.sourceLocation)) {
-      setError('Source Location contains invalid special characters');
-      setSaving(false);
-      return;
-    }
-    if (form.destinationLocation && !isValidText(form.destinationLocation)) {
-      setError('Destination Location contains invalid special characters');
-      setSaving(false);
-      return;
-    }
+    };
 
-    // Seizure optional validation
-    if (seizure.contrabandKg && !/^\d*\.?\d*$/.test(seizure.contrabandKg)) {
-      setError('Seizure contraband quantity must be a valid number');
-      setSaving(false);
-      return;
-    }
-    if (seizure.cashAmount && !isValidNumeric(seizure.cashAmount)) {
-      setError('Seizure cash amount must be a valid number');
-      setSaving(false);
-      return;
-    }
-    if (seizure.vehiclesCount && !isValidNumeric(seizure.vehiclesCount)) {
-      setError('Seizure vehicles count must be a valid number');
-      setSaving(false);
-      return;
+    const isSection = (sec) => !sectionName || sectionName === sec;
+
+    // Case Details validation:
+    if (isSection('Case Details')) {
+      if (!form.psId) { setFormError('Station is required'); return; }
+      if (!form.caseDate) { setFormError('Case Date is required'); return; }
+      if (form.firNo && !isValidText(form.firNo)) {
+        setFormError('FIR Number contains invalid special characters');
+        return;
+      }
+      if (form.sectionOfLaw && !isValidSectionOfLaw(form.sectionOfLaw)) {
+        setFormError('Section of Law contains invalid characters');
+        return;
+      }
     }
 
-    // Seized vehicles validation
-    if (hasVehicles) {
+    // Contraband & Route validation:
+    if (isSection('Contraband & Route')) {
+      if (form.quantity && !/^\d*\.?\d*$/.test(String(form.quantity))) {
+        setFormError('Quantity must be a valid number');
+        return;
+      }
+      if (form.streetValue && !isValidNumeric(form.streetValue)) {
+        setFormError('Street Value must be a valid number');
+        return;
+      }
+      if (form.sourceLocation && !isValidText(form.sourceLocation)) {
+        setFormError('Source Location contains invalid special characters');
+        return;
+      }
+      if (form.destinationLocation && !isValidText(form.destinationLocation)) {
+        setFormError('Destination Location contains invalid special characters');
+        return;
+      }
+    }
+
+    // Seizure optional validation:
+    if (isSection('Seizure (optional)')) {
+      if (seizure.contrabandKg && !/^\d*\.?\d*$/.test(seizure.contrabandKg)) {
+        setFormError('Seizure contraband quantity must be a valid number');
+        return;
+      }
+      if (seizure.cashAmount && !isValidNumeric(seizure.cashAmount)) {
+        setFormError('Seizure cash amount must be a valid number');
+        return;
+      }
+      if (seizure.vehiclesCount && !isValidNumeric(seizure.vehiclesCount)) {
+        setFormError('Seizure vehicles count must be a valid number');
+        return;
+      }
+    }
+
+    // Seized vehicles validation:
+    if (isSection('Seized Vehicles') && hasVehicles) {
       for (const v of seizedVehicles) {
         if (!v.registrationNo?.trim()) {
-          setError('Vehicle Registration Number is required when vehicle seizure is enabled');
-          setSaving(false);
+          setFormError('Vehicle Registration Number is required when vehicle seizure is enabled');
           return;
         }
         if (!/^[a-zA-Z0-9\s-]*$/.test(v.registrationNo)) {
-          setError(`Vehicle Registration Number "${v.registrationNo}" contains invalid characters`);
-          setSaving(false);
+          setFormError(`Vehicle Registration Number "${v.registrationNo}" contains invalid characters`);
           return;
         }
         if (v.makeModel?.trim() && !isValidText(v.makeModel)) {
-          setError(`Vehicle Make/Model "${v.makeModel}" contains invalid characters`);
-          setSaving(false);
+          setFormError(`Vehicle Make/Model "${v.makeModel}" contains invalid characters`);
           return;
         }
         if (v.color?.trim() && !/^[a-zA-Z\s]*$/.test(v.color)) {
-          setError(`Vehicle Color "${v.color}" contains invalid characters`);
-          setSaving(false);
+          setFormError(`Vehicle Color "${v.color}" contains invalid characters`);
           return;
         }
         if (v.ownerName?.trim() && !isValidText(v.ownerName)) {
-          setError(`Vehicle Owner Name "${v.ownerName}" contains invalid characters`);
-          setSaving(false);
+          setFormError(`Vehicle Owner Name "${v.ownerName}" contains invalid characters`);
           return;
         }
         if (v.seizureLocation?.trim() && !isValidText(v.seizureLocation)) {
-          setError(`Vehicle Seizure Location "${v.seizureLocation}" contains invalid characters`);
-          setSaving(false);
+          setFormError(`Vehicle Seizure Location "${v.seizureLocation}" contains invalid characters`);
           return;
         }
       }
@@ -349,17 +407,28 @@ export default function CaseForm() {
         seizedVehicles: hasVehicles ? seizedVehicles.filter(v => v.registrationNo.trim()) : [],
       };
       if (isEdit) {
-        await api.put(`/cases/${id}`, payload);
-        if (accused.length) await api.post(`/cases/${id}/accused`, accused.map((a) => ({ offenderId: a.offenderId, arrestStatus: a.arrestStatus })));
-        if (payload.seizures?.length) await api.post(`/cases/${id}/seizures`, payload.seizures);
-        navigate(`/cases/${id}`);
+        if (!sectionName || sectionName === 'Case Details' || sectionName === 'Contraband & Route' || sectionName === 'Seized Vehicles' || sectionName === 'Relevant PDF Files') {
+          await api.put(`/cases/${id}`, payload);
+        }
+        if (!sectionName || sectionName === 'Accused') {
+          if (accused.length) await api.post(`/cases/${id}/accused`, accused.map((a) => ({ offenderId: a.offenderId, arrestStatus: a.arrestStatus })));
+        }
+        if (!sectionName || sectionName === 'Seizure (optional)') {
+          if (payload.seizures?.length) await api.post(`/cases/${id}/seizures`, payload.seizures);
+        }
+        
+        showSnackbar('success', sectionName ? `${sectionName} updated successfully!` : 'Case updated successfully!');
+        if (shouldRedirect) {
+          setTimeout(() => navigate(`/cases/${id}`), 1500);
+        }
       } else {
         const res = await api.post('/cases', payload);
         const newId = res.data.data?.id;
-        navigate(newId ? `/cases/${newId}` : '/cases');
+        showSnackbar('success', 'Case registered successfully!');
+        setTimeout(() => navigate(newId ? `/cases/${newId}` : '/cases'), 1500);
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to save case');
+      setFormError(err.response?.data?.message || 'Failed to save case');
     } finally {
       setSaving(false);
     }
@@ -393,8 +462,25 @@ export default function CaseForm() {
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="rounded-xl p-6 space-y-4" style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}>
-            <h3 className="font-semibold" style={{ color: 'var(--color-garuda-200)' }}>Case Details</h3>
+          {sectionErrors['Case Details'] && (
+            <div className="px-4 py-3 rounded-lg text-sm mb-3" style={{ background: 'rgba(239,68,68,0.15)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)' }}>
+              {sectionErrors['Case Details']}
+            </div>
+          )}
+          <div id="section-details" className="rounded-xl p-6 space-y-4" style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}>
+            <div className="flex justify-between items-center pb-2 border-b" style={{ borderColor: 'var(--color-garuda-700)' }}>
+              <h3 className="font-semibold" style={{ color: 'var(--color-garuda-200)' }}>Case Details</h3>
+              {isEdit && (
+                <button
+                  type="button"
+                  onClick={() => handleSubmit(null, false, 'Case Details')}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white border-none cursor-pointer transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-sm"
+                  style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)' }}
+                >
+                  Update Section
+                </button>
+              )}
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-medium mb-1" style={{ color: 'var(--color-garuda-400)' }}>FIR Number</label>
@@ -446,8 +532,25 @@ export default function CaseForm() {
             </div>
           </div>
 
-          <div className="rounded-xl p-6 space-y-4" style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}>
-            <h3 className="font-semibold" style={{ color: 'var(--color-garuda-200)' }}>Contraband & Route</h3>
+          {sectionErrors['Contraband & Route'] && (
+            <div className="px-4 py-3 rounded-lg text-sm mb-3" style={{ background: 'rgba(239,68,68,0.15)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)' }}>
+              {sectionErrors['Contraband & Route']}
+            </div>
+          )}
+          <div id="section-contraband" className="rounded-xl p-6 space-y-4" style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}>
+            <div className="flex justify-between items-center pb-2 border-b" style={{ borderColor: 'var(--color-garuda-700)' }}>
+              <h3 className="font-semibold" style={{ color: 'var(--color-garuda-200)' }}>Contraband & Route</h3>
+              {isEdit && (
+                <button
+                  type="button"
+                  onClick={() => handleSubmit(null, false, 'Contraband & Route')}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white border-none cursor-pointer transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-sm"
+                  style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)' }}
+                >
+                  Update Section
+                </button>
+              )}
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-medium mb-1" style={{ color: 'var(--color-garuda-400)' }}>Type</label>
@@ -501,8 +604,25 @@ export default function CaseForm() {
             </div>
           </div>
 
-          <div className="rounded-xl p-6 space-y-4" style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}>
-            <h3 className="font-semibold" style={{ color: 'var(--color-garuda-200)' }}>Accused</h3>
+          {sectionErrors['Accused'] && (
+            <div className="px-4 py-3 rounded-lg text-sm mb-3" style={{ background: 'rgba(239,68,68,0.15)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)' }}>
+              {sectionErrors['Accused']}
+            </div>
+          )}
+          <div id="section-accused" className="rounded-xl p-6 space-y-4" style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}>
+            <div className="flex justify-between items-center pb-2 border-b" style={{ borderColor: 'var(--color-garuda-700)' }}>
+              <h3 className="font-semibold" style={{ color: 'var(--color-garuda-200)' }}>Accused</h3>
+              {isEdit && (
+                <button
+                  type="button"
+                  onClick={() => handleSubmit(null, false, 'Accused')}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white border-none cursor-pointer transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-sm"
+                  style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)' }}
+                >
+                  Update Section
+                </button>
+              )}
+            </div>
             <div className="flex flex-wrap gap-2">
               <input
                 value={offenderSearch}
@@ -567,14 +687,14 @@ export default function CaseForm() {
                       }}
                       className="px-2 py-1.5 rounded-md text-xs font-semibold outline-none"
                       style={{
-                        background: a.arrestStatus === 'ABSCONDING' ? 'rgba(239,68,68,0.15)' : a.arrestStatus === 'BAILED' ? 'rgba(245,158,11,0.15)' : 'rgba(34,197,94,0.15)',
-                        color: a.arrestStatus === 'ABSCONDING' ? '#ef4444' : a.arrestStatus === 'BAILED' ? '#f59e0b' : '#22c55e',
-                        border: `1px solid ${a.arrestStatus === 'ABSCONDING' ? 'rgba(239,68,68,0.3)' : a.arrestStatus === 'BAILED' ? 'rgba(245,158,11,0.3)' : 'rgba(34,197,94,0.3)'}`,
+                        background: ARREST_STATUS_META[a.arrestStatus]?.bg || 'rgba(34,197,94,0.15)',
+                        color: ARREST_STATUS_META[a.arrestStatus]?.color || '#22c55e',
+                        border: `1px solid ${ARREST_STATUS_META[a.arrestStatus]?.border || 'rgba(34,197,94,0.3)'}`,
                       }}
                     >
-                      <option value="ARRESTED">Arrested</option>
-                      <option value="ABSCONDING">Absconding</option>
-                      <option value="BAILED">Bailed</option>
+                      {Object.entries(ARREST_STATUS_META).map(([key, meta]) => (
+                        <option key={key} value={key}>{meta.desc}</option>
+                      ))}
                     </select>
                     <button type="button" onClick={() => removeAccused(a.offenderId)} className="text-xs text-red-400 hover:text-red-300 transition-colors bg-transparent border-none cursor-pointer font-medium whitespace-nowrap">Remove</button>
                   </li>
@@ -583,8 +703,25 @@ export default function CaseForm() {
             )}
           </div>
 
-          <div className="rounded-xl p-6 space-y-4" style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}>
-            <h3 className="font-semibold" style={{ color: 'var(--color-garuda-200)' }}>Seizure (optional)</h3>
+          {sectionErrors['Seizure (optional)'] && (
+            <div className="px-4 py-3 rounded-lg text-sm mb-3" style={{ background: 'rgba(239,68,68,0.15)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)' }}>
+              {sectionErrors['Seizure (optional)']}
+            </div>
+          )}
+          <div id="section-seizure" className="rounded-xl p-6 space-y-4" style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}>
+            <div className="flex justify-between items-center pb-2 border-b" style={{ borderColor: 'var(--color-garuda-700)' }}>
+              <h3 className="font-semibold" style={{ color: 'var(--color-garuda-200)' }}>Seizure (optional)</h3>
+              {isEdit && (
+                <button
+                  type="button"
+                  onClick={() => handleSubmit(null, false, 'Seizure (optional)')}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white border-none cursor-pointer transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-sm"
+                  style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)' }}
+                >
+                  Update Section
+                </button>
+              )}
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
               <input placeholder="Contraband (kg)" value={seizure.contrabandKg} onChange={(e) => setSeizure({ ...seizure, contrabandKg: e.target.value })} className={inp} style={fieldStyle} />
               <input placeholder="Cash seized (₹)" value={seizure.cashAmount} onChange={(e) => setSeizure({ ...seizure, cashAmount: e.target.value })} className={inp} style={fieldStyle} />
@@ -593,22 +730,39 @@ export default function CaseForm() {
             </div>
           </div>
 
-          <div className="rounded-xl p-6 space-y-4" style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}>
-            <div className="flex items-center justify-between">
-              <h3 className="font-semibold" style={{ color: 'var(--color-garuda-200)' }}>Seized Vehicles</h3>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={hasVehicles}
-                  onChange={(e) => {
-                    setHasVehicles(e.target.checked);
-                    if (e.target.checked && seizedVehicles.length === 0) {
-                      setSeizedVehicles([{ ...emptyVehicle }]);
-                    }
-                  }}
-                />
-                <span className="text-sm" style={{ color: 'var(--color-garuda-300)' }}>Vehicle(s) seized in this case</span>
-              </label>
+          {sectionErrors['Seized Vehicles'] && (
+            <div className="px-4 py-3 rounded-lg text-sm mb-3" style={{ background: 'rgba(239,68,68,0.15)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)' }}>
+              {sectionErrors['Seized Vehicles']}
+            </div>
+          )}
+          <div id="section-vehicles" className="rounded-xl p-6 space-y-4" style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}>
+            <div className="flex justify-between items-center pb-2 border-b" style={{ borderColor: 'var(--color-garuda-700)' }}>
+              <div className="flex items-center gap-4">
+                <h3 className="font-semibold" style={{ color: 'var(--color-garuda-200)' }}>Seized Vehicles</h3>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={hasVehicles}
+                    onChange={(e) => {
+                      setHasVehicles(e.target.checked);
+                      if (e.target.checked && seizedVehicles.length === 0) {
+                        setSeizedVehicles([{ ...emptyVehicle }]);
+                      }
+                    }}
+                  />
+                  <span className="text-sm" style={{ color: 'var(--color-garuda-300)' }}>Vehicle(s) seized in this case</span>
+                </label>
+              </div>
+              {isEdit && (
+                <button
+                  type="button"
+                  onClick={() => handleSubmit(null, false, 'Seized Vehicles')}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white border-none cursor-pointer transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-sm"
+                  style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)' }}
+                >
+                  Update Section
+                </button>
+              )}
             </div>
 
             {hasVehicles && (
@@ -749,8 +903,25 @@ export default function CaseForm() {
             )}
           </div>
 
-          <div className="rounded-xl p-6 space-y-4" style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}>
-            <h3 className="font-semibold" style={{ color: 'var(--color-garuda-200)' }}>Relevant PDF Files</h3>
+          {sectionErrors['Relevant PDF Files'] && (
+            <div className="px-4 py-3 rounded-lg text-sm mb-3" style={{ background: 'rgba(239,68,68,0.15)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)' }}>
+              {sectionErrors['Relevant PDF Files']}
+            </div>
+          )}
+          <div id="section-files" className="rounded-xl p-6 space-y-4" style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}>
+            <div className="flex justify-between items-center pb-2 border-b" style={{ borderColor: 'var(--color-garuda-700)' }}>
+              <h3 className="font-semibold" style={{ color: 'var(--color-garuda-200)' }}>Relevant PDF Files</h3>
+              {isEdit && (
+                <button
+                  type="button"
+                  onClick={() => handleSubmit(null, false, 'Relevant PDF Files')}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white border-none cursor-pointer transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-sm"
+                  style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)' }}
+                >
+                  Update Section
+                </button>
+              )}
+            </div>
 
             <div className="flex flex-col gap-3">
               <div className="flex items-center gap-3">
@@ -874,7 +1045,7 @@ function AddAccusedModal({ isOpen, onClose, onSaved, stations, currentPsId }) {
     phone: '',
     fullAddress: '',
     photoUrl: '',
-    arrestStatus: 'ARRESTED'
+    arrestStatus: 'POLICE_CUSTODY'
   });
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -900,7 +1071,7 @@ function AddAccusedModal({ isOpen, onClose, onSaved, stations, currentPsId }) {
         phone: '',
         fullAddress: '',
         photoUrl: '',
-        arrestStatus: 'ARRESTED'
+        arrestStatus: 'POLICE_CUSTODY'
       });
       setError('');
     } else {
@@ -1075,7 +1246,7 @@ function AddAccusedModal({ isOpen, onClose, onSaved, stations, currentPsId }) {
         onSaved({
           id: newId,
           fullName: modalForm.fullName.trim(),
-          arrestStatus: modalForm.arrestStatus || 'ARRESTED'
+          arrestStatus: modalForm.arrestStatus || 'POLICE_CUSTODY'
         });
         onClose();
       } else {
@@ -1208,9 +1379,9 @@ function AddAccusedModal({ isOpen, onClose, onSaved, stations, currentPsId }) {
             <div>
               <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--color-garuda-300)' }}>Arrest Status</label>
               <select name="arrestStatus" value={modalForm.arrestStatus} onChange={handleChange} className="w-full px-3 py-2 rounded-lg text-sm outline-none cursor-pointer" style={{ background: 'var(--color-garuda-900)', border: '1px solid var(--color-garuda-600)', color: 'var(--color-garuda-100)' }}>
-                <option value="ARRESTED">Arrested</option>
-                <option value="ABSCONDING">Absconding</option>
-                <option value="BAILED">Bailed</option>
+                {Object.entries(ARREST_STATUS_META).map(([key, meta]) => (
+                  <option key={key} value={key}>{meta.desc}</option>
+                ))}
               </select>
             </div>
 

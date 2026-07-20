@@ -8,6 +8,14 @@ import { usePermissions } from '../../hooks/usePermissions';
 import CaseLifecyclePanel from '../../components/CaseLifecyclePanel';
 import VehicleStatusModal from '../../components/VehicleStatusModal';
 
+const ARREST_STATUS_META = {
+  POLICE_CUSTODY: { label: 'Police Custody' },
+  JUDICIAL_CUSTODY: { label: 'Judicial Custody' },
+  ON_BAIL: { label: 'on Bail' },
+  ABSCONDING: { label: 'Absconding' },
+  RELEASED: { label: 'Released / Free' }
+};
+
 const STAGES = ['FIR', 'CHARGESHEET', 'TRIAL', 'CONVICTED', 'ACQUITTED', 'CLOSED'];
 const STAGE_LABELS = {
   FIR: 'FIR Registered',
@@ -269,7 +277,7 @@ export default function CaseDetail() {
                           {ca.offenderName || `Offender #${ca.offenderId}`}
                         </p>
                         <p className="text-xs" style={{ color: 'var(--color-garuda-400)' }}>
-                          {ca.arrestStatus}
+                          {ARREST_STATUS_META[ca.arrestStatus]?.label || ca.arrestStatus}
                           {ca.arrestDate ? ` • Arrested: ${new Date(ca.arrestDate).toLocaleDateString('en-IN')}` : ''}
                         </p>
                       </div>
