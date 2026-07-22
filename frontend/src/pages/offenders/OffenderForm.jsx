@@ -617,90 +617,126 @@ export default function OffenderForm() {
       }
     };
 
-    if (!form.fullName.trim()) { setFormError('Full name is required'); return; }
-    if (!form.psId) { setFormError('Police station is required'); return; }
+    const isSection = (sec) => !sectionName || sectionName === sec;
 
-    // Strict Aadhaar validation
-    const aadhaarVal = (form.aadhaarNo || '').trim();
-    if (aadhaarVal) {
-      const isMasked = aadhaarVal.includes('X') || aadhaarVal.includes('x') || aadhaarVal.includes('*');
-      if (isMasked) {
-        const cleanMasked = aadhaarVal.replace(/[^a-zA-Z0-9*]/g, '');
-        if (cleanMasked.length !== 12) {
-          setFormError('Aadhaar must be exactly 12 digits');
-          return;
-        }
-      } else {
-        if (!/^\d{12}$/.test(aadhaarVal)) {
-          setFormError('Aadhaar must be exactly 12 digits and contain only numbers');
-          return;
-        }
-      }
-    }
+    // Basic Information validation:
+    if (isSection('Basic Information')) {
+      if (!form.fullName.trim()) { setFormError('Full name is required'); return; }
+      if (!form.psId) { setFormError('Police station is required'); return; }
 
-    // Input fields text validation
-    if (!isValidText(form.fullName)) { setFormError('Full Name contains invalid special characters'); return; }
-    if (!isValidText(form.alias)) { setFormError('Alias contains invalid special characters'); return; }
-    if (!isValidText(form.fatherHusbandName)) { setFormError("Father/Husband's Name contains invalid special characters"); return; }
-    if (form.age && !isValidNumeric(form.age)) { setFormError('Age must be a valid number'); return; }
-    if (!isValidText(form.occupation)) { setFormError('Occupation contains invalid special characters'); return; }
-    if (form.monthlyIncome && !isValidNumeric(form.monthlyIncome)) { setFormError('Monthly Income must be a valid number'); return; }
-    if (!isValidText(form.landmark)) { setFormError('Landmark contains invalid special characters'); return; }
-    if (!isValidText(form.district)) { setFormError('District contains invalid special characters'); return; }
-    if (!isValidText(form.state)) { setFormError('State contains invalid special characters'); return; }
-    if (!isValidText(form.voterId)) { setFormError('Voter ID contains invalid special characters'); return; }
-    if (form.panCard && !isValidPan(form.panCard)) { setFormError('PAN Card must be exactly 10 alphanumeric characters'); return; }
-    if (!isValidSectionOfLaw(form.sectionOfLaw)) { setFormError('Section of Law contains invalid special characters'); return; }
-
-    // Contacts validation
-    for (const c of (form.contacts || [])) {
-      if (c.contactType === 'GMAIL') {
-        if (c.value?.trim()) {
-          if (!isValidEmail(c.value.trim())) {
-            setFormError('Please enter a valid Gmail/email address');
+      // Strict Aadhaar validation
+      const aadhaarVal = (form.aadhaarNo || '').trim();
+      if (aadhaarVal) {
+        const isMasked = aadhaarVal.includes('X') || aadhaarVal.includes('x') || aadhaarVal.includes('*');
+        if (isMasked) {
+          const cleanMasked = aadhaarVal.replace(/[^a-zA-Z0-9*]/g, '');
+          if (cleanMasked.length !== 12) {
+            setFormError('Aadhaar must be exactly 12 digits');
             return;
           }
-        }
-      } else {
-        if (c.phoneDigits?.trim()) {
-          const cleanDigits = c.phoneDigits.replace(/[^0-9]/g, '');
-          const countryConfig = COUNTRY_CODES.find(cc => cc.code === c.countryCode) || { length: 10 };
-          if (cleanDigits.length !== countryConfig.length) {
-            setFormError(`Phone number for ${c.contactType.replace('_', ' ')} must be exactly ${countryConfig.length} digits for ${c.countryCode}`);
+        } else {
+          if (!/^\d{12}$/.test(aadhaarVal)) {
+            setFormError('Aadhaar must be exactly 12 digits and contain only numbers');
             return;
           }
         }
       }
+
+      if (!isValidText(form.fullName)) { setFormError('Full Name contains invalid special characters'); return; }
+      if (!isValidText(form.alias)) { setFormError('Alias contains invalid special characters'); return; }
+      if (!isValidText(form.fatherHusbandName)) { setFormError("Father/Husband's Name contains invalid special characters"); return; }
+      if (form.age && !isValidNumeric(form.age)) { setFormError('Age must be a valid number'); return; }
+      if (!isValidText(form.occupation)) { setFormError('Occupation contains invalid special characters'); return; }
+      if (form.monthlyIncome && !isValidNumeric(form.monthlyIncome)) { setFormError('Monthly Income must be a valid number'); return; }
+      if (!isValidText(form.voterId)) { setFormError('Voter ID contains invalid special characters'); return; }
+      if (form.panCard && !isValidPan(form.panCard)) { setFormError('PAN Card must be exactly 10 alphanumeric characters'); return; }
     }
 
-    // Social Media validation
-    for (const s of (form.socialMedia || [])) {
-      if (s.value?.trim()) {
-        if (!isValidUpiId(s.value.trim())) {
-          setFormError(`Social media profile for ${s.contactType} contains invalid characters`);
-          return;
+    // Address Details validation:
+    if (isSection('Address Details')) {
+      if (!isValidText(form.landmark)) { setFormError('Landmark contains invalid special characters'); return; }
+      if (!isValidText(form.district)) { setFormError('District contains invalid special characters'); return; }
+      if (!isValidText(form.state)) { setFormError('State contains invalid special characters'); return; }
+    }
+
+    // Contacts validation:
+    if (isSection('Phone & Email Contacts')) {
+      for (const c of (form.contacts || [])) {
+        if (c.contactType === 'GMAIL') {
+          if (c.value?.trim()) {
+            if (!isValidEmail(c.value.trim())) {
+              setFormError('Please enter a valid Gmail/email address');
+              return;
+            }
+          }
+        } else {
+          if (c.phoneDigits?.trim()) {
+            const cleanDigits = c.phoneDigits.replace(/[^0-9]/g, '');
+            const countryConfig = COUNTRY_CODES.find(cc => cc.code === c.countryCode) || { length: 10 };
+            if (cleanDigits.length !== countryConfig.length) {
+              setFormError(`Phone number for ${c.contactType.replace('_', ' ')} must be exactly ${countryConfig.length} digits for ${c.countryCode}`);
+              return;
+            }
+          }
         }
       }
+    }
+
+    // Social Media validation:
+    if (isSection('Social Media & Messaging Profiles')) {
+      for (const s of (form.socialMedia || [])) {
+        if (s.value?.trim()) {
+          if (!isValidUpiId(s.value.trim())) {
+            setFormError(`Social media profile for ${s.contactType} contains invalid characters`);
+            return;
+          }
+        }
+      }
+    }
+
+    // Drug Profile validation:
+    if (isSection('Drug Profile')) {
+      if (!isValidSectionOfLaw(form.sectionOfLaw)) { setFormError('Section of Law contains invalid special characters'); return; }
     }
 
     // Financial validation:
-    const financials = form.financials || [];
-    
-    for (const f of financials) {
-      if (f.finType === 'BANK_ACCOUNT_NO' && f.value?.trim()) {
-        if (!f.ifscValue?.trim()) {
-          setFormError('An IFSC Code is required for the Bank Account Number.');
-          return;
+    if (isSection('Financial Details')) {
+      const financials = form.financials || [];
+      for (const f of financials) {
+        if (f.finType === 'BANK_ACCOUNT_NO' && f.value?.trim()) {
+          if (!f.ifscValue?.trim()) {
+            setFormError('An IFSC Code is required for the Bank Account Number.');
+            return;
+          }
         }
-      }
-      if (f.finType === 'UPI_ID' && f.value?.trim()) {
-        if (!f.upiMobileValue?.trim()) {
-          setFormError('A UPI Linked Phone Number is required for the UPI ID.');
-          return;
+        if (f.finType === 'UPI_ID' && f.value?.trim()) {
+          if (!f.upiMobileValue?.trim()) {
+            setFormError('A UPI Linked Phone Number is required for the UPI ID.');
+            return;
+          }
         }
       }
     }
 
+    // Criminal History validation:
+    if (isSection('Criminal History')) {
+      for (const ch of (form.criminalHistories || [])) {
+        if (ch.previousCrNo && !isValidText(ch.previousCrNo)) { setFormError('Previous CR No contains invalid characters'); return; }
+        if (ch.previousPs && !isValidText(ch.previousPs)) { setFormError('Previous PS contains invalid characters'); return; }
+        if (ch.sectionsOfLaw && !isValidSectionOfLaw(ch.sectionsOfLaw)) { setFormError('Criminal History Section of Law contains invalid characters'); return; }
+        if (ch.caseStage && !isValidText(ch.caseStage)) { setFormError('Case Stage contains invalid characters'); return; }
+      }
+    }
+
+    // Supply Chain Links validation:
+    if (isSection('Supply Chain Links')) {
+      for (const l of (form.supplyChainLinks || [])) {
+        if (l.linkedName && !isValidText(l.linkedName)) { setFormError('Linked person name contains invalid characters'); return; }
+        if (l.linkedContact && !isValidPhone(l.linkedContact)) { setFormError('Linked person contact must contain only numbers'); return; }
+      }
+    }
+
+    const financials = form.financials || [];
     const flattenedFinancials = [];
     financials.forEach(f => {
       if (f.finType === 'BANK_ACCOUNT_NO') {
@@ -772,7 +808,8 @@ export default function OffenderForm() {
       if (isEdit) {
         const url = sectionName ? `/offenders/${id}?section=${encodeURIComponent(sectionName)}` : `/offenders/${id}`;
         await api.put(url, body);
-        setSnackbar({ type: 'success', message: 'Profile updated successfully!' });
+        const successMsg = sectionName ? `${sectionName} updated successfully!` : 'Profile updated successfully!';
+        setSnackbar({ type: 'success', message: successMsg });
       } else {
         const res = await api.post('/offenders', body);
         const newId = res.data?.data?.id;
