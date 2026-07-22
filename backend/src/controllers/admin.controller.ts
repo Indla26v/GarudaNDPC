@@ -339,7 +339,7 @@ export const deleteOffenderDirect = async (req: Request, res: Response) => {
       await tx.offenders.delete({
         where: { id: offenderId }
       });
-    });
+    }, { maxWait: 15000, timeout: 60000 });
 
     await logAudit('DELETE', 'OFFENDER', offenderId, req, `Direct deletion of offender profile ID: ${id}, Name: ${offender.full_name}`);
 

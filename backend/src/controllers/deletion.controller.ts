@@ -159,7 +159,7 @@ export const executeDeletion = async (req: Request, res: Response) => {
         where: { id: BigInt(id as string) },
         data: { status: 'DELETED', deleted_by: BigInt(userId) }
       });
-    });
+    }, { maxWait: 15000, timeout: 60000 });
 
     res.json(successResponse({ id }, 'Deleted successfully'));
   } catch (error) { res.status(500).json({ message: 'Server error' }); }

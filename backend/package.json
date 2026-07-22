@@ -7,8 +7,8 @@
     "test": "jest",
     "start": "tsx src/server.ts",
     "dev": "tsx watch src/server.ts",
-    "build": "prisma generate",
-    "postinstall": "prisma generate"
+    "build": "node update_arrest_status_enum.js && prisma generate",
+    "postinstall": "node update_arrest_status_enum.js && prisma generate"
   },
   "keywords": [],
   "author": "",

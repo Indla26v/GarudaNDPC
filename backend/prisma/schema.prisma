@@ -150,7 +150,7 @@ model offender_contacts {
   id           BigInt       @id @default(autoincrement())
   offender_id  BigInt
   contact_type contact_type
-  value        String       @db.VarChar(300)
+  value        String       @db.VarChar(1000)
   notes        String?
   created_at   DateTime     @default(now()) @db.Timestamp(6)
   offenders    offenders    @relation(fields: [offender_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
@@ -204,8 +204,8 @@ model offender_financials {
   id          BigInt    @id @default(autoincrement())
   offender_id BigInt
   fin_type    fin_type
-  value       String    @db.VarChar(300)
-  bank_name   String?   @db.VarChar(200)
+  value       String    @db.VarChar(1000)
+  bank_name   String?   @db.VarChar(500)
   notes       String?
   created_at  DateTime  @default(now()) @db.Timestamp(6)
   offenders   offenders @relation(fields: [offender_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
@@ -217,9 +217,9 @@ model offender_financials {
 model offender_identity_docs {
   id          BigInt    @id @default(autoincrement())
   offender_id BigInt
-  aadhaar_no  String?   @db.VarChar(12)
-  voter_id    String?   @db.VarChar(30)
-  pan_card    String?   @db.VarChar(10)
+  aadhaar_no  String?   @db.VarChar(50)
+  voter_id    String?   @db.VarChar(100)
+  pan_card    String?   @db.VarChar(50)
   created_at  DateTime  @default(now()) @db.Timestamp(6)
   offenders   offenders @relation(fields: [offender_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
@@ -229,21 +229,21 @@ model offender_identity_docs {
 
 model offenders {
   id                                                                  BigInt                   @id @default(autoincrement())
-  sl_no                                                               String?                  @db.VarChar(50)
+  sl_no                                                               String?                  @db.VarChar(200)
   ps_id                                                               BigInt
-  full_name                                                           String                   @db.VarChar(200)
-  alias                                                               String?                  @db.VarChar(200)
-  father_husband_name                                                 String?                  @db.VarChar(200)
+  full_name                                                           String                   @db.VarChar(500)
+  alias                                                               String?                  @db.VarChar(500)
+  father_husband_name                                                 String?                  @db.VarChar(500)
   age                                                                 Int?
   gender                                                              gender_type?
   category                                                            offender_category?
   full_address                                                        String?
-  landmark_area                                                       String?                  @db.VarChar(200)
-  district                                                            String?                  @db.VarChar(100)
-  state                                                               String?                  @db.VarChar(100)
-  caste                                                               String?                  @db.VarChar(100)
-  mandal                                                              String?                  @db.VarChar(100)
-  occupation                                                          String?                  @db.VarChar(100)
+  landmark_area                                                       String?                  @db.VarChar(500)
+  district                                                            String?                  @db.VarChar(200)
+  state                                                               String?                  @db.VarChar(200)
+  caste                                                               String?                  @db.VarChar(200)
+  mandal                                                              String?                  @db.VarChar(200)
+  occupation                                                          String?                  @db.VarChar(300)
   monthly_income                                                      Decimal?                 @db.Decimal(12, 2)
   photo_url                                                           String?
   created_by                                                          BigInt?

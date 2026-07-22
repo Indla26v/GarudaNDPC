@@ -658,35 +658,35 @@ export const updateOffender = async (req: Request, res: Response) => {
     // Transaction for safe nested updates (delete then recreate)
     await prisma.$transaction(async (tx) => {
        const updateDataObj: any = {
-         full_name: data.fullName || data.full_name,
+         full_name: String(data.fullName || data.full_name || '').slice(0, 500),
          status: data.status,
          ps_id: BigInt(data.psId || data.ps_id),
        };
-       if (data.slNo !== undefined || data.sl_no !== undefined) updateDataObj.sl_no = data.slNo || data.sl_no || null;
-       if (data.alias !== undefined) updateDataObj.alias = data.alias || null;
+       if (data.slNo !== undefined || data.sl_no !== undefined) updateDataObj.sl_no = (data.slNo || data.sl_no) ? String(data.slNo || data.sl_no).slice(0, 200) : null;
+       if (data.alias !== undefined) updateDataObj.alias = data.alias ? String(data.alias).slice(0, 500) : null;
        if (data.fatherHusbandName !== undefined || data.father_husband_name !== undefined) {
-         updateDataObj.father_husband_name = data.fatherHusbandName || data.father_husband_name || null;
+         updateDataObj.father_husband_name = (data.fatherHusbandName || data.father_husband_name) ? String(data.fatherHusbandName || data.father_husband_name).slice(0, 500) : null;
        }
-       if (data.age !== undefined) updateDataObj.age = data.age;
+       if (data.age !== undefined) updateDataObj.age = data.age ? Number(data.age) : null;
        if (data.gender !== undefined) updateDataObj.gender = data.gender;
        if (data.category !== undefined) updateDataObj.category = data.category;
        if (data.testResult !== undefined || data.test_result !== undefined) {
          updateDataObj.test_result = data.testResult || data.test_result;
        }
        if (data.fullAddress !== undefined || data.full_address !== undefined) {
-         updateDataObj.full_address = data.fullAddress || data.full_address || null;
+         updateDataObj.full_address = (data.fullAddress || data.full_address) ? String(data.fullAddress || data.full_address) : null;
        }
        if (data.landmarkArea !== undefined || data.landmark_area !== undefined) {
-         updateDataObj.landmark_area = data.landmarkArea || data.landmark_area || null;
+         updateDataObj.landmark_area = (data.landmarkArea || data.landmark_area) ? String(data.landmarkArea || data.landmark_area).slice(0, 500) : null;
        }
-       if (data.district !== undefined) updateDataObj.district = data.district;
-       if (data.state !== undefined) updateDataObj.state = data.state;
-       if (data.occupation !== undefined) updateDataObj.occupation = data.occupation;
+       if (data.district !== undefined) updateDataObj.district = data.district ? String(data.district).slice(0, 200) : null;
+       if (data.state !== undefined) updateDataObj.state = data.state ? String(data.state).slice(0, 200) : null;
+       if (data.occupation !== undefined) updateDataObj.occupation = data.occupation ? String(data.occupation).slice(0, 300) : null;
        if (data.monthlyIncome !== undefined || data.monthly_income !== undefined) {
-         updateDataObj.monthly_income = data.monthlyIncome || data.monthly_income || null;
+         updateDataObj.monthly_income = (data.monthlyIncome || data.monthly_income) ? String(data.monthlyIncome || data.monthly_income) : null;
        }
        if (data.photoUrl !== undefined || data.photo_url !== undefined) {
-         updateDataObj.photo_url = data.photoUrl || data.photo_url || null;
+         updateDataObj.photo_url = (data.photoUrl || data.photo_url) ? String(data.photoUrl || data.photo_url) : null;
        }
        if (data.riskScore !== undefined || data.risk_score !== undefined) {
          updateDataObj.risk_score = data.riskScore || data.risk_score;
@@ -783,7 +783,7 @@ export const updateOffender = async (req: Request, res: Response) => {
           }))
          });
        }
-    });
+    }, { maxWait: 15000, timeout: 60000 });
 
     await logAudit('UPDATE', 'OFFENDER', BigInt(id as string), req);
     broadcastEvent('data_updated', { entity: 'offender', id });

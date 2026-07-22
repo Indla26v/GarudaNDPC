@@ -227,7 +227,7 @@ export const createCase = async (req: Request, res: Response) => {
       }
 
       return created;
-    });
+    }, { maxWait: 15000, timeout: 60000 });
 
     await logAudit('CREATE', 'CASE', newCase.id, req);
     broadcastEvent('case_created', { id: newCase.id.toString(), firNo: newCase.fir_no });
@@ -330,7 +330,7 @@ export const updateCase = async (req: Request, res: Response) => {
         where: { id },
         include: caseInclude,
       });
-    });
+    }, { maxWait: 15000, timeout: 60000 });
 
     if (!updated) throw new Error('Failed to fetch updated case');
 

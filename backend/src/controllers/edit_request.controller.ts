@@ -224,7 +224,7 @@ export const approveEditRequest = async (req: Request, res: Response) => {
           approved_at: new Date(),
         },
       });
-    });
+    }, { maxWait: 15000, timeout: 60000 });
 
     await logAudit('EDIT_APPROVED', 'EDIT_REQUEST', BigInt(id as string), req, `Approved ${request.entity_type} ${request.entity_id}`);
 

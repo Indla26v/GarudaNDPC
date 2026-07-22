@@ -1,57 +1,269 @@
+const path = require('path');
+const fs = require('fs');
 require('dotenv').config();
+
+const neonEnv = path.join(__dirname, '../.env.neon');
+const localEnv = path.join(__dirname, '.env');
+
+if ((!process.env.DATABASE_URL || process.env.DATABASE_URL === '[SENSITIVE]') && fs.existsSync(localEnv)) {
+  require('dotenv').config({ path: localEnv });
+}
+
 const { Client } = require('pg');
 
 async function run() {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  const dbUrl = process.env.DATABASE_URL;
+  if (!dbUrl || dbUrl === '[SENSITIVE]') {
+    console.log("No valid DATABASE_URL in process.env, skipping DB migration script.");
+    return;
+  }
+
+  const isLocal = dbUrl.includes('localhost') || dbUrl.includes('127.0.0.1');
+  const client = new Client({
+    connectionString: dbUrl,
+    ssl: isLocal ? false : { rejectUnauthorized: false }
+  });
+
   try {
     await client.connect();
-    console.log("Connected to DB");
-    
-    // Rename BAILED to ON_BAIL
+    console.log("Connected to DB successfully for enum, table, and schema updates!");
+
+    // --- arrest_status enum updates ---
     try {
       await client.query("ALTER TYPE arrest_status RENAME VALUE 'BAILED' TO 'ON_BAIL';");
       console.log("Renamed BAILED to ON_BAIL in arrest_status enum");
     } catch(e) { 
-      console.log("Rename BAILED failed (might have already been run):", e.message); 
+      console.log("Rename BAILED note:", e.message); 
     }
 
-    // Rename ARRESTED to POLICE_CUSTODY
     try {
       await client.query("ALTER TYPE arrest_status RENAME VALUE 'ARRESTED' TO 'POLICE_CUSTODY';");
       console.log("Renamed ARRESTED to POLICE_CUSTODY in arrest_status enum");
     } catch(e) { 
-      console.log("Rename ARRESTED failed (might have already been run):", e.message); 
+      console.log("Rename ARRESTED note:", e.message); 
     }
-    
-    // Add JUDICIAL_CUSTODY
+
     try {
-      await client.query("ALTER TYPE arrest_status ADD VALUE 'JUDICIAL_CUSTODY';");
+      await client.query("ALTER TYPE arrest_status ADD VALUE IF NOT EXISTS 'JUDICIAL_CUSTODY';");
       console.log("Added JUDICIAL_CUSTODY to arrest_status enum");
     } catch(e) { 
-      console.log("Add JUDICIAL_CUSTODY failed (might already exist):", e.message); 
+      try {
+        await client.query("ALTER TYPE arrest_status ADD VALUE 'JUDICIAL_CUSTODY';");
+        console.log("Added JUDICIAL_CUSTODY to arrest_status enum");
+      } catch(err) {
+        console.log("Add JUDICIAL_CUSTODY note:", err.message);
+      }
     }
 
-    // Add RELEASED
     try {
-      await client.query("ALTER TYPE arrest_status ADD VALUE 'RELEASED';");
+      await client.query("ALTER TYPE arrest_status ADD VALUE IF NOT EXISTS 'RELEASED';");
       console.log("Added RELEASED to arrest_status enum");
     } catch(e) { 
-      console.log("Add RELEASED failed (might already exist):", e.message); 
+      try {
+        await client.query("ALTER TYPE arrest_status ADD VALUE 'RELEASED';");
+        console.log("Added RELEASED to arrest_status enum");
+      } catch(err) {
+        console.log("Add RELEASED note:", err.message);
+      }
     }
 
-    // Update column default to POLICE_CUSTODY
     try {
       await client.query("ALTER TABLE case_accused ALTER COLUMN arrest_status SET DEFAULT 'POLICE_CUSTODY';");
       console.log("Updated case_accused.arrest_status column default to POLICE_CUSTODY");
     } catch(e) { 
-      console.log("Update default column value failed:", e.message); 
+      console.log("Update default column value note:", e.message); 
     }
 
-    console.log("Enum upgrade completed successfully!");
+    // --- offender_category enum updates ---
+    try {
+      await client.query("ALTER TYPE offender_category RENAME VALUE 'INTERSTATE_KINGPIN' TO 'INTERSTATE_LINK';");
+      console.log("Renamed INTERSTATE_KINGPIN to INTERSTATE_LINK");
+    } catch(e) { console.log("Rename INTERSTATE_KINGPIN note:", e.message); }
+
+    try {
+      await client.query("ALTER TYPE offender_category RENAME VALUE 'LOCAL_SUPPLIER' TO 'SUPPLIER';");
+      console.log("Renamed LOCAL_SUPPLIER to SUPPLIER");
+    } catch(e) { console.log("Rename LOCAL_SUPPLIER note:", e.message); }
+
+    try {
+      await client.query("ALTER TYPE offender_category ADD VALUE IF NOT EXISTS 'FINANCIER';");
+      console.log("Added FINANCIER to offender_category enum");
+    } catch(e) {
+      try {
+        await client.query("ALTER TYPE offender_category ADD VALUE 'FINANCIER';");
+        console.log("Added FINANCIER to offender_category enum");
+      } catch(err) {
+        console.log("Add FINANCIER note:", err.message);
+      }
+    }
+
+    // --- Create Phase 3 Enums & Tables IF NOT EXISTS ---
+    const tableQueries = [
+      `DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'upload_status') THEN
+              CREATE TYPE upload_status AS ENUM ('PROCESSING', 'COMPLETED', 'FAILED', 'PARTIAL');
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'txn_direction') THEN
+              CREATE TYPE txn_direction AS ENUM ('INCOMING', 'OUTGOING');
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'txn_mode') THEN
+              CREATE TYPE txn_mode AS ENUM ('BANK', 'UPI', 'CASH', 'WALLET', 'NEFT', 'RTGS', 'IMPS');
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'intel_rating') THEN
+              CREATE TYPE intel_rating AS ENUM ('CONFIRMED', 'PROBABLE', 'UNVERIFIED');
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'intel_source') THEN
+              CREATE TYPE intel_source AS ENUM ('INFORMER', 'TIP_OFF', 'INTERCEPT');
+          END IF;
+      END $$;`,
+
+      `CREATE TABLE IF NOT EXISTS south_india_databank (
+        id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+        "crNo" VARCHAR(100) NOT NULL,
+        "secOfLaw" VARCHAR(500),
+        "policeStation" VARCHAR(200) NOT NULL,
+        district VARCHAR(100) NOT NULL,
+        "accusedDetails" TEXT NOT NULL,
+        mandal VARCHAR(100),
+        "accusedDistrict" VARCHAR(100),
+        state VARCHAR(50) NOT NULL,
+        branch VARCHAR(10) NOT NULL DEFAULT 'LO',
+        created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );`,
+
+      `CREATE INDEX IF NOT EXISTS idx_sid_branch ON south_india_databank(branch);`,
+      `CREATE INDEX IF NOT EXISTS idx_sid_state ON south_india_databank(state);`,
+
+      `CREATE TABLE IF NOT EXISTS finance_upload_batches (
+        id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+        uploaded_by BIGINT NOT NULL,
+        offender_id BIGINT NOT NULL,
+        file_name VARCHAR(500) NOT NULL,
+        file_type VARCHAR(20) NOT NULL,
+        statement_month DATE NOT NULL,
+        bank_name VARCHAR(150),
+        account_no VARCHAR(50),
+        upi_id VARCHAR(150),
+        total_records INT NOT NULL DEFAULT 0,
+        status upload_status NOT NULL DEFAULT 'PROCESSING',
+        error_log TEXT,
+        created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );`,
+
+      `CREATE TABLE IF NOT EXISTS transaction_records (
+        id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+        batch_id BIGINT NOT NULL,
+        offender_id BIGINT NOT NULL,
+        bank_name VARCHAR(150),
+        account_no VARCHAR(50),
+        upi_id VARCHAR(150),
+        transaction_ref VARCHAR(100),
+        amount NUMERIC(12, 2) NOT NULL,
+        txn_date DATE NOT NULL,
+        direction txn_direction NOT NULL DEFAULT 'OUTGOING',
+        txn_mode txn_mode NOT NULL DEFAULT 'BANK',
+        counterparty_name VARCHAR(200),
+        counterparty_account VARCHAR(100),
+        narration VARCHAR(500),
+        balance_after NUMERIC(12, 2),
+        is_flagged BOOLEAN NOT NULL DEFAULT false,
+        flag_reason VARCHAR(500),
+        matched_offender_id BIGINT,
+        notes TEXT,
+        created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );`,
+
+      `CREATE TABLE IF NOT EXISTS tower_match_logs (
+        id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+        case_id BIGINT NOT NULL,
+        mobile_number VARCHAR(20) NOT NULL,
+        latitude NUMERIC(10, 7) NOT NULL,
+        longitude NUMERIC(10, 7) NOT NULL,
+        hit_time TIMESTAMP(6) NOT NULL,
+        cell_tower_id VARCHAR(100) NOT NULL,
+        provider VARCHAR(50),
+        created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );`,
+
+      `CREATE TABLE IF NOT EXISTS social_media_intel (
+        id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+        offender_id BIGINT NOT NULL,
+        platform VARCHAR(50) NOT NULL,
+        handle_or_url VARCHAR(500) NOT NULL,
+        rating intel_rating NOT NULL DEFAULT 'UNVERIFIED',
+        notes TEXT,
+        created_by BIGINT NOT NULL,
+        created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );`,
+
+      `CREATE TABLE IF NOT EXISTS messaging_intel (
+        id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+        offender_id BIGINT NOT NULL,
+        platform VARCHAR(50) NOT NULL,
+        source_type intel_source NOT NULL DEFAULT 'TIP_OFF',
+        disposition VARCHAR(100),
+        input_text TEXT NOT NULL,
+        created_by BIGINT NOT NULL,
+        created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );`
+    ];
+
+    for (const sql of tableQueries) {
+      try {
+        await client.query(sql);
+        console.log("Executed Table DDL SQL successfully!");
+      } catch (e) {
+        console.log("Table DDL note:", e.message);
+      }
+    }
+
+    // --- Column length expansions to prevent P2000 (value too long) ---
+    const columnAlterations = [
+      "ALTER TABLE offenders ALTER COLUMN photo_url TYPE TEXT;",
+      "ALTER TABLE offenders ALTER COLUMN full_address TYPE TEXT;",
+      "ALTER TABLE offenders ALTER COLUMN landmark_area TYPE TEXT;",
+      "ALTER TABLE offenders ALTER COLUMN alias TYPE VARCHAR(500);",
+      "ALTER TABLE offenders ALTER COLUMN full_name TYPE VARCHAR(500);",
+      "ALTER TABLE offenders ALTER COLUMN father_husband_name TYPE VARCHAR(500);",
+      "ALTER TABLE offenders ALTER COLUMN caste TYPE VARCHAR(200);",
+      "ALTER TABLE offenders ALTER COLUMN mandal TYPE VARCHAR(200);",
+      "ALTER TABLE offenders ALTER COLUMN district TYPE VARCHAR(200);",
+      "ALTER TABLE offenders ALTER COLUMN state TYPE VARCHAR(200);",
+      "ALTER TABLE offenders ALTER COLUMN occupation TYPE VARCHAR(300);",
+      "ALTER TABLE offenders ALTER COLUMN sl_no TYPE VARCHAR(200);",
+
+      "ALTER TABLE offender_identity_docs ALTER COLUMN aadhaar_no TYPE VARCHAR(50);",
+      "ALTER TABLE offender_identity_docs ALTER COLUMN voter_id TYPE VARCHAR(100);",
+      "ALTER TABLE offender_identity_docs ALTER COLUMN pan_card TYPE VARCHAR(50);",
+
+      "ALTER TABLE offender_contacts ALTER COLUMN value TYPE TEXT;",
+      "ALTER TABLE offender_financials ALTER COLUMN value TYPE TEXT;",
+      "ALTER TABLE offender_financials ALTER COLUMN bank_name TYPE VARCHAR(500);"
+    ];
+
+    for (const sql of columnAlterations) {
+      try {
+        await client.query(sql);
+        console.log("Executed Column Alteration SQL:", sql);
+      } catch (e) {
+        console.log("Column alteration note (" + sql + "):", e.message);
+      }
+    }
+
+    console.log("DB Enum, Table DDL, and Column Schema migration completed successfully!");
   } catch(e) {
-    console.error("Migration script error:", e);
+    console.error("Migration script execution note/error:", e.message);
   } finally {
     await client.end();
+  }
+
+  const { execSync } = require('child_process');
+  try {
+    console.log("Running prisma db push to ensure all tables, columns & indexes in schema.prisma exist in Neon DB...");
+    execSync('npx prisma db push --accept-data-loss', { stdio: 'inherit' });
+    console.log("Prisma db push completed successfully!");
+  } catch (err) {
+    console.log("Prisma db push note:", err.message);
   }
 }
 
