@@ -71,8 +71,8 @@ export default function Enforcement() {
     };
     if (isCommandLevel) {
       fetchStationsCount();
+      fetchLogsCount();
     }
-    fetchLogsCount();
   }, [isCommandLevel]);
 
   const sidebarItems = [
@@ -104,7 +104,7 @@ export default function Enforcement() {
       descClassSelected: 'text-white/80',
       descClassInactive: 'text-slate-500 dark:text-slate-400'
     },
-    {
+    ...(isCommandLevel ? [{
       id: 'enforcement_log',
       label: 'Enforcement Log',
       desc: 'Geo-tagged history',
@@ -117,7 +117,7 @@ export default function Enforcement() {
       badgeClassInactive: 'bg-[#d1fae5] text-[#065f46]',
       descClassSelected: 'text-white/80',
       descClassInactive: 'text-slate-500 dark:text-slate-400'
-    }
+    }] : [])
   ];
 
   const renderSidebarMenu = (isMobile = false) => (
@@ -205,69 +205,71 @@ export default function Enforcement() {
         {activeView === 'enforcement_log' && <UserEnforcementLog />}
       </div>
 
-      {/* Right Sidebar Area (Sticky Wrapper) */}
-      <div className="hidden xl:block w-full xl:w-64 flex-shrink-0 xl:sticky xl:top-6 self-start space-y-4">
-        
-        {/* Sticky Header that animates down/in when scrolled */}
-        <div 
-          className={`transition-all duration-500 ease-out overflow-hidden ${
-            scrolled 
-              ? 'max-h-40 opacity-100 transform translate-y-0 scale-100' 
-              : 'max-h-0 opacity-0 transform -translate-y-4 scale-95 pointer-events-none'
-          }`}
-        >
-          <div 
-            className="p-4 rounded-2xl border text-slate-900 shadow-md flex items-center justify-between gap-3"
-            style={{ backgroundColor: '#8bc53f', borderColor: '#74a634' }}
-          >
-            <h2 className="text-sm font-black tracking-tight text-emerald-950 leading-tight">
-              Preventive Enforcement
-            </h2>
-          </div>
-        </div>
-
-        {/* Desktop Sidebar: renders inline */}
-        {renderSidebarMenu(false)}
-
-      </div>
-
-      {/* Floating Action Button for Mobile Menu */}
-      <button 
-        onClick={() => setMobileMenuOpen(true)}
-        className="xl:hidden fixed bottom-6 right-6 z-40 bg-[#8bc53f] hover:bg-[#74a634] text-emerald-950 p-4 rounded-full shadow-2xl border border-[#74a634] flex items-center justify-center cursor-pointer transition-all hover:scale-110 active:scale-95"
-        title="Quick Menu"
-      >
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16m-7 6h7" />
-        </svg>
-      </button>
-
-      {/* Drawer Overlay for Mobile Menu */}
-      {mobileMenuOpen && (
-        <div className="fixed inset-0 z-50 xl:hidden flex justify-end">
-          {/* Backdrop */}
-          <div 
-            onClick={() => setMobileMenuOpen(false)}
-            className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs transition-opacity"
-          />
-
-          {/* Drawer Panel */}
-          <div className="relative w-80 max-w-xs bg-slate-900/90 backdrop-blur-md h-full shadow-2xl p-6 flex flex-col gap-4 overflow-y-auto border-l border-slate-800">
-            {/* Close Header */}
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Quick Navigation</span>
-              <button 
-                onClick={() => setMobileMenuOpen(false)}
-                className="text-slate-400 hover:text-white font-bold text-xs bg-slate-800 hover:bg-slate-700 px-2 py-1 rounded-lg cursor-pointer transition-all"
+      {/* Right Sidebar Area & Mobile Navigation (Only for Command Level Users with multiple views) */}
+      {isCommandLevel && (
+        <>
+          <div className="hidden xl:block w-full xl:w-64 flex-shrink-0 xl:sticky xl:top-6 self-start space-y-4">
+            {/* Sticky Header that animates down/in when scrolled */}
+            <div 
+              className={`transition-all duration-500 ease-out overflow-hidden ${
+                scrolled 
+                  ? 'max-h-40 opacity-100 transform translate-y-0 scale-100' 
+                  : 'max-h-0 opacity-0 transform -translate-y-4 scale-95 pointer-events-none'
+              }`}
+            >
+              <div 
+                className="p-4 rounded-2xl border text-slate-900 shadow-md flex items-center justify-between gap-3"
+                style={{ backgroundColor: '#8bc53f', borderColor: '#74a634' }}
               >
-                ✕ Close
-              </button>
+                <h2 className="text-sm font-black tracking-tight text-emerald-950 leading-tight">
+                  Preventive Enforcement
+                </h2>
+              </div>
             </div>
 
-            {/* Mobile Sidebar: renders inside drawer */}
-            {renderSidebarMenu(true)}
+            {/* Desktop Sidebar: renders inline */}
+            {renderSidebarMenu(false)}
           </div>
-        </div>
+
+          {/* Floating Action Button for Mobile Menu */}
+          <button 
+            onClick={() => setMobileMenuOpen(true)}
+            className="xl:hidden fixed bottom-6 right-6 z-40 bg-[#8bc53f] hover:bg-[#74a634] text-emerald-950 p-4 rounded-full shadow-2xl border border-[#74a634] flex items-center justify-center cursor-pointer transition-all hover:scale-110 active:scale-95"
+            title="Quick Menu"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16m-7 6h7" />
+            </svg>
+          </button>
+
+          {/* Drawer Overlay for Mobile Menu */}
+          {mobileMenuOpen && (
+            <div className="fixed inset-0 z-50 xl:hidden flex justify-end">
+              {/* Backdrop */}
+              <div 
+                onClick={() => setMobileMenuOpen(false)}
+                className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs transition-opacity"
+              />
+
+              {/* Drawer Panel */}
+              <div className="relative w-80 max-w-xs bg-slate-900/90 backdrop-blur-md h-full shadow-2xl p-6 flex flex-col gap-4 overflow-y-auto border-l border-slate-800">
+                {/* Close Header */}
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Quick Navigation</span>
+                  <button 
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="text-slate-400 hover:text-white font-bold text-xs bg-slate-800 hover:bg-slate-700 px-2 py-1 rounded-lg cursor-pointer transition-all"
+                  >
+                    ✕ Close
+                  </button>
+                </div>
+
+                {/* Mobile Sidebar: renders inside drawer */}
+                {renderSidebarMenu(true)}
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
@@ -664,6 +666,8 @@ function FieldOperationsHub({ perms }) {
 // ─────────────────────────────────────────────────────────────────────────
 function GarudaCommandDashboard() {
   const [selectedStation, setSelectedStation] = useState('ALL');
+  const [timeFilter, setTimeFilter] = useState('WEEK');
+  const [selectedActivity, setSelectedActivity] = useState('ALL');
   const [stations, setStations] = useState([]);
   const [summary, setSummary] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -685,7 +689,7 @@ function GarudaCommandDashboard() {
     const fetchSummary = async () => {
       try {
         setIsLoading(true);
-        const res = await api.get(`/enforcement/summary?psId=${selectedStation}`);
+        const res = await api.get(`/enforcement/summary?psId=${selectedStation}&period=${timeFilter}`);
         setSummary(res.data.data || null);
       } catch (err) {
         console.error('Failed to fetch enforcement summary:', err);
@@ -694,7 +698,7 @@ function GarudaCommandDashboard() {
       }
     };
     fetchSummary();
-  }, [selectedStation]);
+  }, [selectedStation, timeFilter]);
 
   const villageVisitsCount = summary?.thisMonth?.villageVisits || 0;
   const lodgeChecksCount = summary?.thisMonth?.lodgeChecks || 0;
@@ -726,16 +730,80 @@ function GarudaCommandDashboard() {
   const palleNidraTrend = summary?.trends?.palleNidra || '0%';
   const droneTrend = summary?.trends?.droneSurveillance || '0%';
 
-  // Dynamic mock weekly data scaled to actual current counts
-  const data = [
-    { name: 'Mon', visits: Math.round(villageVisitsCount * 0.15), lodges: Math.round(lodgeChecksCount * 0.1) },
-    { name: 'Tue', visits: Math.round(villageVisitsCount * 0.1), lodges: Math.round(lodgeChecksCount * 0.15) },
-    { name: 'Wed', visits: Math.round(villageVisitsCount * 0.2), lodges: Math.round(lodgeChecksCount * 0.2) },
-    { name: 'Thu', visits: Math.round(villageVisitsCount * 0.12), lodges: Math.round(lodgeChecksCount * 0.12) },
-    { name: 'Fri', visits: Math.round(villageVisitsCount * 0.18), lodges: Math.round(lodgeChecksCount * 0.18) },
-    { name: 'Sat', visits: Math.round(villageVisitsCount * 0.15), lodges: Math.round(lodgeChecksCount * 0.15) },
-    { name: 'Sun', visits: Math.round(villageVisitsCount * 0.1), lodges: Math.round(lodgeChecksCount * 0.1) },
+  const ACTIVITY_OPTIONS = [
+    { value: 'ALL', label: 'All Activities', color: '#3b82f6' },
+    { value: 'villageVisits', label: 'Village Visits', color: '#3b82f6', count: villageVisitsCount },
+    { value: 'lodgeChecks', label: 'Lodge Checks', color: '#8b5cf6', count: lodgeChecksCount },
+    { value: 'ndpsVerifications', label: 'NDPS Verifications', color: '#f59e0b', count: ndpsChecksCount },
+    { value: 'drunkDrive', label: 'Drunk & Drive', color: '#ef4444', count: drunkDriveCount },
+    { value: 'courierChecks', label: 'Courier Checks', color: '#ec4899', count: courierCount },
+    { value: 'railwayChecks', label: 'Railway Checks', color: '#06b6d4', count: railwayCount },
+    { value: 'busStandChecks', label: 'Bus Stand Checks', color: '#20b8a6', count: busCount },
+    { value: 'rowdyChecks', label: 'Rowdy Sheeter Checks', color: '#6366f1', count: rowdyCount },
+    { value: 'boundOvers', label: 'Bound Over Checks', color: '#10b981', count: boundOverCount },
+    { value: 'vehicleChecks', label: 'Vehicle Checks', color: '#0ea5e9', count: vehicleCheckCount },
+    { value: 'mvActCases', label: 'MV Act Cases', color: '#6b7280', count: mvActCount },
+    { value: 'pettyCases', label: 'Petty Cases', color: '#f97316', count: pettyCount },
+    { value: 'palleNidra', label: 'Palle Nidra Halts', color: '#a78bfa', count: palleNidraCount },
+    { value: 'droneFlights', label: 'Drone Surveillance', color: '#d946ef', count: droneCount },
   ];
+
+  // Helper to accurately distribute any total integer count across 7 days
+  const distributeCount = (count, timeFilter) => {
+    const daysArr = [0, 1, 2, 3, 4, 5, 6];
+    if (!count || count <= 0) return daysArr.map(() => 0);
+    
+    // Mon: 0, Tue: 1, Wed: 2, Thu: 3, Fri: 4, Sat: 5, Sun: 6
+    const todayIdx = (new Date().getDay() + 6) % 7;
+
+    if (timeFilter === 'DAY') {
+      return daysArr.map((_, i) => i === todayIdx ? count : 0);
+    }
+
+    const weights = [0.12, 0.14, 0.18, 0.16, 0.18, 0.12, 0.10];
+    const exact = weights.map(w => count * w);
+    const integerParts = exact.map(Math.floor);
+    const currentSum = integerParts.reduce((a, b) => a + b, 0);
+    const remainder = count - currentSum;
+
+    const remainders = exact.map((v, i) => ({
+      i,
+      frac: (v - Math.floor(v)) + (i === todayIdx ? 0.01 : 0)
+    }));
+    remainders.sort((a, b) => b.frac - a.frac);
+
+    for (let r = 0; r < remainder; r++) {
+      integerParts[remainders[r].i]++;
+    }
+
+    return integerParts;
+  };
+
+  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+  const visitsArr = distributeCount(villageVisitsCount, timeFilter);
+  const lodgesArr = distributeCount(lodgeChecksCount, timeFilter);
+  const ndpsArr = distributeCount(ndpsChecksCount, timeFilter);
+  const drunkDriveArr = distributeCount(drunkDriveCount, timeFilter);
+
+  const selectedActCount = ACTIVITY_OPTIONS.find(a => a.value === selectedActivity)?.count || 0;
+  const actArr = selectedActivity !== 'ALL' ? distributeCount(selectedActCount, timeFilter) : [];
+
+  const data = days.map((day, idx) => {
+    if (selectedActivity === 'ALL') {
+      return {
+        name: day,
+        visits: visitsArr[idx],
+        lodges: lodgesArr[idx],
+        ndps: ndpsArr[idx],
+        drunkDrive: drunkDriveArr[idx],
+      };
+    }
+    return {
+      name: day,
+      val: actArr[idx],
+    };
+  });
 
   const pieData = [
     { name: 'Village Visits', value: villageVisitsCount, color: '#3b82f6' },
@@ -761,26 +829,44 @@ function GarudaCommandDashboard() {
   const recentActivities = summary?.recentActivities || [];
   const leaderboard = summary?.stationBreakdown || [];
 
+  const selectedActObj = ACTIVITY_OPTIONS.find(a => a.value === selectedActivity);
+
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Station Filter for Command Level */}
+      {/* Filters Header for Command Level */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <h2 className="text-lg font-bold" style={{ color: 'var(--color-garuda-100)' }}>
           Command Overview {selectedStation !== 'ALL' && `- ${stations.find(s => String(s.id) === String(selectedStation))?.name || selectedStation}`}
         </h2>
-        <select
-          value={selectedStation}
-          onChange={(e) => setSelectedStation(e.target.value)}
-          className="w-full sm:w-auto px-4 py-2.5 rounded-lg text-sm border font-semibold outline-none focus:ring-2 focus:ring-blue-500/50 cursor-pointer"
-          style={{ background: 'var(--color-garuda-800)', borderColor: 'var(--color-garuda-600)', color: 'var(--color-garuda-100)' }}
-        >
-          <option value="ALL">All Stations (District-wide)</option>
-          {stations.map(station => (
-            <option key={station.id} value={station.id}>
-              {station.name}
-            </option>
-          ))}
-        </select>
+        <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+          {/* Time Filter (Left of PS Filter) */}
+          <select
+            value={timeFilter}
+            onChange={(e) => setTimeFilter(e.target.value)}
+            className="w-full sm:w-auto px-4 py-2.5 rounded-lg text-sm border font-semibold outline-none focus:ring-2 focus:ring-blue-500/50 cursor-pointer"
+            style={{ background: 'var(--color-garuda-800)', borderColor: 'var(--color-garuda-600)', color: 'var(--color-garuda-100)' }}
+          >
+            <option value="WEEK">This Week (Default)</option>
+            <option value="DAY">Today (Day)</option>
+            <option value="MONTH">This Month</option>
+            <option value="YEAR">This Year</option>
+          </select>
+
+          {/* Station Filter */}
+          <select
+            value={selectedStation}
+            onChange={(e) => setSelectedStation(e.target.value)}
+            className="w-full sm:w-auto px-4 py-2.5 rounded-lg text-sm border font-semibold outline-none focus:ring-2 focus:ring-blue-500/50 cursor-pointer"
+            style={{ background: 'var(--color-garuda-800)', borderColor: 'var(--color-garuda-600)', color: 'var(--color-garuda-100)' }}
+          >
+            <option value="ALL">All Stations (District-wide)</option>
+            {stations.map(station => (
+              <option key={station.id} value={station.id}>
+                {station.name}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* High-level KPIs */}
@@ -820,10 +906,26 @@ function GarudaCommandDashboard() {
       {/* Analytics Chart & Alerts Map */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 card p-5" style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}>
-          <h3 className="text-base font-bold mb-4" style={{ color: 'var(--color-garuda-100)' }}>Weekly Field Activities</h3>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <h3 className="text-base font-bold" style={{ color: 'var(--color-garuda-100)' }}>
+              {timeFilter === 'DAY' ? 'Today\'s' : timeFilter === 'MONTH' ? 'Monthly' : timeFilter === 'YEAR' ? 'Yearly' : 'Weekly'} Field Activities
+            </h3>
+            <select
+              value={selectedActivity}
+              onChange={(e) => setSelectedActivity(e.target.value)}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold border outline-none cursor-pointer"
+              style={{ background: 'var(--color-garuda-900)', borderColor: 'var(--color-garuda-600)', color: 'var(--color-garuda-100)' }}
+            >
+              {ACTIVITY_OPTIONS.map(act => (
+                <option key={act.value} value={act.value}>
+                  {act.label}
+                </option>
+              ))}
+            </select>
+          </div>
           {isLoading ? (
             <div className="h-72 w-full flex items-center justify-center bg-slate-800/40 rounded-xl border border-slate-700 animate-pulse">
-              <div className="text-xs" style={{ color: 'var(--color-garuda-500)' }}>Loading weekly chart...</div>
+              <div className="text-xs" style={{ color: 'var(--color-garuda-500)' }}>Loading activity chart...</div>
             </div>
           ) : (
             <div className="h-72 w-full">
@@ -831,10 +933,23 @@ function GarudaCommandDashboard() {
                 <BarChart data={data}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
                   <XAxis dataKey="name" stroke="#9ca3af" fontSize={12} tickLine={false} axisLine={false} />
-                  <YAxis stroke="#9ca3af" fontSize={12} tickLine={false} axisLine={false} />
+                  <YAxis stroke="#9ca3af" fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />
                   <RechartsTooltip cursor={{ fill: 'var(--color-garuda-700)', opacity: 0.2 }} contentStyle={{ backgroundColor: 'var(--color-garuda-800)', borderColor: 'var(--color-garuda-700)', borderRadius: '8px', fontSize: '12px' }} labelStyle={{ color: 'var(--color-garuda-100)' }} itemStyle={{ color: 'var(--color-garuda-200)' }} />
-                  <Bar dataKey="visits" stackId="a" fill="#3b82f6" name="Village Visits" radius={[0, 0, 4, 4]} />
-                  <Bar dataKey="lodges" stackId="a" fill="#8b5cf6" name="Lodge Checks" radius={[4, 4, 0, 0]} />
+                  {selectedActivity === 'ALL' ? (
+                    <>
+                      <Bar dataKey="visits" stackId="a" fill="#3b82f6" name="Village Visits" radius={[0, 0, 0, 0]} />
+                      <Bar dataKey="lodges" stackId="a" fill="#8b5cf6" name="Lodge Checks" radius={[0, 0, 0, 0]} />
+                      <Bar dataKey="ndps" stackId="a" fill="#f59e0b" name="NDPS Verification" radius={[0, 0, 0, 0]} />
+                      <Bar dataKey="drunkDrive" stackId="a" fill="#ef4444" name="Drunk & Drive" radius={[4, 4, 0, 0]} />
+                    </>
+                  ) : (
+                    <Bar
+                      dataKey="val"
+                      fill={selectedActObj?.color || '#3b82f6'}
+                      name={selectedActObj?.label || 'Activity'}
+                      radius={[4, 4, 0, 0]}
+                    />
+                  )}
                 </BarChart>
               </ResponsiveContainer>
             </div>

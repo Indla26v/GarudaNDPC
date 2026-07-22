@@ -346,7 +346,7 @@ export const getEnforcementSummary = async (req: Request, res: Response) => {
     const baseWhere = getEnforcementWhere(user);
 
     // Dynamic Station/Precinct Filter
-    const { psId } = req.query;
+    const { psId, period } = req.query;
     const where: any = { ...baseWhere };
     if (psId && psId !== 'ALL') {
       const DISTRICT_ROLES = ['SP', 'ASP'];
@@ -357,14 +357,41 @@ export const getEnforcementSummary = async (req: Request, res: Response) => {
       }
     }
 
-    // Current month boundaries
+    // Dynamic Time Period Boundaries (DAY, WEEK, MONTH, YEAR; default WEEK)
+    const selectedPeriod = (period as string || 'WEEK').toUpperCase();
     const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const monthWhere: any = { ...where, created_at: { gte: monthStart } };
-    const villageMonthWhere: any = { ...where, visit_date: { gte: monthStart } };
-    const lodgeMonthWhere: any = { ...where, check_date: { gte: monthStart } };
+    let periodStart: Date;
+    let prevPeriodStart: Date;
+    let prevPeriodEnd: Date;
 
-    // Overall counts (this month)
+    if (selectedPeriod === 'DAY') {
+      periodStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      prevPeriodStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+      prevPeriodEnd = periodStart;
+    } else if (selectedPeriod === 'MONTH') {
+      periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      prevPeriodStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      prevPeriodEnd = periodStart;
+    } else if (selectedPeriod === 'YEAR') {
+      periodStart = new Date(now.getFullYear(), 0, 1);
+      prevPeriodStart = new Date(now.getFullYear() - 1, 0, 1);
+      prevPeriodEnd = periodStart;
+    } else {
+      // Default: WEEK (current week starting Monday)
+      const dayOfWeek = now.getDay();
+      const diffToMon = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+      periodStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - diffToMon);
+      periodStart.setHours(0, 0, 0, 0);
+      prevPeriodStart = new Date(periodStart);
+      prevPeriodStart.setDate(prevPeriodStart.getDate() - 7);
+      prevPeriodEnd = periodStart;
+    }
+
+    const monthWhere: any = { ...where, created_at: { gte: periodStart } };
+    const villageMonthWhere: any = { ...where, visit_date: { gte: periodStart } };
+    const lodgeMonthWhere: any = { ...where, check_date: { gte: periodStart } };
+
+    // Overall counts for selected period
     const [
       totalThisMonth,
       positiveThisMonth,
@@ -390,25 +417,23 @@ export const getEnforcementSummary = async (req: Request, res: Response) => {
       prisma.enforcement_checks.count({ where: { ...where, status: 'PENDING_SHO_REVIEW' } }),
       prisma.village_visits.count({ where: villageMonthWhere }),
       prisma.lodge_checks.count({ where: lodgeMonthWhere }),
-      (prisma as any).drunk_drive_checks.count({ where: { ...where, created_at: { gte: monthStart } } }),
-      (prisma as any).courier_checks.count({ where: { ...where, created_at: { gte: monthStart } } }),
-      (prisma as any).railway_checks.count({ where: { ...where, created_at: { gte: monthStart } } }),
-      (prisma as any).bus_stand_checks.count({ where: { ...where, created_at: { gte: monthStart } } }),
-      prisma.rowdy_sheeter_checks.count({ where: { ...where, created_at: { gte: monthStart } } }),
-      prisma.bound_over_checks.count({ where: { ...where, created_at: { gte: monthStart } } }),
-      prisma.vehicle_checks.count({ where: { ...where, created_at: { gte: monthStart } } }),
-      prisma.mv_act_checks.count({ where: { ...where, created_at: { gte: monthStart } } }),
-      prisma.petty_cases_checks.count({ where: { ...where, created_at: { gte: monthStart } } }),
-      prisma.palle_nidra_checks.count({ where: { ...where, created_at: { gte: monthStart } } }),
-      prisma.drone_surveillance_checks.count({ where: { ...where, created_at: { gte: monthStart } } }),
+      (prisma as any).drunk_drive_checks.count({ where: { ...where, created_at: { gte: periodStart } } }),
+      (prisma as any).courier_checks.count({ where: { ...where, created_at: { gte: periodStart } } }),
+      (prisma as any).railway_checks.count({ where: { ...where, created_at: { gte: periodStart } } }),
+      (prisma as any).bus_stand_checks.count({ where: { ...where, created_at: { gte: periodStart } } }),
+      prisma.rowdy_sheeter_checks.count({ where: { ...where, created_at: { gte: periodStart } } }),
+      prisma.bound_over_checks.count({ where: { ...where, created_at: { gte: periodStart } } }),
+      prisma.vehicle_checks.count({ where: { ...where, created_at: { gte: periodStart } } }),
+      prisma.mv_act_checks.count({ where: { ...where, created_at: { gte: periodStart } } }),
+      prisma.petty_cases_checks.count({ where: { ...where, created_at: { gte: periodStart } } }),
+      prisma.palle_nidra_checks.count({ where: { ...where, created_at: { gte: periodStart } } }),
+      prisma.drone_surveillance_checks.count({ where: { ...where, created_at: { gte: periodStart } } }),
     ]);
 
-    // Fetch counts for last month to determine trends dynamically
-    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 1);
-    const lastMonthWhere: any = { ...where, created_at: { gte: lastMonthStart, lt: lastMonthEnd } };
-    const lastVillageMonthWhere: any = { ...where, visit_date: { gte: lastMonthStart, lt: lastMonthEnd } };
-    const lastLodgeMonthWhere: any = { ...where, check_date: { gte: lastMonthStart, lt: lastMonthEnd } };
+    // Fetch counts for previous period to determine trends dynamically
+    const lastMonthWhere: any = { ...where, created_at: { gte: prevPeriodStart, lt: prevPeriodEnd } };
+    const lastVillageMonthWhere: any = { ...where, visit_date: { gte: prevPeriodStart, lt: prevPeriodEnd } };
+    const lastLodgeMonthWhere: any = { ...where, check_date: { gte: prevPeriodStart, lt: prevPeriodEnd } };
 
     const [
       totalLastMonth,
@@ -796,72 +821,72 @@ export const getEnforcementSummary = async (req: Request, res: Response) => {
       const [vvCounts, lcCounts, ecCounts, ddCounts, ccCounts, rcCounts, bcCounts, rsCounts, boCounts, vcCounts, mvCounts, pcCounts, pnCounts, dsCounts] = await Promise.all([
         prisma.village_visits.groupBy({
           by: ['ps_id'],
-          where: { ps_id: { in: stationIds }, visit_date: { gte: monthStart } },
+          where: { ps_id: { in: stationIds }, visit_date: { gte: periodStart } },
           _count: { id: true },
         }),
         prisma.lodge_checks.groupBy({
           by: ['ps_id'],
-          where: { ps_id: { in: stationIds }, check_date: { gte: monthStart } },
+          where: { ps_id: { in: stationIds }, check_date: { gte: periodStart } },
           _count: { id: true },
         }),
         prisma.enforcement_checks.groupBy({
           by: ['ps_id'],
-          where: { ps_id: { in: stationIds }, created_at: { gte: monthStart } },
+          where: { ps_id: { in: stationIds }, created_at: { gte: periodStart } },
           _count: { id: true },
         }),
         (prisma as any).drunk_drive_checks.groupBy({
           by: ['ps_id'],
-          where: { ps_id: { in: stationIds }, created_at: { gte: monthStart } },
+          where: { ps_id: { in: stationIds }, created_at: { gte: periodStart } },
           _count: { id: true },
         }),
         (prisma as any).courier_checks.groupBy({
           by: ['ps_id'],
-          where: { ps_id: { in: stationIds }, created_at: { gte: monthStart } },
+          where: { ps_id: { in: stationIds }, created_at: { gte: periodStart } },
           _count: { id: true },
         }),
         (prisma as any).railway_checks.groupBy({
           by: ['ps_id'],
-          where: { ps_id: { in: stationIds }, created_at: { gte: monthStart } },
+          where: { ps_id: { in: stationIds }, created_at: { gte: periodStart } },
           _count: { id: true },
         }),
         (prisma as any).bus_stand_checks.groupBy({
           by: ['ps_id'],
-          where: { ps_id: { in: stationIds }, created_at: { gte: monthStart } },
+          where: { ps_id: { in: stationIds }, created_at: { gte: periodStart } },
           _count: { id: true },
         }),
         prisma.rowdy_sheeter_checks.groupBy({
           by: ['ps_id'],
-          where: { ps_id: { in: stationIds }, created_at: { gte: monthStart } },
+          where: { ps_id: { in: stationIds }, created_at: { gte: periodStart } },
           _count: { id: true },
         }),
         prisma.bound_over_checks.groupBy({
           by: ['ps_id'],
-          where: { ps_id: { in: stationIds }, created_at: { gte: monthStart } },
+          where: { ps_id: { in: stationIds }, created_at: { gte: periodStart } },
           _count: { id: true },
         }),
         prisma.vehicle_checks.groupBy({
           by: ['ps_id'],
-          where: { ps_id: { in: stationIds }, created_at: { gte: monthStart } },
+          where: { ps_id: { in: stationIds }, created_at: { gte: periodStart } },
           _count: { id: true },
         }),
         prisma.mv_act_checks.groupBy({
           by: ['ps_id'],
-          where: { ps_id: { in: stationIds }, created_at: { gte: monthStart } },
+          where: { ps_id: { in: stationIds }, created_at: { gte: periodStart } },
           _count: { id: true },
         }),
         prisma.petty_cases_checks.groupBy({
           by: ['ps_id'],
-          where: { ps_id: { in: stationIds }, created_at: { gte: monthStart } },
+          where: { ps_id: { in: stationIds }, created_at: { gte: periodStart } },
           _count: { id: true },
         }),
         prisma.palle_nidra_checks.groupBy({
           by: ['ps_id'],
-          where: { ps_id: { in: stationIds }, created_at: { gte: monthStart } },
+          where: { ps_id: { in: stationIds }, created_at: { gte: periodStart } },
           _count: { id: true },
         }),
         prisma.drone_surveillance_checks.groupBy({
           by: ['ps_id'],
-          where: { ps_id: { in: stationIds }, created_at: { gte: monthStart } },
+          where: { ps_id: { in: stationIds }, created_at: { gte: periodStart } },
           _count: { id: true },
         }),
       ]);
@@ -1410,6 +1435,13 @@ export const getUserLogs = async (req: Request, res: Response): Promise<void> =>
     const user = (req as any).user;
     if (!user) {
       res.status(401).json({ success: false, message: 'Unauthorized' });
+      return;
+    }
+
+    // Enforcement Log access is restricted to SP (district-wide) and SDPO (SD-level) command officers
+    const COMMAND_ROLES = ['SP', 'ASP', 'SDPO'];
+    if (!COMMAND_ROLES.includes(user.role)) {
+      res.status(403).json({ success: false, message: 'Enforcement log is restricted to SP (district level) and SDPO (SD level) command officers' });
       return;
     }
 
