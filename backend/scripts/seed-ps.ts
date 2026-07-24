@@ -1,4 +1,4 @@
-import prisma from './src/config/prisma';
+import prisma from '../src/config/prisma';
 
 const psNames = [
   "CCS Tirupati", "East PS", "Alipiri PS", "West PS", "S.V.U.Campus PS", 

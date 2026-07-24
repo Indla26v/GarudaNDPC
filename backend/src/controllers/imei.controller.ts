@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import prisma from '../config/prisma';
 import { successResponse } from '../utils/transformers';
-import { logAudit } from '../utils/auditLogger';
+import { logAudit } from '../utils/audit-logger';
 
 // GET /api/offenders/:offenderId/imei
 export const getImeiRecords = async (req: Request, res: Response) => {

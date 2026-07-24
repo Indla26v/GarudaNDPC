@@ -12,7 +12,7 @@ import { authenticate } from '../middleware/auth.middleware';
 import { authorize, requirePermission } from '../middleware/authorize.middleware';
 import { uploadPhoto, uploadExcel } from '../middleware/upload.middleware';
 import { importDprExcel } from '../controllers/import.controller';
-import { getInterrogations, addInterrogation } from '../controllers/case_lifecycle.controller';
+import { getInterrogations, addInterrogation } from '../controllers/case-lifecycle.controller';
 
 const router = Router();
 

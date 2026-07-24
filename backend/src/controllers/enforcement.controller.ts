@@ -17,7 +17,7 @@ import prisma from '../config/prisma';
 import { Prisma } from '@prisma/client';
 import { successResponse } from '../utils/transformers';
 import { getDashboardScope, ScopeUser } from '../utils/scope';
-import { logAudit } from '../utils/auditLogger';
+import { logAudit } from '../utils/audit-logger';
 
 const STATE_CODES: Record<string, string> = {
   'andhra pradesh': 'AP',

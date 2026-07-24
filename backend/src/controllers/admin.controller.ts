@@ -7,8 +7,8 @@ import { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import prisma from '../config/prisma';
 import { successResponse } from '../utils/transformers';
-import { logAudit } from '../utils/auditLogger';
-import { validatePassword } from '../utils/passwordPolicy';
+import { logAudit } from '../utils/audit-logger';
+import { validatePassword } from '../utils/password-policy';
 
 // ── List all users ────────────────────────────────────────────────────
 export const getUsers = async (req: Request, res: Response) => {

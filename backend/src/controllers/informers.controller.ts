@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import prisma from '../config/prisma';
 import { successResponse } from '../utils/transformers';
 import { getDashboardScope, ScopeUser } from '../utils/scope';
-import { logAudit } from '../utils/auditLogger';
+import { logAudit } from '../utils/audit-logger';
 
 // Helper: build scoping where clause for informers based on creator's police station
 async function getInformerWhere(user: ScopeUser): Promise<Record<string, any>> {

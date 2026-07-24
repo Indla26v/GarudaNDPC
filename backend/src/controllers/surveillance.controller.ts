@@ -2,12 +2,12 @@ import { Request, Response } from 'express';
 import prisma from '../config/prisma';
 import { successResponse } from '../utils/transformers';
 import { getDashboardScope, getCaseWhere, getOffenderWhere, ScopeUser } from '../utils/scope';
-import { logAudit } from '../utils/auditLogger';
+import { logAudit } from '../utils/audit-logger';
 import { paramId } from '../utils/params';
 import { maskMobile, maskImei, canRevealAadhaar } from '../utils/pii';
 import { broadcastEvent } from './sse.controller';
-import { parseTowerDump } from '../services/towerParser';
-import * as correlation from '../services/surveillanceAnalysis';
+import { parseTowerDump } from '../services/tower-parser.service';
+import * as correlation from '../services/surveillance-analysis.service';
 
 const MOBILE_CONTACT_TYPES = ['MOBILE_PRIMARY', 'MOBILE_SECONDARY', 'MOBILE_SIBLING'] as const;
 

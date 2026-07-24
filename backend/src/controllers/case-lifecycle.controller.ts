@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import prisma from '../config/prisma';
 import { successResponse } from '../utils/transformers';
-import { logAudit } from '../utils/auditLogger';
+import { logAudit } from '../utils/audit-logger';
 import { paramId } from '../utils/params';
 import { broadcastEvent } from './sse.controller';
 

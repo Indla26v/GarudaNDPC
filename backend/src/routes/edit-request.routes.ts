@@ -4,7 +4,7 @@ import {
   createEditRequest,
   approveEditRequest,
   rejectEditRequest,
-} from '../controllers/edit_request.controller';
+} from '../controllers/edit-request.controller';
 import { authenticate } from '../middleware/auth.middleware';
 
 const router = Router();

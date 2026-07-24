@@ -15,7 +15,7 @@ import {
   addCourtHearing,
   getBailRecords,
   addBailRecord,
-} from '../controllers/case_lifecycle.controller';
+} from '../controllers/case-lifecycle.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { requirePermission } from '../middleware/authorize.middleware';
 import { uploadDocument } from '../middleware/upload.middleware';

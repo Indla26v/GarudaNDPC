@@ -2,8 +2,8 @@ import { Request, Response } from 'express';
 import prisma from '../config/prisma';
 import { getOffenderWhere } from '../utils/scope';
 import { maskAadhaar, canRevealAadhaar, canExportOffenders } from '../utils/pii';
-import { logAudit } from '../utils/auditLogger';
-import { generateHistorySheetPdf } from '../utils/pdfHistorySheet';
+import { logAudit } from '../utils/audit-logger';
+import { generateHistorySheetPdf } from '../utils/pdf-history-sheet';
 
 function csvEscape(v: unknown): string {
   let s = v == null ? '' : String(v);

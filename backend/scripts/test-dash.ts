@@ -1,4 +1,4 @@
-import { getDashboardSummary } from './src/controllers/dashboard.controller';
+import { getDashboardSummary } from '../src/controllers/dashboard.controller';
 import express from 'express';
 
 const app = express();

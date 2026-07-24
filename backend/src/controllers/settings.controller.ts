@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import prisma from '../config/prisma';
 import { successResponse } from '../utils/transformers';
-import { logAudit } from '../utils/auditLogger';
+import { logAudit } from '../utils/audit-logger';
 
 const DEFAULT_SETTINGS: Record<string, string> = {
   CHARGE_SHEET_DUE_DAYS_COMMERCIAL: '180',

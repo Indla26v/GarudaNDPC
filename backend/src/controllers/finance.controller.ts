@@ -8,12 +8,12 @@
 import { Request, Response } from 'express';
 import prisma from '../config/prisma';
 import { successResponse } from '../utils/transformers';
-import { logAudit } from '../utils/auditLogger';
+import { logAudit } from '../utils/audit-logger';
 import { getOffenderWhere, ScopeUser } from '../utils/scope';
 import { maskAccount, canRevealAadhaar } from '../utils/pii';
 import { paramId } from '../utils/params';
-import { parseStatement } from '../services/statementParser';
-import * as analysis from '../services/financeAnalysis';
+import { parseStatement } from '../services/statement-parser.service';
+import * as analysis from '../services/finance-analysis.service';
 import { broadcastEvent } from './sse.controller';
 
 // ── Helpers ────────────────────────────────────────────────────────────

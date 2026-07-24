@@ -9,7 +9,7 @@ import * as XLSX from 'xlsx';
 import prisma from '../config/prisma';
 import { successResponse } from '../utils/transformers';
 import { getDashboardScope, ScopeUser } from '../utils/scope';
-import { logAudit } from '../utils/auditLogger';
+import { logAudit } from '../utils/audit-logger';
 
 function csvEscape(v: unknown): string {
   let s = v == null ? '' : String(v);

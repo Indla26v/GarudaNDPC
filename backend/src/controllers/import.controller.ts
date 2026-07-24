@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import * as XLSX from 'xlsx';
 import prisma from '../config/prisma';
 import { successResponse } from '../utils/transformers';
-import { logAudit } from '../utils/auditLogger';
+import { logAudit } from '../utils/audit-logger';
 import { broadcastEvent } from './sse.controller';
 
 function normKey(k: string): string {

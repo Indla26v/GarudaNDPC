@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import prisma from '../config/prisma';
 import { successResponse } from '../utils/transformers';
 import { getDashboardScope, ScopeUser } from '../utils/scope';
-import { logAudit } from '../utils/auditLogger';
+import { logAudit } from '../utils/audit-logger';
 import * as intelligenceService from '../services/intelligence.service';
 
 export const getIntelligence = async (req: Request, res: Response) => {

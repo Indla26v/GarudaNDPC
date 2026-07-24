@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getAllPoliceStations, getPoliceStationById } from '../controllers/police_station.controller';
+import { getAllPoliceStations, getPoliceStationById } from '../controllers/police-station.controller';
 import { authenticate } from '../middleware/auth.middleware';
 
 const router = Router();

@@ -4,8 +4,8 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import prisma from '../config/prisma';
 import { convertBigIntsToNumbers, successResponse } from '../utils/transformers';
-import { logAudit } from '../utils/auditLogger';
-import { validatePassword } from '../utils/passwordPolicy';
+import { logAudit } from '../utils/audit-logger';
+import { validatePassword } from '../utils/password-policy';
 
 // ── SECURITY FIX #1: No hardcoded fallback — fail-fast if JWT_SECRET is missing
 const JWT_KEY = process.env.JWT_SECRET;
