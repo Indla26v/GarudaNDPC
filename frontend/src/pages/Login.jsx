@@ -86,9 +86,10 @@ export default function Login() {
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--color-garuda-300)' }}>Username</label>
+              <label htmlFor="login-username" className="block text-sm font-medium mb-1.5" style={{ color: 'var(--color-garuda-300)' }}>Username</label>
               <input
                 id="login-username"
+                name="username"
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
@@ -100,11 +101,12 @@ export default function Login() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--color-garuda-300)' }}>Password</label>
+              <label htmlFor="login-password" className="block text-sm font-medium mb-1.5" style={{ color: 'var(--color-garuda-300)' }}>Password</label>
               <div className="relative">
                 <input
                   id="login-password"
-                  type={showPassword ? 'text' : 'password'}
+                  name="password"
+                  type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required

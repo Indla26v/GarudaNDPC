@@ -19,14 +19,14 @@ export class OffendersService {
     const prefix = `${stateCode}-${districtCode}-OFF-${currentYear}-`;
 
     const latest = await prisma.offenders.findFirst({
-      where: { gov_id: { startsWith: prefix } },
-      orderBy: { gov_id: 'desc' },
-      select: { gov_id: true },
+      where: { sl_no: { startsWith: prefix } },
+      orderBy: { sl_no: 'desc' },
+      select: { sl_no: true },
     });
 
     let nextNumber = 1;
-    if (latest && latest.gov_id) {
-      const parts = latest.gov_id.split('-');
+    if (latest && latest.sl_no) {
+      const parts = latest.sl_no.split('-');
       const lastSeqStr = parts[parts.length - 1];
       if (lastSeqStr && !isNaN(parseInt(lastSeqStr, 10))) {
         nextNumber = parseInt(lastSeqStr, 10) + 1;
@@ -99,7 +99,6 @@ export class OffendersService {
         offender_identity_docs: true,
         offender_contacts: true,
         offender_financials: true,
-        offender_associates: true,
         case_accused: { include: { cases: true } },
       },
     });

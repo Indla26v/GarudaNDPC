@@ -1142,31 +1142,31 @@ export default function OffenderForm() {
 
             {/* Basic fields Grid */}
             <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
-              {renderField("Serial No", form.slNo, <input className={inp} style={inputStyle} value={form.slNo} onChange={e => set('slNo', e.target.value)} />)}
+              {renderField("Serial No", form.slNo, <input id="slNo" name="slNo" className={inp} style={inputStyle} value={form.slNo} onChange={e => set('slNo', e.target.value)} />)}
               {renderField("Police Station *", stations.find(ps => String(ps.id) === String(form.psId))?.name, 
-                <select className={sel} style={inputStyle} value={form.psId} onChange={e => set('psId', e.target.value)}>
+                <select id="psId" name="psId" className={sel} style={inputStyle} value={form.psId} onChange={e => set('psId', e.target.value)}>
                   <option value="">Select PS</option>
                   {stations.map(ps => <option key={ps.id} value={ps.id}>{ps.name}</option>)}
                 </select>
               )}
-              {renderField("Full Name *", form.fullName, <input className={inp} style={inputStyle} value={form.fullName} onChange={e => set('fullName', e.target.value)} />)}
-              {renderField("Alias", form.alias, <input className={inp} style={inputStyle} value={form.alias} onChange={e => set('alias', e.target.value)} />)}
-              {renderField("Father/Husband Name", form.fatherHusbandName, <input className={inp} style={inputStyle} value={form.fatherHusbandName} onChange={e => set('fatherHusbandName', e.target.value)} />)}
-              {renderField("Age", form.age, <input type="number" className={inp} style={inputStyle} value={form.age} onChange={e => set('age', e.target.value)} />)}
+              {renderField("Full Name *", form.fullName, <input id="fullName" name="fullName" className={inp} style={inputStyle} value={form.fullName} onChange={e => set('fullName', e.target.value)} />)}
+              {renderField("Alias", form.alias, <input id="alias" name="alias" className={inp} style={inputStyle} value={form.alias} onChange={e => set('alias', e.target.value)} />)}
+              {renderField("Father/Husband Name", form.fatherHusbandName, <input id="fatherHusbandName" name="fatherHusbandName" className={inp} style={inputStyle} value={form.fatherHusbandName} onChange={e => set('fatherHusbandName', e.target.value)} />)}
+              {renderField("Age", form.age, <input id="age" name="age" type="number" className={inp} style={inputStyle} value={form.age} onChange={e => set('age', e.target.value)} />)}
               {renderField("Gender", form.gender, 
-                <select className={sel} style={inputStyle} value={form.gender} onChange={e => set('gender', e.target.value)}>
+                <select id="gender" name="gender" className={sel} style={inputStyle} value={form.gender} onChange={e => set('gender', e.target.value)}>
                   <option value="">Select</option>{GENDERS.map(g => <option key={g} value={g}>{g}</option>)}
                 </select>
               )}
               {renderField("Category", form.category?.replace('_', ' '), 
-                <select className={sel} style={inputStyle} value={form.category} onChange={e => set('category', e.target.value)}>
+                <select id="category" name="category" className={sel} style={inputStyle} value={form.category} onChange={e => set('category', e.target.value)}>
                   <option value="">Select</option>{CATEGORIES.map(c => <option key={c} value={c}>{c.replace('_', ' ')}</option>)}
                 </select>
               )}
-              {renderField("Occupation", form.occupation, <input className={inp} style={inputStyle} value={form.occupation} onChange={e => set('occupation', e.target.value)} />)}
-              {renderField("Monthly Income (₹)", form.monthlyIncome ? `₹${form.monthlyIncome}` : '', <input type="number" className={inp} style={inputStyle} value={form.monthlyIncome} onChange={e => set('monthlyIncome', e.target.value)} />)}
+              {renderField("Occupation", form.occupation, <input id="occupation" name="occupation" className={inp} style={inputStyle} value={form.occupation} onChange={e => set('occupation', e.target.value)} />)}
+              {renderField("Monthly Income (₹)", form.monthlyIncome ? `₹${form.monthlyIncome}` : '', <input id="monthlyIncome" name="monthlyIncome" type="number" className={inp} style={inputStyle} value={form.monthlyIncome} onChange={e => set('monthlyIncome', e.target.value)} />)}
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider mb-1.5" style={{ color: 'var(--color-garuda-400)' }}>Aadhaar No</label>
+                <label htmlFor="aadhaarNo" className="block text-xs font-bold uppercase tracking-wider mb-1.5" style={{ color: 'var(--color-garuda-400)' }}>Aadhaar No</label>
                 {isView ? (
                   <div className="flex gap-2">
                     <div className="px-3 py-2 rounded-lg text-sm font-semibold flex-1" style={{ background: 'var(--color-garuda-900)', border: '1px solid var(--color-garuda-700)', color: 'var(--color-garuda-100)', minHeight: '38px', display: 'flex', alignItems: 'center' }}>
@@ -1180,7 +1180,7 @@ export default function OffenderForm() {
                   </div>
                 ) : (
                   <div className="flex gap-2">
-                    <input maxLength={12} className={`${inp} flex-1`} style={inputStyle} value={form.aadhaarNo} onChange={e => set('aadhaarNo', e.target.value)} readOnly={isEdit && aadhaarMasked && !aadhaarRevealed} />
+                    <input id="aadhaarNo" name="aadhaarNo" maxLength={12} className={`${inp} flex-1`} style={inputStyle} value={form.aadhaarNo} onChange={e => set('aadhaarNo', e.target.value)} readOnly={isEdit && aadhaarMasked && !aadhaarRevealed} />
                     {isEdit && aadhaarMasked && perms.hasMinRole('CI') && (
                       <button type="button" onClick={revealAadhaar} className="px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap" style={{ background: 'var(--color-garuda-600)', color: 'var(--color-garuda-100)' }}>
                         Reveal
@@ -1189,8 +1189,8 @@ export default function OffenderForm() {
                   </div>
                 )}
               </div>
-              {renderField("Voter ID", form.voterId, <input className={inp} style={inputStyle} value={form.voterId} onChange={e => set('voterId', e.target.value)} />)}
-              {renderField("PAN Card", form.panCard, <input maxLength={10} className={inp} style={inputStyle} value={form.panCard} onChange={e => set('panCard', e.target.value)} />)}
+              {renderField("Voter ID", form.voterId, <input id="voterId" name="voterId" className={inp} style={inputStyle} value={form.voterId} onChange={e => set('voterId', e.target.value)} />)}
+              {renderField("PAN Card", form.panCard, <input id="panCard" name="panCard" maxLength={10} className={inp} style={inputStyle} value={form.panCard} onChange={e => set('panCard', e.target.value)} />)}
             </div>
           </div>
         </div>
@@ -1217,11 +1217,11 @@ export default function OffenderForm() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
-              {renderField("Full Address", form.fullAddress, <textarea rows={3} className={inp} style={inputStyle} value={form.fullAddress} onChange={e => set('fullAddress', e.target.value)} />)}
+              {renderField("Full Address", form.fullAddress, <textarea id="fullAddress" name="fullAddress" rows={3} className={inp} style={inputStyle} value={form.fullAddress} onChange={e => set('fullAddress', e.target.value)} />)}
             </div>
-            {renderField("Landmark", form.landmark, <input className={inp} style={inputStyle} value={form.landmark} onChange={e => set('landmark', e.target.value)} />)}
-            {renderField("District", form.district, <input className={inp} style={inputStyle} value={form.district} onChange={e => set('district', e.target.value)} />)}
-            {renderField("State", form.state, <input className={inp} style={inputStyle} value={form.state} onChange={e => set('state', e.target.value)} />)}
+            {renderField("Landmark", form.landmark, <input id="landmark" name="landmark" className={inp} style={inputStyle} value={form.landmark} onChange={e => set('landmark', e.target.value)} />)}
+            {renderField("District", form.district, <input id="district" name="district" className={inp} style={inputStyle} value={form.district} onChange={e => set('district', e.target.value)} />)}
+            {renderField("State", form.state, <input id="state" name="state" className={inp} style={inputStyle} value={form.state} onChange={e => set('state', e.target.value)} />)}
           </div>
         </div>
 
@@ -1381,36 +1381,36 @@ export default function OffenderForm() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {renderField("Addiction Type", form.addictionType?.replace(/_/g, ' '),
-              <select className={sel} style={inputStyle} value={form.addictionType} onChange={e => set('addictionType', e.target.value)}>
+              <select id="addictionType" name="addictionType" className={sel} style={inputStyle} value={form.addictionType} onChange={e => set('addictionType', e.target.value)}>
                 <option value="">Select</option>
                 {ADDICTION_TYPES.map(t => <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>)}
               </select>
             )}
             {renderField("Consumption Frequency", form.consumptionFrequency,
-              <select className={sel} style={inputStyle} value={form.consumptionFrequency} onChange={e => set('consumptionFrequency', e.target.value)}>
+              <select id="consumptionFrequency" name="consumptionFrequency" className={sel} style={inputStyle} value={form.consumptionFrequency} onChange={e => set('consumptionFrequency', e.target.value)}>
                 <option value="">Select</option>
                 {CONSUMPTION_FREQS.map(f => <option key={f} value={f}>{f}</option>)}
               </select>
             )}
             {renderField("Source of Procurement", form.sourceOfProcurement?.replace(/_/g, ' '),
-              <select className={sel} style={inputStyle} value={form.sourceOfProcurement} onChange={e => set('sourceOfProcurement', e.target.value)}>
+              <select id="sourceOfProcurement" name="sourceOfProcurement" className={sel} style={inputStyle} value={form.sourceOfProcurement} onChange={e => set('sourceOfProcurement', e.target.value)}>
                 <option value="">Select</option>
                 {PROCUREMENT_SOURCES.map(s => <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>)}
               </select>
             )}
             {renderField("Test Result", form.testResult, 
-              <select className={sel} style={inputStyle} value={form.testResult} onChange={e => set('testResult', e.target.value)}>
+              <select id="testResult" name="testResult" className={sel} style={inputStyle} value={form.testResult} onChange={e => set('testResult', e.target.value)}>
                 <option value="">Select</option>
                 {TEST_RESULTS.map(r => <option key={r} value={r}>{r}</option>)}
               </select>
             )}
             {renderField("Mode of Purchase", form.modeOfPurchase, 
-              <select className={sel} style={inputStyle} value={form.modeOfPurchase} onChange={e => set('modeOfPurchase', e.target.value)}>
+              <select id="modeOfPurchase" name="modeOfPurchase" className={sel} style={inputStyle} value={form.modeOfPurchase} onChange={e => set('modeOfPurchase', e.target.value)}>
                 <option value="">Select</option>{PURCHASE_MODES.map(m => <option key={m} value={m}>{m}</option>)}
               </select>
             )}
-            {renderField("Usual Consumption Spot", form.usualConsumptionSpot, <input className={inp} style={inputStyle} value={form.usualConsumptionSpot} onChange={e => set('usualConsumptionSpot', e.target.value)} />)}
-            {renderField("Section of Law", form.sectionOfLaw, <input className={inp} style={inputStyle} value={form.sectionOfLaw} onChange={e => set('sectionOfLaw', e.target.value)} placeholder="e.g. Section 8(c) r/w 20(b)(ii)(A)" />)}
+            {renderField("Usual Consumption Spot", form.usualConsumptionSpot, <input id="usualConsumptionSpot" name="usualConsumptionSpot" className={inp} style={inputStyle} value={form.usualConsumptionSpot} onChange={e => set('usualConsumptionSpot', e.target.value)} />)}
+            {renderField("Section of Law", form.sectionOfLaw, <input id="sectionOfLaw" name="sectionOfLaw" className={inp} style={inputStyle} value={form.sectionOfLaw} onChange={e => set('sectionOfLaw', e.target.value)} placeholder="e.g. Section 8(c) r/w 20(b)(ii)(A)" />)}
           </div>
         </div>
 

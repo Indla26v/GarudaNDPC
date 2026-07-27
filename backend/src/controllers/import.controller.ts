@@ -299,21 +299,23 @@ function cleanString(s: string | null | undefined): string | null {
   return s.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
-export const importDprExcel = async (req: Request, res: Response) => {
+export const importDprExcel = async (req: AuthRequest, res: Response) => {
   try {
     let sheet: XLSX.WorkSheet;
+    const body = req.body || {};
+    const file = (req as any).file;
 
-    if (req.body.aoa) {
-      const aoa = req.body.aoa;
+    if (body.aoa) {
+      const aoa = body.aoa;
       if (!Array.isArray(aoa)) {
         return res.status(400).json({ message: 'Invalid data format. Expected aoa array.' });
       }
       sheet = XLSX.utils.aoa_to_sheet(aoa);
     } else {
-      if (!req.file?.buffer) {
+      if (!file?.buffer) {
         return res.status(400).json({ message: 'Upload an Excel file (.xlsx, .xls) or provide parsed aoa.' });
       }
-      const wb = XLSX.read(req.file.buffer, { type: 'buffer' });
+      const wb = XLSX.read(file.buffer, { type: 'buffer' });
       const firstSheetName = wb.SheetNames[0];
       if (!firstSheetName) {
         return res.status(400).json({ message: 'Excel workbook has no sheets' });
@@ -572,22 +574,24 @@ export const importDprExcel = async (req: Request, res: Response) => {
   }
 };
 
-export const previewDprExcel = async (req: Request, res: Response) => {
+export const previewDprExcel = async (req: AuthRequest, res: Response) => {
   try {
-    const importType = req.body.importType || 'UNIFIED';
+    const body = req.body || {};
+    const file = (req as any).file;
+    const importType = body.importType || 'UNIFIED';
     let sheet: XLSX.WorkSheet;
 
-    if (req.body.aoa) {
-      const aoa = req.body.aoa;
+    if (body.aoa) {
+      const aoa = body.aoa;
       if (!Array.isArray(aoa)) {
         return res.status(400).json({ message: 'Invalid data format. Expected aoa array.' });
       }
       sheet = XLSX.utils.aoa_to_sheet(aoa);
     } else {
-      if (!req.file?.buffer) {
+      if (!file?.buffer) {
         return res.status(400).json({ message: 'Upload an Excel file (.xlsx, .xls) or provide parsed aoa.' });
       }
-      const wb = XLSX.read(req.file.buffer, { type: 'buffer' });
+      const wb = XLSX.read(file.buffer, { type: 'buffer' });
       const firstSheetName = wb.SheetNames[0];
       if (!firstSheetName) {
         return res.status(400).json({ message: 'Excel workbook has no sheets' });
@@ -925,9 +929,9 @@ export const previewDprExcel = async (req: Request, res: Response) => {
   }
 };
 
-export const confirmDprImport = async (req: Request, res: Response) => {
+export const confirmDprImport = async (req: AuthRequest, res: Response) => {
   try {
-    const { rows, importType = 'UNIFIED' } = req.body;
+    const { rows, importType = 'UNIFIED' } = req.body || {};
     if (!rows || !Array.isArray(rows)) {
       return res.status(400).json({ message: 'Invalid data format' });
     }

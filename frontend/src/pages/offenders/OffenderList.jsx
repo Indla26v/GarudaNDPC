@@ -188,6 +188,8 @@ export default function OffenderList({ isConsumerOnly = false }) {
           ) : (
             <>
               <input
+                id="offender-import-file"
+                name="excelFile"
                 type="file"
                 ref={fileInputRef}
                 onChange={handleImportExcel}
@@ -252,6 +254,7 @@ export default function OffenderList({ isConsumerOnly = false }) {
         <form onSubmit={handleSearch} className="flex-1 flex gap-2">
           <input
             id="offender-search"
+            name="search"
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}

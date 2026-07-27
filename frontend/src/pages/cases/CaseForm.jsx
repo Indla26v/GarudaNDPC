@@ -483,12 +483,12 @@ export default function CaseForm() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-medium mb-1" style={{ color: 'var(--color-garuda-400)' }}>FIR Number</label>
-                <input name="firNo" value={form.firNo} onChange={handleChange} placeholder="Auto if empty" className={inp} style={fieldStyle} />
+                <label htmlFor="firNo" className="block text-xs font-medium mb-1" style={{ color: 'var(--color-garuda-400)' }}>FIR Number</label>
+                <input id="firNo" name="firNo" value={form.firNo} onChange={handleChange} placeholder="Auto if empty" className={inp} style={fieldStyle} />
               </div>
               <div>
-                <label className="block text-xs font-medium mb-1" style={{ color: 'var(--color-garuda-400)' }}>Station *</label>
-                <select name="psId" value={form.psId} onChange={handleChange} required className={inp} style={fieldStyle}>
+                <label htmlFor="psId" className="block text-xs font-medium mb-1" style={{ color: 'var(--color-garuda-400)' }}>Station *</label>
+                <select id="psId" name="psId" value={form.psId} onChange={handleChange} required className={inp} style={fieldStyle}>
                   <option value="">Select Station</option>
                   {stations.map((s) => (
                     <option key={s.id} value={s.id}>
@@ -498,23 +498,23 @@ export default function CaseForm() {
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium mb-1" style={{ color: 'var(--color-garuda-400)' }}>Department</label>
-                <select name="department" value={form.department} onChange={handleChange} className={inp} style={fieldStyle}>
+                <label htmlFor="department" className="block text-xs font-medium mb-1" style={{ color: 'var(--color-garuda-400)' }}>Department</label>
+                <select id="department" name="department" value={form.department} onChange={handleChange} className={inp} style={fieldStyle}>
                   <option value="POLICE">Police</option>
                   <option value="EXCISE">Excise</option>
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium mb-1" style={{ color: 'var(--color-garuda-400)' }}>Case Date *</label>
-                <input type="date" name="caseDate" value={form.caseDate} onChange={handleChange} required className={inp} style={fieldStyle} />
+                <label htmlFor="caseDate" className="block text-xs font-medium mb-1" style={{ color: 'var(--color-garuda-400)' }}>Case Date *</label>
+                <input id="caseDate" type="date" name="caseDate" value={form.caseDate} onChange={handleChange} required className={inp} style={fieldStyle} />
               </div>
               <div className="md:col-span-2">
-                <label className="block text-xs font-medium mb-1" style={{ color: 'var(--color-garuda-400)' }}>Section of Law</label>
-                <input name="sectionOfLaw" value={form.sectionOfLaw} onChange={handleChange} className={inp} style={fieldStyle} />
+                <label htmlFor="sectionOfLaw" className="block text-xs font-medium mb-1" style={{ color: 'var(--color-garuda-400)' }}>Section of Law</label>
+                <input id="sectionOfLaw" name="sectionOfLaw" value={form.sectionOfLaw} onChange={handleChange} className={inp} style={fieldStyle} />
               </div>
               <div className="md:col-span-2">
-                <label className="block text-xs font-medium mb-1" style={{ color: 'var(--color-garuda-400)' }}>Nature of Offence</label>
-                <input name="natureOfOffence" value={form.natureOfOffence} onChange={handleChange} className={inp} style={fieldStyle} />
+                <label htmlFor="natureOfOffence" className="block text-xs font-medium mb-1" style={{ color: 'var(--color-garuda-400)' }}>Nature of Offence</label>
+                <input id="natureOfOffence" name="natureOfOffence" value={form.natureOfOffence} onChange={handleChange} className={inp} style={fieldStyle} />
               </div>
               {isEdit && (
                 <div>
@@ -723,10 +723,10 @@ export default function CaseForm() {
               )}
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-              <input placeholder="Contraband (kg)" value={seizure.contrabandKg} onChange={(e) => setSeizure({ ...seizure, contrabandKg: e.target.value })} className={inp} style={fieldStyle} />
-              <input placeholder="Cash seized (₹)" value={seizure.cashAmount} onChange={(e) => setSeizure({ ...seizure, cashAmount: e.target.value })} className={inp} style={fieldStyle} />
-              <input placeholder="Vehicles" value={seizure.vehiclesCount} onChange={(e) => setSeizure({ ...seizure, vehiclesCount: e.target.value })} className={inp} style={fieldStyle} />
-              <input placeholder="Other items" value={seizure.otherItems} onChange={(e) => setSeizure({ ...seizure, otherItems: e.target.value })} className={inp} style={fieldStyle} />
+              <input id="contrabandKg" name="contrabandKg" placeholder="Contraband (kg)" value={seizure.contrabandKg} onChange={(e) => setSeizure({ ...seizure, contrabandKg: e.target.value })} className={inp} style={fieldStyle} />
+              <input id="cashAmount" name="cashAmount" placeholder="Cash seized (₹)" value={seizure.cashAmount} onChange={(e) => setSeizure({ ...seizure, cashAmount: e.target.value })} className={inp} style={fieldStyle} />
+              <input id="vehiclesCount" name="vehiclesCount" placeholder="Vehicles" value={seizure.vehiclesCount} onChange={(e) => setSeizure({ ...seizure, vehiclesCount: e.target.value })} className={inp} style={fieldStyle} />
+              <input id="otherItems" name="otherItems" placeholder="Other items" value={seizure.otherItems} onChange={(e) => setSeizure({ ...seizure, otherItems: e.target.value })} className={inp} style={fieldStyle} />
             </div>
           </div>
 
