@@ -12,61 +12,20 @@
  *   Station-level (SDPO, SHO, Constable) → only their PS data
  *   District-level (SP, ASP) → all PS data
  */
-import { Request, Response } from 'express';
+import { Response } from 'express';
+import { AuthRequest } from '../middleware/auth.middleware';
 import prisma from '../config/prisma';
 import { Prisma } from '@prisma/client';
 import { successResponse } from '../utils/transformers';
-import { getDashboardScope, ScopeUser } from '../utils/scope';
+import { getDashboardScope, getEnforcementWhere, ScopeUser } from '../utils/scope';
 import { logAudit } from '../utils/audit-logger';
-
-const STATE_CODES: Record<string, string> = {
-  'andhra pradesh': 'AP',
-  'ap': 'AP',
-  'kerala': 'KL',
-  'kl': 'KL',
-  'karnataka': 'KA',
-  'ka': 'KA',
-  'telangana': 'TS',
-  'ts': 'TS',
-};
-
-const DISTRICT_NUMBERS: Record<string, string> = {
-  'tirupati': '39',
-  'chittoor': '03',
-};
-
-// ── Helper: build enforcement scoping where clause ─────────────────────
-function getEnforcementWhere(user: ScopeUser): Record<string, any> {
-  if (!user?.role) return { id: BigInt(-1) };
-
-  // SP and ASP roles: scoped to district
-  if (user.role === 'SP' || user.role === 'ASP') {
-    if (user.district) {
-      return { police_station: { district: user.district } };
-    }
-    return {};
-  }
-
-  // SDPO role: scoped to subdivision
-  if (user.role === 'SDPO') {
-    if (user.divisionId) {
-      return { police_station: { sdpo: user.divisionId } };
-    }
-    return {};
-  }
-
-  // Station-level: scope to their police station
-  if (user.policeStationId) {
-    return { ps_id: BigInt(user.policeStationId) };
-  }
-
-  return {};
-}
+import { STATE_CODES, DISTRICT_NUMBERS } from '../config/constants';
+import { handleControllerError } from '../utils/error-handler';
 
 // ── 1. Create field enforcement check ─────────────────────────────────
-export const createEnforcementCheck = async (req: Request, res: Response) => {
+export const createEnforcementCheck = async (req: AuthRequest, res: Response) => {
   try {
-    const user = (req as any).user;
+    const user = req.user!;
     const {
       // Identity / Match Payload
       matchedOffenderId,
@@ -251,9 +210,9 @@ export const createEnforcementCheck = async (req: Request, res: Response) => {
 };
 
 // ── 2. Submit drug test result ─────────────────────────────────────────
-export const submitTestResult = async (req: Request, res: Response) => {
+export const submitTestResult = async (req: AuthRequest, res: Response) => {
   try {
-    const user = (req as any).user;
+    const user = req.user!;
     const { id } = req.params;
     if (!id || typeof id !== 'string') {
       return res.status(400).json({ message: 'Invalid check ID' });
@@ -303,9 +262,9 @@ export const submitTestResult = async (req: Request, res: Response) => {
 };
 
 // ── 3. List enforcement checks (role-scoped) ──────────────────────────
-export const listEnforcementChecks = async (req: Request, res: Response) => {
+export const listEnforcementChecks = async (req: AuthRequest, res: Response) => {
   try {
-    const user: ScopeUser = (req as any).user;
+    const user: ScopeUser = req.user!;
     const where = getEnforcementWhere(user);
     const { status, testResult, page = '1', limit = '20' } = req.query;
 
@@ -340,9 +299,9 @@ export const listEnforcementChecks = async (req: Request, res: Response) => {
 };
 
 // ── 4. Get enforcement dashboard summary (role-scoped) ────────────────
-export const getEnforcementSummary = async (req: Request, res: Response) => {
+export const getEnforcementSummary = async (req: AuthRequest, res: Response) => {
   try {
-    const user: ScopeUser = (req as any).user;
+    const user: ScopeUser = req.user!;
     const baseWhere = getEnforcementWhere(user);
 
     // Dynamic Station/Precinct Filter
@@ -1055,9 +1014,9 @@ export const getEnforcementSummary = async (req: Request, res: Response) => {
 };
 
 // ── 5. List pending SHO review ────────────────────────────────────────
-export const getPendingReview = async (req: Request, res: Response) => {
+export const getPendingReview = async (req: AuthRequest, res: Response) => {
   try {
-    const user: ScopeUser = (req as any).user;
+    const user: ScopeUser = req.user!;
     const where = getEnforcementWhere(user);
 
     const checks = await prisma.enforcement_checks.findMany({
@@ -1078,9 +1037,9 @@ export const getPendingReview = async (req: Request, res: Response) => {
 };
 
 // ── 6. SHO review (approve/reject) ───────────────────────────────────
-export const reviewEnforcementCheck = async (req: Request, res: Response) => {
+export const reviewEnforcementCheck = async (req: AuthRequest, res: Response) => {
   try {
-    const user = (req as any).user;
+    const user = req.user!;
     const { id } = req.params;
     if (!id || typeof id !== 'string') {
       return res.status(400).json({ message: 'Invalid check ID' });
@@ -1282,9 +1241,9 @@ export const reviewEnforcementCheck = async (req: Request, res: Response) => {
 };
 
 // ── 7. Submit Village Visit ──────────────────────────────────────────
-export const submitVillageVisit = async (req: Request, res: Response) => {
+export const submitVillageVisit = async (req: AuthRequest, res: Response) => {
   try {
-    const user = (req as any).user;
+    const user = req.user!;
     const psId = user.policeStationId;
     if (!psId) return res.status(400).json({ message: 'Officer must be assigned to a PS' });
 
@@ -1321,9 +1280,9 @@ export const submitVillageVisit = async (req: Request, res: Response) => {
 };
 
 // ── 8. Submit Lodge Check ──────────────────────────────────────────
-export const submitLodgeCheck = async (req: Request, res: Response) => {
+export const submitLodgeCheck = async (req: AuthRequest, res: Response) => {
   try {
-    const user = (req as any).user;
+    const user = req.user!;
     const psId = user.policeStationId;
     if (!psId) return res.status(400).json({ message: 'Officer must be assigned to a police station' });
 
@@ -1358,7 +1317,7 @@ export const submitLodgeCheck = async (req: Request, res: Response) => {
 };
 
 // ── Search Offenders for Frontend Verification ───────────────────────
-export const searchOffenders = async (req: Request, res: Response) => {
+export const searchOffenders = async (req: AuthRequest, res: Response) => {
   try {
     const { query } = req.body;
     if (!query || query.length < 3) {
@@ -1430,9 +1389,9 @@ export const searchOffenders = async (req: Request, res: Response) => {
   }
 };
 
-export const getUserLogs = async (req: Request, res: Response): Promise<void> => {
+export const getUserLogs = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const user = (req as any).user;
+    const user = req.user!;
     if (!user) {
       res.status(401).json({ success: false, message: 'Unauthorized' });
       return;
@@ -1699,9 +1658,9 @@ export const getUserLogs = async (req: Request, res: Response): Promise<void> =>
 };
 
 // ── 9. Submit Drunk & Drive Check ────────────────────────────────────
-export const submitDrunkDrive = async (req: Request, res: Response) => {
+export const submitDrunkDrive = async (req: AuthRequest, res: Response) => {
   try {
-    const user = (req as any).user;
+    const user = req.user!;
     const psId = user.policeStationId;
     if (!psId) return res.status(400).json({ message: 'Officer must be assigned to a PS' });
 
@@ -1735,9 +1694,9 @@ export const submitDrunkDrive = async (req: Request, res: Response) => {
 };
 
 // ── 10. Submit Courier Check ──────────────────────────────────────────
-export const submitCourierCheck = async (req: Request, res: Response) => {
+export const submitCourierCheck = async (req: AuthRequest, res: Response) => {
   try {
-    const user = (req as any).user;
+    const user = req.user!;
     const psId = user.policeStationId;
     if (!psId) return res.status(400).json({ message: 'Officer must be assigned to a PS' });
 
@@ -1769,9 +1728,9 @@ export const submitCourierCheck = async (req: Request, res: Response) => {
 };
 
 // ── 11. Submit Railway Check ─────────────────────────────────────────
-export const submitRailwayCheck = async (req: Request, res: Response) => {
+export const submitRailwayCheck = async (req: AuthRequest, res: Response) => {
   try {
-    const user = (req as any).user;
+    const user = req.user!;
     const psId = user.policeStationId;
     if (!psId) return res.status(400).json({ message: 'Officer must be assigned to a PS' });
 
@@ -1802,9 +1761,9 @@ export const submitRailwayCheck = async (req: Request, res: Response) => {
 };
 
 // ── 12. Submit Bus Stand Check ────────────────────────────────────────
-export const submitBusStandCheck = async (req: Request, res: Response) => {
+export const submitBusStandCheck = async (req: AuthRequest, res: Response) => {
   try {
-    const user = (req as any).user;
+    const user = req.user!;
     const psId = user.policeStationId;
     if (!psId) return res.status(400).json({ message: 'Officer must be assigned to a PS' });
 
@@ -1834,9 +1793,9 @@ export const submitBusStandCheck = async (req: Request, res: Response) => {
 };
 
 // ── 13. Submit Rowdy Sheeter Check ────────────────────────────────────
-export const submitRowdySheeter = async (req: Request, res: Response) => {
+export const submitRowdySheeter = async (req: AuthRequest, res: Response) => {
   try {
-    const user = (req as any).user;
+    const user = req.user!;
     const psId = user.policeStationId;
     if (!psId) return res.status(400).json({ message: 'Officer must be assigned to a PS' });
 
@@ -1867,9 +1826,9 @@ export const submitRowdySheeter = async (req: Request, res: Response) => {
 };
 
 // ── 14. Submit Bound Over Check ───────────────────────────────────────
-export const submitBoundOver = async (req: Request, res: Response) => {
+export const submitBoundOver = async (req: AuthRequest, res: Response) => {
   try {
-    const user = (req as any).user;
+    const user = req.user!;
     const psId = user.policeStationId;
     if (!psId) return res.status(400).json({ message: 'Officer must be assigned to a PS' });
 
@@ -1901,9 +1860,9 @@ export const submitBoundOver = async (req: Request, res: Response) => {
 };
 
 // ── 15. Submit Vehicle Check ──────────────────────────────────────────
-export const submitVehicleCheck = async (req: Request, res: Response) => {
+export const submitVehicleCheck = async (req: AuthRequest, res: Response) => {
   try {
-    const user = (req as any).user;
+    const user = req.user!;
     const psId = user.policeStationId;
     if (!psId) return res.status(400).json({ message: 'Officer must be assigned to a PS' });
 
@@ -1936,9 +1895,9 @@ export const submitVehicleCheck = async (req: Request, res: Response) => {
 };
 
 // ── 16. Submit MV Act Check ───────────────────────────────────────────
-export const submitMvAct = async (req: Request, res: Response) => {
+export const submitMvAct = async (req: AuthRequest, res: Response) => {
   try {
-    const user = (req as any).user;
+    const user = req.user!;
     const psId = user.policeStationId;
     if (!psId) return res.status(400).json({ message: 'Officer must be assigned to a PS' });
 
@@ -1968,9 +1927,9 @@ export const submitMvAct = async (req: Request, res: Response) => {
 };
 
 // ── 17. Submit Petty Cases Check ──────────────────────────────────────
-export const submitPettyCases = async (req: Request, res: Response) => {
+export const submitPettyCases = async (req: AuthRequest, res: Response) => {
   try {
-    const user = (req as any).user;
+    const user = req.user!;
     const psId = user.policeStationId;
     if (!psId) return res.status(400).json({ message: 'Officer must be assigned to a PS' });
 
@@ -2001,9 +1960,9 @@ export const submitPettyCases = async (req: Request, res: Response) => {
 };
 
 // ── 18. Submit Palle Nidra Check ──────────────────────────────────────
-export const submitPalleNidra = async (req: Request, res: Response) => {
+export const submitPalleNidra = async (req: AuthRequest, res: Response) => {
   try {
-    const user = (req as any).user;
+    const user = req.user!;
     const psId = user.policeStationId;
     if (!psId) return res.status(400).json({ message: 'Officer must be assigned to a PS' });
 
@@ -2032,9 +1991,9 @@ export const submitPalleNidra = async (req: Request, res: Response) => {
 };
 
 // ── 19. Submit Drone Surveillance Check ───────────────────────────────
-export const submitDroneSurveillance = async (req: Request, res: Response) => {
+export const submitDroneSurveillance = async (req: AuthRequest, res: Response) => {
   try {
-    const user = (req as any).user;
+    const user = req.user!;
     const psId = user.policeStationId;
     if (!psId) return res.status(400).json({ message: 'Officer must be assigned to a PS' });
 

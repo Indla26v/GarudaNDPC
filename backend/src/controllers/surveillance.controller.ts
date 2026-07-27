@@ -1,4 +1,5 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
+import { AuthRequest } from '../middleware/auth.middleware';
 import prisma from '../config/prisma';
 import { successResponse } from '../utils/transformers';
 import { getDashboardScope, getCaseWhere, getOffenderWhere, ScopeUser } from '../utils/scope';
@@ -37,9 +38,9 @@ function getSurveillanceWhere(user: ScopeUser): Record<string, any> {
 }
 
 // GET /api/surveillance
-export const listSurveillanceRecords = async (req: Request, res: Response) => {
+export const listSurveillanceRecords = async (req: AuthRequest, res: Response) => {
   try {
-    const user: ScopeUser = (req as any).user || {};
+    const user: ScopeUser = req.user! || {};
     const baseWhere = getSurveillanceWhere(user);
     const { status, offenderId } = req.query;
 
@@ -91,9 +92,9 @@ export const listSurveillanceRecords = async (req: Request, res: Response) => {
 };
 
 // POST /api/surveillance
-export const createSurveillanceRecord = async (req: Request, res: Response) => {
+export const createSurveillanceRecord = async (req: AuthRequest, res: Response) => {
   try {
-    const user: ScopeUser = (req as any).user || {};
+    const user: ScopeUser = req.user! || {};
     const userId = user.userId ? BigInt(user.userId) : null;
     const { offenderId, scheduledDate, status, currentAddress, currentOccupation, associatesNoted, geo_lat, geo_lng, notes } = req.body;
 
@@ -126,9 +127,9 @@ export const createSurveillanceRecord = async (req: Request, res: Response) => {
 };
 
 // PUT /api/surveillance/:id
-export const updateSurveillanceRecord = async (req: Request, res: Response) => {
+export const updateSurveillanceRecord = async (req: AuthRequest, res: Response) => {
   try {
-    const user: ScopeUser = (req as any).user || {};
+    const user: ScopeUser = req.user! || {};
     const userId = user.userId ? BigInt(user.userId) : null;
     const recordId = BigInt(req.params.id as string);
     const { status, currentAddress, currentOccupation, associatesNoted, geo_lat, geo_lng, notes } = req.body;
@@ -169,7 +170,7 @@ export const updateSurveillanceRecord = async (req: Request, res: Response) => {
 };
 
 // GET /api/surveillance/offender/:offenderId
-export const getOffenderSurveillanceHistory = async (req: Request, res: Response) => {
+export const getOffenderSurveillanceHistory = async (req: AuthRequest, res: Response) => {
   try {
     const offenderId = BigInt(req.params.offenderId as string);
 
@@ -207,9 +208,9 @@ export const getOffenderSurveillanceHistory = async (req: Request, res: Response
 };
 
 // ── Dashboard summary ──────────────────────────────────────────────────
-export const getSurveillanceDashboard = async (req: Request, res: Response) => {
+export const getSurveillanceDashboard = async (req: AuthRequest, res: Response) => {
   try {
-    const user: ScopeUser = (req as any).user || {};
+    const user: ScopeUser = req.user! || {};
     const offScope = linkedOffenderScope(user);
     const towerScope = { cases: getCaseWhere(user) };
 
@@ -252,9 +253,9 @@ export const getSurveillanceDashboard = async (req: Request, res: Response) => {
 };
 
 // ── Mobile tracking (stored as offender_contacts) ──────────────────────
-export const addMobile = async (req: Request, res: Response) => {
+export const addMobile = async (req: AuthRequest, res: Response) => {
   try {
-    const user: ScopeUser = (req as any).user || {};
+    const user: ScopeUser = req.user! || {};
     const { offenderId, value, contactType, notes } = req.body;
     if (!offenderId || !value) return res.status(400).json({ message: 'offenderId and value are required' });
     if (!(await offenderInScope(BigInt(offenderId), user))) {
@@ -274,9 +275,9 @@ export const addMobile = async (req: Request, res: Response) => {
   }
 };
 
-export const listMobiles = async (req: Request, res: Response) => {
+export const listMobiles = async (req: AuthRequest, res: Response) => {
   try {
-    const user: ScopeUser = (req as any).user || {};
+    const user: ScopeUser = req.user! || {};
     const { offenderId, reveal, page = '0', size = '30' } = req.query;
     const doReveal = String(reveal) === 'true' && canRevealAadhaar(user.role || '');
     if (doReveal) await logAudit('VIEW', 'SURVEILLANCE_MOBILE', null, req, 'PII_REVEALED: mobile numbers');
@@ -324,9 +325,9 @@ export const listMobiles = async (req: Request, res: Response) => {
 };
 
 // ── IMEI register + SIM swap detection ─────────────────────────────────
-export const addImei = async (req: Request, res: Response) => {
+export const addImei = async (req: AuthRequest, res: Response) => {
   try {
-    const user: ScopeUser = (req as any).user || {};
+    const user: ScopeUser = req.user! || {};
     const userId = user.userId ? BigInt(user.userId) : null;
     const { offenderId, imeiNumber, deviceMake, deviceModel, simNumber, simProvider, mobileNumber, status, notes } = req.body;
     if (!offenderId || !imeiNumber) return res.status(400).json({ message: 'offenderId and imeiNumber are required' });
@@ -368,9 +369,9 @@ export const addImei = async (req: Request, res: Response) => {
   }
 };
 
-export const listImeis = async (req: Request, res: Response) => {
+export const listImeis = async (req: AuthRequest, res: Response) => {
   try {
-    const user: ScopeUser = (req as any).user || {};
+    const user: ScopeUser = req.user! || {};
     const { offenderId, reveal } = req.query;
     const doReveal = String(reveal) === 'true' && canRevealAadhaar(user.role || '');
     if (doReveal) await logAudit('VIEW', 'IMEI_RECORD', null, req, 'PII_REVEALED: IMEI numbers');
@@ -431,9 +432,9 @@ export const listImeis = async (req: Request, res: Response) => {
 };
 
 // ── Geo map logs (GeoJSON) ─────────────────────────────────────────────
-export const getMapLogs = async (req: Request, res: Response) => {
+export const getMapLogs = async (req: AuthRequest, res: Response) => {
   try {
-    const user: ScopeUser = (req as any).user || {};
+    const user: ScopeUser = req.user! || {};
 
     const survs = await prisma.surveillance_records.findMany({
       where: { ...linkedOffenderScope(user), geo_lat: { not: null }, geo_lng: { not: null } },
@@ -487,9 +488,9 @@ export const getMapLogs = async (req: Request, res: Response) => {
 };
 
 // ── Social media intel ─────────────────────────────────────────────────
-export const addSocialIntel = async (req: Request, res: Response) => {
+export const addSocialIntel = async (req: AuthRequest, res: Response) => {
   try {
-    const user: ScopeUser = (req as any).user || {};
+    const user: ScopeUser = req.user! || {};
     const userId = user.userId ? BigInt(user.userId) : null;
     const { offenderId, platform, handleOrUrl, rating, notes } = req.body;
     if (!offenderId || !platform || !handleOrUrl) {
@@ -523,9 +524,9 @@ export const addSocialIntel = async (req: Request, res: Response) => {
 };
 
 // ── Messaging intel ────────────────────────────────────────────────────
-export const addMessagingIntel = async (req: Request, res: Response) => {
+export const addMessagingIntel = async (req: AuthRequest, res: Response) => {
   try {
-    const user: ScopeUser = (req as any).user || {};
+    const user: ScopeUser = req.user! || {};
     const userId = user.userId ? BigInt(user.userId) : null;
     const { offenderId, platform, sourceType, disposition, inputText } = req.body;
     if (!offenderId || !platform || !inputText) {
@@ -556,9 +557,9 @@ export const addMessagingIntel = async (req: Request, res: Response) => {
 };
 
 // ── Cross-case correlations ────────────────────────────────────────────
-export const getCorrelations = async (req: Request, res: Response) => {
+export const getCorrelations = async (req: AuthRequest, res: Response) => {
   try {
-    const user: ScopeUser = (req as any).user || {};
+    const user: ScopeUser = req.user! || {};
     const doReveal = String(req.query.reveal) === 'true' && canRevealAadhaar(user.role || '');
     if (doReveal) await logAudit('VIEW', 'SURVEILLANCE_CORRELATION', null, req, 'PII_REVEALED: correlation numbers');
 
@@ -600,9 +601,9 @@ export const getCorrelations = async (req: Request, res: Response) => {
 };
 
 // ── Tower dump upload + intersection ───────────────────────────────────
-export const uploadTowerDump = async (req: Request, res: Response) => {
+export const uploadTowerDump = async (req: AuthRequest, res: Response) => {
   try {
-    const user: ScopeUser = (req as any).user || {};
+    const user: ScopeUser = req.user! || {};
     const file = (req as any).file;
     const { caseId } = req.body;
     if (!file) return res.status(400).json({ message: 'No file uploaded' });
@@ -651,7 +652,7 @@ export const uploadTowerDump = async (req: Request, res: Response) => {
   }
 };
 
-export const getTowerIntersections = async (req: Request, res: Response) => {
+export const getTowerIntersections = async (req: AuthRequest, res: Response) => {
   try {
     const { caseIds } = req.query;
     const ids = String(caseIds || '')
@@ -675,9 +676,9 @@ export const getTowerIntersections = async (req: Request, res: Response) => {
   }
 };
 
-export const listSocialIntel = async (req: Request, res: Response) => {
+export const listSocialIntel = async (req: AuthRequest, res: Response) => {
   try {
-    const user: ScopeUser = (req as any).user || {};
+    const user: ScopeUser = req.user! || {};
     const { offenderId } = req.query;
     const where: any = { ...linkedOffenderScope(user) };
     if (offenderId) {
@@ -711,9 +712,9 @@ export const listSocialIntel = async (req: Request, res: Response) => {
   }
 };
 
-export const listMessagingIntel = async (req: Request, res: Response) => {
+export const listMessagingIntel = async (req: AuthRequest, res: Response) => {
   try {
-    const user: ScopeUser = (req as any).user || {};
+    const user: ScopeUser = req.user! || {};
     const { offenderId } = req.query;
     const where: any = { ...linkedOffenderScope(user) };
     if (offenderId) {

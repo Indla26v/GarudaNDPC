@@ -1,4 +1,5 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
+import { AuthRequest } from '../middleware/auth.middleware';
 import prisma from '../config/prisma';
 import { convertBigIntsToNumbers, successResponse } from '../utils/transformers';
 import { logAudit } from '../utils/audit-logger';
@@ -85,11 +86,11 @@ async function applyEntityChanges(entityType: string, entityId: bigint, changesJ
   }
 }
 
-export const getEditRequests = async (req: Request, res: Response) => {
+export const getEditRequests = async (req: AuthRequest, res: Response) => {
   try {
-    const userRole = (req as any).user.role;
-    const userId = (req as any).user.userId;
-    const psId = (req as any).user.policeStationId;
+    const userRole = req.user!.role;
+    const userId = req.user!.userId;
+    const psId = req.user!.policeStationId;
     const { status, entityType, page = 0, size = 20 } = req.query;
 
     const where: any = {};
@@ -136,7 +137,7 @@ export const getEditRequests = async (req: Request, res: Response) => {
   }
 };
 
-export const getEditRequestById = async (req: Request, res: Response) => {
+export const getEditRequestById = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const request = await prisma.edit_requests.findUnique({
@@ -156,10 +157,10 @@ export const getEditRequestById = async (req: Request, res: Response) => {
   }
 };
 
-export const createEditRequest = async (req: Request, res: Response) => {
+export const createEditRequest = async (req: AuthRequest, res: Response) => {
   try {
     const { entityType, entityId, changes, changesJson, reason } = req.body;
-    const userId = (req as any).user.userId;
+    const userId = req.user!.userId;
 
     const payload = changesJson ?? (changes ? JSON.stringify(changes) : null);
     if (!entityType || !entityId || !payload || !reason) {
@@ -186,12 +187,12 @@ export const createEditRequest = async (req: Request, res: Response) => {
   }
 };
 
-export const approveEditRequest = async (req: Request, res: Response) => {
+export const approveEditRequest = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const approverId = (req as any).user.userId;
-    const approverRole = (req as any).user.role;
-    const approverPsId = (req as any).user.policeStationId;
+    const approverId = req.user!.userId;
+    const approverRole = req.user!.role;
+    const approverPsId = req.user!.policeStationId;
 
     if (!['SDPO', 'SP', 'SHO'].includes(approverRole)) {
       return res.status(403).json({ message: 'Only SDPO, SHO, or SP can approve' });
@@ -236,12 +237,12 @@ export const approveEditRequest = async (req: Request, res: Response) => {
   }
 };
 
-export const rejectEditRequest = async (req: Request, res: Response) => {
+export const rejectEditRequest = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const userId = (req as any).user.userId;
-    const userRole = (req as any).user.role;
-    const userPsId = (req as any).user.policeStationId;
+    const userId = req.user!.userId;
+    const userRole = req.user!.role;
+    const userPsId = req.user!.policeStationId;
     const { rejectionReason } = req.body;
 
     if (!['SDPO', 'SP', 'SHO'].includes(userRole)) {

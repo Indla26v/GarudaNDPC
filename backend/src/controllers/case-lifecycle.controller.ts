@@ -1,11 +1,12 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
+import { AuthRequest } from '../middleware/auth.middleware';
 import prisma from '../config/prisma';
 import { successResponse } from '../utils/transformers';
 import { logAudit } from '../utils/audit-logger';
 import { paramId } from '../utils/params';
 import { broadcastEvent } from './sse.controller';
 
-export const getChargeSheet = async (req: Request, res: Response) => {
+export const getChargeSheet = async (req: AuthRequest, res: Response) => {
   try {
     const caseId = paramId(req);
     const cs = await prisma.charge_sheets.findUnique({
@@ -17,7 +18,7 @@ export const getChargeSheet = async (req: Request, res: Response) => {
   }
 };
 
-export const upsertChargeSheet = async (req: Request, res: Response) => {
+export const upsertChargeSheet = async (req: AuthRequest, res: Response) => {
   try {
     const caseId = paramId(req);
     const d = req.body;
@@ -53,7 +54,7 @@ export const upsertChargeSheet = async (req: Request, res: Response) => {
   }
 };
 
-export const getCourtHearings = async (req: Request, res: Response) => {
+export const getCourtHearings = async (req: AuthRequest, res: Response) => {
   try {
     const rows = await prisma.court_hearings.findMany({
       where: { case_id: paramId(req) },
@@ -65,7 +66,7 @@ export const getCourtHearings = async (req: Request, res: Response) => {
   }
 };
 
-export const addCourtHearing = async (req: Request, res: Response) => {
+export const addCourtHearing = async (req: AuthRequest, res: Response) => {
   try {
     const d = req.body;
     const h = await prisma.court_hearings.create({
@@ -87,7 +88,7 @@ export const addCourtHearing = async (req: Request, res: Response) => {
   }
 };
 
-export const getBailRecords = async (req: Request, res: Response) => {
+export const getBailRecords = async (req: AuthRequest, res: Response) => {
   try {
     const rows = await prisma.bail_records.findMany({
       where: { case_id: paramId(req) },
@@ -104,7 +105,7 @@ export const getBailRecords = async (req: Request, res: Response) => {
   }
 };
 
-export const addBailRecord = async (req: Request, res: Response) => {
+export const addBailRecord = async (req: AuthRequest, res: Response) => {
   try {
     const d = req.body;
     const b = await prisma.bail_records.create({
@@ -128,7 +129,7 @@ export const addBailRecord = async (req: Request, res: Response) => {
   }
 };
 
-export const getInterrogations = async (req: Request, res: Response) => {
+export const getInterrogations = async (req: AuthRequest, res: Response) => {
   try {
     const rows = await prisma.interrogation_sessions.findMany({
       where: { offender_id: paramId(req, 'offenderId') },
@@ -156,10 +157,10 @@ export const getInterrogations = async (req: Request, res: Response) => {
   }
 };
 
-export const addInterrogation = async (req: Request, res: Response) => {
+export const addInterrogation = async (req: AuthRequest, res: Response) => {
   try {
     const d = req.body;
-    const userId = (req as any).user?.userId;
+    const userId = req.user!?.userId;
     const s = await prisma.interrogation_sessions.create({
       data: {
         offender_id: paramId(req, 'offenderId'),

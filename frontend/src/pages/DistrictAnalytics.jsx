@@ -190,9 +190,9 @@ export default function DistrictAnalytics() {
             >
               <card.Icon size={18} color={card.color} />
             </div>
-            <p className="text-2xl font-bold" style={{ color: card.color }}>
+            <div className="text-2xl font-bold" style={{ color: card.color }}>
               {renderCardValue(summary?.[card.key])}
-            </p>
+            </div>
             <p className="text-xs mt-1" style={{ color: 'var(--color-garuda-400)' }}>{card.label}</p>
           </div>
         ))}

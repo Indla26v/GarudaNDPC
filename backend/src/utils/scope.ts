@@ -1,12 +1,11 @@
 /**
- * Row-level data scope by role + department.
+ * GARUDA — Extensible Scope Strategy (OCP)
  *
- * Station-level roles (SDPO, SHO, Constable):
- *   → All queries scoped to their allotted police_station_id
- *
- * District-level roles (SP, ASP):
- *   → See all police stations in the district (no PS filter)
+ * Implements the Strategy pattern for row-level authorization scoping.
+ * New roles or jurisdiction levels can be added by registering a new `ScopeStrategy`
+ * without modifying existing getter functions (Open/Closed Principle).
  */
+
 export interface ScopeUser {
   userId: number | string;
   role: string;
@@ -16,90 +15,133 @@ export interface ScopeUser {
   divisionId?: string | null;
 }
 
-/**
- * Returns a Prisma `where` clause scoping cases by police station or district/division.
- */
+export type ScopeEntity = 'case' | 'offender' | 'enforcement';
+
+export interface ScopeStrategy {
+  /** Check if this strategy applies to the given user context. */
+  appliesTo(user: ScopeUser): boolean;
+
+  /** Build the Prisma `where` filter for a domain entity. */
+  buildWhere(user: ScopeUser, entity: ScopeEntity): Record<string, any>;
+
+  /** Determine if this strategy is station-level or district-level for dashboard KPI aggregation. */
+  isStationLevel(user: ScopeUser): boolean;
+}
+
+// ── Strategy Implementations ──────────────────────────────────────────
+
+/** District-level strategy (SP, ASP, CYBER_ANALYTICS). */
+class DistrictScopeStrategy implements ScopeStrategy {
+  appliesTo(user: ScopeUser): boolean {
+    return user.role === 'SP' || user.role === 'ASP' || user.department === 'CYBER_ANALYTICS';
+  }
+
+  buildWhere(user: ScopeUser, entity: ScopeEntity): Record<string, any> {
+    if (user.district) {
+      if (entity === 'enforcement') {
+        return { police_station: { district: user.district } };
+      }
+      return { police_stations: { district: user.district } };
+    }
+    return {};
+  }
+
+  isStationLevel(): boolean {
+    return false;
+  }
+}
+
+/** Subdivision-level strategy (SDPO). */
+class SubdivisionScopeStrategy implements ScopeStrategy {
+  appliesTo(user: ScopeUser): boolean {
+    return user.role === 'SDPO';
+  }
+
+  buildWhere(user: ScopeUser, entity: ScopeEntity): Record<string, any> {
+    if (user.divisionId) {
+      if (entity === 'enforcement') {
+        return { police_station: { sdpo: user.divisionId } };
+      }
+      return { police_stations: { sdpo: user.divisionId } };
+    }
+    return {};
+  }
+
+  isStationLevel(): boolean {
+    return false;
+  }
+}
+
+/** Police Station-level strategy (SHO, Constable). */
+class StationScopeStrategy implements ScopeStrategy {
+  appliesTo(user: ScopeUser): boolean {
+    return !!user.policeStationId;
+  }
+
+  buildWhere(user: ScopeUser): Record<string, any> {
+    if (user.policeStationId) {
+      return { ps_id: BigInt(user.policeStationId) };
+    }
+    return {};
+  }
+
+  isStationLevel(): boolean {
+    return true;
+  }
+}
+
+/** Fallback strategy for unauthenticated/unscoped context. */
+class DefaultScopeStrategy implements ScopeStrategy {
+  appliesTo(): boolean {
+    return true; // Catch-all fallback
+  }
+
+  buildWhere(): Record<string, any> {
+    return { id: BigInt(-1) }; // Restrictive default query
+  }
+
+  isStationLevel(): boolean {
+    return true;
+  }
+}
+
+// ── Strategy Registry (Priority Order) ────────────────────────────────
+
+const STRATEGY_REGISTRY: ScopeStrategy[] = [
+  new DistrictScopeStrategy(),
+  new SubdivisionScopeStrategy(),
+  new StationScopeStrategy(),
+  new DefaultScopeStrategy(),
+];
+
+/** Resolve the appropriate strategy for a user. */
+function resolveStrategy(user: ScopeUser): ScopeStrategy {
+  if (!user || !user.role) return new DefaultScopeStrategy();
+  return STRATEGY_REGISTRY.find((s) => s.appliesTo(user)) || new DefaultScopeStrategy();
+}
+
+// ── Public API (Preserves backwards compatibility) ─────────────────────
+
+/** Returns a Prisma `where` clause scoping cases. */
 export function getCaseWhere(user: ScopeUser): Record<string, any> {
-  if (!user?.role) return { id: BigInt(-1) };
-
-  // SP and ASP roles, or Cyber Analytics department: scoped to district
-  if (user.role === 'SP' || user.role === 'ASP' || user.department === 'CYBER_ANALYTICS') {
-    if (user.district) {
-      return { police_stations: { district: user.district } };
-    }
-    return {};
-  }
-
-  // SDPO role: scoped to subdivision
-  if (user.role === 'SDPO') {
-    if (user.divisionId) {
-      return { police_stations: { sdpo: user.divisionId } };
-    }
-    return {};
-  }
-
-  // Station-level: scope to their police station
-  if (user.policeStationId) {
-    return { ps_id: BigInt(user.policeStationId) };
-  }
-
-  return {};
+  return resolveStrategy(user).buildWhere(user, 'case');
 }
 
-/**
- * Returns a Prisma `where` clause scoping offenders by police station or district/division.
- */
+/** Returns a Prisma `where` clause scoping offenders. */
 export function getOffenderWhere(user: ScopeUser): Record<string, any> {
-  if (!user?.role) return { id: BigInt(-1) };
-
-  // SP and ASP roles, or Cyber Analytics department: scoped to district
-  if (user.role === 'SP' || user.role === 'ASP' || user.department === 'CYBER_ANALYTICS') {
-    if (user.district) {
-      return { police_stations: { district: user.district } };
-    }
-    return {};
-  }
-
-  // SDPO role: scoped to subdivision
-  if (user.role === 'SDPO') {
-    if (user.divisionId) {
-      return { police_stations: { sdpo: user.divisionId } };
-    }
-    return {};
-  }
-
-  if (user.policeStationId) {
-    return { ps_id: BigInt(user.policeStationId) };
-  }
-
-  return {};
+  return resolveStrategy(user).buildWhere(user, 'offender');
 }
 
-/**
- * Returns a Prisma `where` clause for dashboard queries.
- */
+/** Returns a Prisma `where` clause scoping enforcement checks. */
+export function getEnforcementWhere(user: ScopeUser): Record<string, any> {
+  return resolveStrategy(user).buildWhere(user, 'enforcement');
+}
+
+/** Returns a Prisma `where` clause and station-level flag for dashboard metrics. */
 export function getDashboardScope(user: ScopeUser): { psFilter: Record<string, any>; isStationLevel: boolean } {
-  if (!user?.role) {
-    return { psFilter: { id: BigInt(-1) }, isStationLevel: true };
-  }
-
-  if (user.role === 'SP' || user.role === 'ASP' || user.department === 'CYBER_ANALYTICS') {
-    if (user.district) {
-      return { psFilter: { police_stations: { district: user.district } }, isStationLevel: false };
-    }
-    return { psFilter: {}, isStationLevel: false };
-  }
-
-  if (user.role === 'SDPO') {
-    if (user.divisionId) {
-      return { psFilter: { police_stations: { sdpo: user.divisionId } }, isStationLevel: false };
-    }
-    return { psFilter: {}, isStationLevel: false };
-  }
-
-  if (user.policeStationId) {
-    return { psFilter: { ps_id: BigInt(user.policeStationId) }, isStationLevel: true };
-  }
-
-  return { psFilter: {}, isStationLevel: false };
+  const strategy = resolveStrategy(user);
+  return {
+    psFilter: strategy.buildWhere(user, 'case'),
+    isStationLevel: strategy.isStationLevel(user),
+  };
 }

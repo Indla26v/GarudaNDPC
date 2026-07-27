@@ -3,7 +3,8 @@
  * 
  * Full CRUD for user accounts, role assignment, PS assignment.
  */
-import { Request, Response } from 'express';
+import { Response } from 'express';
+import { AuthRequest } from '../middleware/auth.middleware';
 import bcrypt from 'bcrypt';
 import prisma from '../config/prisma';
 import { successResponse } from '../utils/transformers';
@@ -11,7 +12,7 @@ import { logAudit } from '../utils/audit-logger';
 import { validatePassword } from '../utils/password-policy';
 
 // ── List all users ────────────────────────────────────────────────────
-export const getUsers = async (req: Request, res: Response) => {
+export const getUsers = async (req: AuthRequest, res: Response) => {
   try {
     const { role, psId, page = 0, size = 20 } = req.query;
     const where: any = {};
@@ -59,7 +60,7 @@ export const getUsers = async (req: Request, res: Response) => {
 };
 
 // ── Get single user ──────────────────────────────────────────────────
-export const getUserById = async (req: Request, res: Response) => {
+export const getUserById = async (req: AuthRequest, res: Response) => {
   try {
     const id = req.params.id as string;
     const user = await prisma.users.findUnique({
@@ -92,7 +93,7 @@ export const getUserById = async (req: Request, res: Response) => {
 };
 
 // ── Create user ──────────────────────────────────────────────────────
-export const createUser = async (req: Request, res: Response) => {
+export const createUser = async (req: AuthRequest, res: Response) => {
   try {
     const { username, password, fullName, role, policeStationId, department, badgeNumber, divisionId, district } = req.body;
 
@@ -146,7 +147,7 @@ export const createUser = async (req: Request, res: Response) => {
 };
 
 // ── Update user (role, PS assignment, active status) ─────────────────
-export const updateUser = async (req: Request, res: Response) => {
+export const updateUser = async (req: AuthRequest, res: Response) => {
   try {
     const id = req.params.id as string;
     const { fullName, role, policeStationId, isActive, password, department, badgeNumber, divisionId, district } = req.body;
@@ -206,7 +207,7 @@ export const updateUser = async (req: Request, res: Response) => {
 };
 
 // ── Deactivate user ──────────────────────────────────────────────────
-export const deactivateUser = async (req: Request, res: Response) => {
+export const deactivateUser = async (req: AuthRequest, res: Response) => {
   try {
     const id = req.params.id as string;
 
@@ -235,7 +236,7 @@ export const deactivateUser = async (req: Request, res: Response) => {
 };
 
 // ── Get audit logs (Admin only) ──────────────────────────────────────
-export const getAuditLogs = async (req: Request, res: Response) => {
+export const getAuditLogs = async (req: AuthRequest, res: Response) => {
   try {
     const { action, entityType, userId, page = 0, size = 50 } = req.query;
 
@@ -282,7 +283,7 @@ export const getAuditLogs = async (req: Request, res: Response) => {
 };
 
 // ── Direct Delete Offender (SP/Admin only) ───────────────────────────
-export const deleteOffenderDirect = async (req: Request, res: Response) => {
+export const deleteOffenderDirect = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     if (!id) {

@@ -1,17 +1,13 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
+import { AuthRequest } from '../middleware/auth.middleware';
 import prisma from '../config/prisma';
 import { successResponse } from '../utils/transformers';
 import { logAudit } from '../utils/audit-logger';
 import { getCaseWhere } from '../utils/scope';
 import { paramId } from '../utils/params';
 import { broadcastEvent } from './sse.controller';
-
-const isValidText = (val: any): boolean => !val || /^[a-zA-Z0-9\s.,/-]*$/.test(String(val));
-const isValidSectionOfLaw = (val: any): boolean => !val || /^[a-zA-Z0-9\s()./,-]*$/.test(String(val));
-const isValidNumeric = (val: any): boolean => {
-  if (val === undefined || val === null || val === '') return true;
-  return /^\d*$/.test(String(val));
-};
+import { isValidText, isValidSectionOfLaw, isValidNumeric } from '../utils/validators';
+import { handleControllerError } from '../utils/error-handler';
 
 function toPhysicalPaths(relevantFilesStr: string | null | undefined): string | null {
   if (!relevantFilesStr) return null;
@@ -119,7 +115,7 @@ const caseInclude = {
   bail_records: { orderBy: { created_at: 'desc' as const } },
 };
 
-export const createCase = async (req: Request, res: Response) => {
+export const createCase = async (req: AuthRequest, res: Response) => {
   try {
     const data = req.body;
 
@@ -150,7 +146,7 @@ export const createCase = async (req: Request, res: Response) => {
       }
     }
 
-    const user = (req as any).user;
+    const user = req.user!;
     const userId = user?.userId ? BigInt(user.userId) : null;
 
     let firNo = data.firNo || data.fir_no;
@@ -238,10 +234,10 @@ export const createCase = async (req: Request, res: Response) => {
   }
 };
 
-export const updateCase = async (req: Request, res: Response) => {
+export const updateCase = async (req: AuthRequest, res: Response) => {
   try {
     const id = paramId(req);
-    const scope = getCaseWhere((req as any).user);
+    const scope = getCaseWhere(req.user!);
     const existing = await prisma.cases.findFirst({ where: { id, ...scope } });
     if (!existing) return res.status(404).json({ message: 'Case not found or access denied' });
 
@@ -343,12 +339,12 @@ export const updateCase = async (req: Request, res: Response) => {
   }
 };
 
-export const getCases = async (req: Request, res: Response) => {
+export const getCases = async (req: AuthRequest, res: Response) => {
   try {
     const { page = 0, size = 30, stage, search } = req.query;
     const skip = Number(page) * Number(size);
     const take = Number(size);
-    const scope = getCaseWhere((req as any).user) as any;
+    const scope = getCaseWhere(req.user!) as any;
 
     if (stage) scope.stage = String(stage);
     if (search) {
@@ -358,7 +354,7 @@ export const getCases = async (req: Request, res: Response) => {
       ];
     }
 
-    const countScope = getCaseWhere((req as any).user) as any;
+    const countScope = getCaseWhere(req.user!) as any;
     if (search) {
       countScope.OR = [
         { fir_no: { contains: String(search), mode: 'insensitive' } },
@@ -408,10 +404,10 @@ export const getCases = async (req: Request, res: Response) => {
   }
 };
 
-export const getCaseById = async (req: Request, res: Response) => {
+export const getCaseById = async (req: AuthRequest, res: Response) => {
   try {
     const id = paramId(req);
-    const scope = getCaseWhere((req as any).user);
+    const scope = getCaseWhere(req.user!);
     const caseItem = await prisma.cases.findFirst({
       where: { id, ...scope },
       include: caseInclude,
@@ -424,13 +420,13 @@ export const getCaseById = async (req: Request, res: Response) => {
   }
 };
 
-export const updateAccused = async (req: Request, res: Response) => {
+export const updateAccused = async (req: AuthRequest, res: Response) => {
   try {
     const id = paramId(req);
     const accusedData = Array.isArray(req.body) ? req.body : [req.body];
 
     // ── SECURITY FIX #15: Verify user has jurisdiction over this case
-    const scope = getCaseWhere((req as any).user);
+    const scope = getCaseWhere(req.user!);
     const caseRecord = await prisma.cases.findFirst({ where: { id, ...scope } });
     if (!caseRecord) return res.status(404).json({ message: 'Case not found or access denied' });
 
@@ -501,13 +497,13 @@ export const updateAccused = async (req: Request, res: Response) => {
   }
 };
 
-export const updateSeizure = async (req: Request, res: Response) => {
+export const updateSeizure = async (req: AuthRequest, res: Response) => {
   try {
     const id = paramId(req);
     const seizureData = req.body;
 
     // ── SECURITY FIX #15: Verify user has jurisdiction over this case
-    const scope = getCaseWhere((req as any).user);
+    const scope = getCaseWhere(req.user!);
     const caseRecord = await prisma.cases.findFirst({ where: { id, ...scope } });
     if (!caseRecord) return res.status(404).json({ message: 'Case not found or access denied' });
 
@@ -536,12 +532,12 @@ export const updateSeizure = async (req: Request, res: Response) => {
   }
 };
 
-export const getCasesByOffender = async (req: Request, res: Response) => {
+export const getCasesByOffender = async (req: AuthRequest, res: Response) => {
   try {
     const offenderId = paramId(req, 'offenderId');
 
     // ── SECURITY FIX #15: Scope cases to user's jurisdiction
-    const scope = getCaseWhere((req as any).user);
+    const scope = getCaseWhere(req.user!);
     const cases = await prisma.cases.findMany({
       where: {
         ...scope,

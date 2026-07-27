@@ -929,7 +929,7 @@ function GarudaCommandDashboard() {
             </div>
           ) : (
             <div className="h-72 w-full">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer minWidth={0} width="100%" height="100%">
                 <BarChart data={data}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
                   <XAxis dataKey="name" stroke="#9ca3af" fontSize={12} tickLine={false} axisLine={false} />
@@ -966,7 +966,7 @@ function GarudaCommandDashboard() {
           ) : (
             <div className="flex flex-col items-center justify-center flex-1">
               <div className="h-44 w-full flex justify-center items-center">
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer minWidth={0} width="100%" height="100%">
                   <PieChart>
                     <Pie data={displayPieData} cx="50%" cy="50%" innerRadius={50} outerRadius={70} paddingAngle={4} dataKey="value">
                       {displayPieData.map((entry, index) => (

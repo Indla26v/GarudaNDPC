@@ -11,8 +11,22 @@ if (!JWT_SECRET) {
   );
 }
 
+/**
+ * Shape of the decoded JWT payload attached to authenticated requests.
+ * Matches the token signed in auth.controller.ts login().
+ */
+export interface AuthenticatedUser {
+  userId: number;
+  username: string;
+  role: string;
+  department: string | null;
+  policeStationId: number | null;
+  district: string | null;
+  divisionId: string | null;
+}
+
 export interface AuthRequest extends Request {
-  user?: any;
+  user?: AuthenticatedUser;
 }
 
 export const authenticate = async (req: AuthRequest, res: Response, next: NextFunction) => {

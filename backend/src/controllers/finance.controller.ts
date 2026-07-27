@@ -5,7 +5,8 @@
  * All data is scoped to the caller's jurisdiction via getOffenderWhere, and
  * account numbers are masked unless an authorized user explicitly reveals them.
  */
-import { Request, Response } from 'express';
+import { Response } from 'express';
+import { AuthRequest } from '../middleware/auth.middleware';
 import prisma from '../config/prisma';
 import { successResponse } from '../utils/transformers';
 import { logAudit } from '../utils/audit-logger';
@@ -15,6 +16,7 @@ import { paramId } from '../utils/params';
 import { parseStatement } from '../services/statement-parser.service';
 import * as analysis from '../services/finance-analysis.service';
 import { broadcastEvent } from './sse.controller';
+import { handleControllerError } from '../utils/error-handler';
 
 // ── Helpers ────────────────────────────────────────────────────────────
 function txnScope(user: ScopeUser): any {
@@ -87,9 +89,9 @@ function toBatchResponse(b: any) {
 }
 
 // ── 1. Upload & parse a statement ──────────────────────────────────────
-export const uploadStatement = async (req: Request, res: Response) => {
+export const uploadStatement = async (req: AuthRequest, res: Response) => {
   try {
-    const user = (req as any).user;
+    const user = req.user!;
     const file = (req as any).file;
     if (!file) return res.status(400).json({ message: 'No file uploaded' });
 
@@ -219,9 +221,9 @@ export const uploadStatement = async (req: Request, res: Response) => {
 };
 
 // ── 2. Intelligence dashboard summary ──────────────────────────────────
-export const getDashboard = async (req: Request, res: Response) => {
+export const getDashboard = async (req: AuthRequest, res: Response) => {
   try {
-    const user: ScopeUser = (req as any).user;
+    const user: ScopeUser = req.user!;
     const scope = txnScope(user);
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -301,9 +303,9 @@ export const getDashboard = async (req: Request, res: Response) => {
 };
 
 // ── 3. List upload batches ─────────────────────────────────────────────
-export const getUploads = async (req: Request, res: Response) => {
+export const getUploads = async (req: AuthRequest, res: Response) => {
   try {
-    const user: ScopeUser = (req as any).user;
+    const user: ScopeUser = req.user!;
     const { page = '0', size = '20', offenderId, month } = req.query;
     const where: any = txnScope(user);
     if (offenderId) where.offender_id = BigInt(String(offenderId));
@@ -346,9 +348,9 @@ export const getUploads = async (req: Request, res: Response) => {
 };
 
 // ── 4. Transaction explorer ────────────────────────────────────────────
-export const getTransactions = async (req: Request, res: Response) => {
+export const getTransactions = async (req: AuthRequest, res: Response) => {
   try {
-    const user: ScopeUser = (req as any).user;
+    const user: ScopeUser = req.user!;
     const {
       page = '0',
       size = '30',
@@ -412,9 +414,9 @@ export const getTransactions = async (req: Request, res: Response) => {
 };
 
 // ── 5. Alerts grouped by category / priority ───────────────────────────
-export const getAlerts = async (req: Request, res: Response) => {
+export const getAlerts = async (req: AuthRequest, res: Response) => {
   try {
-    const user: ScopeUser = (req as any).user;
+    const user: ScopeUser = req.user!;
     const flagged = await prisma.transaction_records.findMany({
       where: { ...txnScope(user), is_flagged: true },
       include: {
@@ -460,9 +462,9 @@ export const getAlerts = async (req: Request, res: Response) => {
 };
 
 // ── 6. Offender ↔ offender links (for graph) ───────────────────────────
-export const getOffenderLinks = async (req: Request, res: Response) => {
+export const getOffenderLinks = async (req: AuthRequest, res: Response) => {
   try {
-    const user: ScopeUser = (req as any).user;
+    const user: ScopeUser = req.user!;
     const linked = await prisma.transaction_records.findMany({
       where: { ...txnScope(user), matched_offender_id: { not: null } },
       include: {
@@ -500,9 +502,9 @@ export const getOffenderLinks = async (req: Request, res: Response) => {
 };
 
 // ── 7. Money flow graph centered on one offender ───────────────────────
-export const getFlowMap = async (req: Request, res: Response) => {
+export const getFlowMap = async (req: AuthRequest, res: Response) => {
   try {
-    const user: ScopeUser = (req as any).user;
+    const user: ScopeUser = req.user!;
     const offId = paramId(req, 'offenderId');
     if (!(await offenderInScope(offId, user))) {
       return res.status(404).json({ message: 'Offender not found or access denied' });
@@ -589,9 +591,9 @@ export const getFlowMap = async (req: Request, res: Response) => {
 };
 
 // ── 8. Common counterparties across offenders ──────────────────────────
-export const getCommonCounterparties = async (req: Request, res: Response) => {
+export const getCommonCounterparties = async (req: AuthRequest, res: Response) => {
   try {
-    const user: ScopeUser = (req as any).user;
+    const user: ScopeUser = req.user!;
     const scope = getOffenderWhere(user);
 
     let scopedIds: bigint[] | undefined;
@@ -612,9 +614,9 @@ export const getCommonCounterparties = async (req: Request, res: Response) => {
 };
 
 // ── 9. Month-over-month analysis for one offender ──────────────────────
-export const getMonthlyAnalysis = async (req: Request, res: Response) => {
+export const getMonthlyAnalysis = async (req: AuthRequest, res: Response) => {
   try {
-    const user: ScopeUser = (req as any).user;
+    const user: ScopeUser = req.user!;
     const offId = paramId(req, 'offenderId');
     if (!(await offenderInScope(offId, user))) {
       return res.status(404).json({ message: 'Offender not found or access denied' });
@@ -671,9 +673,9 @@ export const getMonthlyAnalysis = async (req: Request, res: Response) => {
 };
 
 // ── 10. Re-run cross-analysis on a batch ───────────────────────────────
-export const rerunAnalysis = async (req: Request, res: Response) => {
+export const rerunAnalysis = async (req: AuthRequest, res: Response) => {
   try {
-    const user: ScopeUser = (req as any).user;
+    const user: ScopeUser = req.user!;
     const batchId = paramId(req, 'batchId');
     const batch = await prisma.finance_upload_batches.findUnique({
       where: { id: batchId },
@@ -701,9 +703,9 @@ export const rerunAnalysis = async (req: Request, res: Response) => {
   }
 };
 
-export const updateTransaction = async (req: Request, res: Response) => {
+export const updateTransaction = async (req: AuthRequest, res: Response) => {
   try {
-    const user: ScopeUser = (req as any).user;
+    const user: ScopeUser = req.user!;
     const txnId = paramId(req, 'id');
     const { notes, isFlagged } = req.body;
 

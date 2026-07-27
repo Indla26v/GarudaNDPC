@@ -4,7 +4,8 @@
  * Provides real-time dashboard updates via SSE.
  * Clients connect and receive live updates when data changes.
  */
-import { Request, Response } from 'express';
+import { Response } from 'express';
+import { AuthRequest } from '../middleware/auth.middleware';
 
 // Store active SSE connections
 const clients: Map<string, Response> = new Map();
@@ -18,12 +19,12 @@ const MAX_TOTAL_CLIENTS = 500;
 const MAX_CLIENTS_PER_USER = 3;
 const userConnectionCount = new Map<string, number>();
 
-export const sseConnect = (req: Request, res: Response) => {
+export const sseConnect = (req: AuthRequest, res: Response) => {
   if (clients.size >= MAX_TOTAL_CLIENTS) {
     return res.status(503).json({ message: 'Too many active connections across the server' });
   }
 
-  const userId = (req as any).user?.userId || 'anonymous';
+  const userId = req.user!?.userId || 'anonymous';
   const userCount = userConnectionCount.get(userId) || 0;
   if (userCount >= MAX_CLIENTS_PER_USER) {
     return res.status(429).json({ message: 'Too many concurrent SSE connections for this user' });

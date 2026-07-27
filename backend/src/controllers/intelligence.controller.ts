@@ -1,13 +1,14 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
+import { AuthRequest } from '../middleware/auth.middleware';
 import prisma from '../config/prisma';
 import { successResponse } from '../utils/transformers';
 import { getDashboardScope, ScopeUser } from '../utils/scope';
 import { logAudit } from '../utils/audit-logger';
 import * as intelligenceService from '../services/intelligence.service';
 
-export const getIntelligence = async (req: Request, res: Response) => {
+export const getIntelligence = async (req: AuthRequest, res: Response) => {
   try {
-    const user: ScopeUser = (req as any).user || {};
+    const user: ScopeUser = req.user! || {};
     const { psFilter } = getDashboardScope(user);
 
     let whereClause: any = {};
@@ -62,9 +63,9 @@ export const getIntelligence = async (req: Request, res: Response) => {
   }
 };
 
-export const createIntelligence = async (req: Request, res: Response) => {
+export const createIntelligence = async (req: AuthRequest, res: Response) => {
   try {
-    const user: ScopeUser = (req as any).user || {};
+    const user: ScopeUser = req.user! || {};
     const userId = user.userId ? BigInt(user.userId) : null;
     const { offenderId, psId, sourceType, inputText, supplyRoute, informerId } = req.body;
 
@@ -97,9 +98,9 @@ export const createIntelligence = async (req: Request, res: Response) => {
 // These formerly proxied to the Python FastAPI microservice on :8082.
 // They now invoke the native TypeScript intelligence service directly.
 
-export const getNetworkGraph = async (req: Request, res: Response) => {
+export const getNetworkGraph = async (req: AuthRequest, res: Response) => {
   try {
-    const user: ScopeUser = (req as any).user || {};
+    const user: ScopeUser = req.user! || {};
     const { psFilter } = getDashboardScope(user);
     const psId = psFilter?.ps_id ? Number(psFilter.ps_id) : undefined;
 
@@ -111,9 +112,9 @@ export const getNetworkGraph = async (req: Request, res: Response) => {
   }
 };
 
-export const getDuplicateContacts = async (req: Request, res: Response) => {
+export const getDuplicateContacts = async (req: AuthRequest, res: Response) => {
   try {
-    const user: ScopeUser = (req as any).user || {};
+    const user: ScopeUser = req.user! || {};
     const { psFilter } = getDashboardScope(user);
     const psId = psFilter?.ps_id ? Number(psFilter.ps_id) : undefined;
 
@@ -125,7 +126,7 @@ export const getDuplicateContacts = async (req: Request, res: Response) => {
   }
 };
 
-export const predictRisk = async (req: Request, res: Response) => {
+export const predictRisk = async (req: AuthRequest, res: Response) => {
   try {
     const data = intelligenceService.predictOffenderRisk(req.body);
     res.json(successResponse(data));
@@ -135,9 +136,9 @@ export const predictRisk = async (req: Request, res: Response) => {
   }
 };
 
-export const getInterstateRoutes = async (req: Request, res: Response) => {
+export const getInterstateRoutes = async (req: AuthRequest, res: Response) => {
   try {
-    const user: ScopeUser = (req as any).user || {};
+    const user: ScopeUser = req.user! || {};
     const { psFilter } = getDashboardScope(user);
     const psId = psFilter?.ps_id ? Number(psFilter.ps_id) : undefined;
 
@@ -149,9 +150,9 @@ export const getInterstateRoutes = async (req: Request, res: Response) => {
   }
 };
 
-export const getConsignmentTrails = async (req: Request, res: Response) => {
+export const getConsignmentTrails = async (req: AuthRequest, res: Response) => {
   try {
-    const user: ScopeUser = (req as any).user || {};
+    const user: ScopeUser = req.user! || {};
     const { psFilter } = getDashboardScope(user);
     const psId = psFilter?.ps_id ? Number(psFilter.ps_id) : undefined;
 
@@ -163,9 +164,9 @@ export const getConsignmentTrails = async (req: Request, res: Response) => {
   }
 };
 
-export const getCaseLinkages = async (req: Request, res: Response) => {
+export const getCaseLinkages = async (req: AuthRequest, res: Response) => {
   try {
-    const user: ScopeUser = (req as any).user || {};
+    const user: ScopeUser = req.user! || {};
     const { psFilter } = getDashboardScope(user);
     const psId = psFilter?.ps_id ? Number(psFilter.ps_id) : undefined;
 

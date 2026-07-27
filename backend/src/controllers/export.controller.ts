@@ -1,4 +1,5 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
+import { AuthRequest } from '../middleware/auth.middleware';
 import prisma from '../config/prisma';
 import { getOffenderWhere } from '../utils/scope';
 import { maskAadhaar, canRevealAadhaar, canExportOffenders } from '../utils/pii';
@@ -54,15 +55,15 @@ function formatAadhaarForCsv(val: string | null | undefined): string {
   return `'${clean}`;
 }
 
-export const exportOffendersCsv = async (req: Request, res: Response) => {
+export const exportOffendersCsv = async (req: AuthRequest, res: Response) => {
   try {
     // ── SECURITY FIX #10: Enforce export role check (was defined but never called)
-    const userRole = (req as any).user?.role || '';
+    const userRole = req.user!?.role || '';
     if (!canExportOffenders(userRole)) {
       return res.status(403).json({ message: 'You do not have permission to export offender data' });
     }
 
-    const where = getOffenderWhere((req as any).user);
+    const where = getOffenderWhere(req.user!);
     const { psId, query, category } = req.query;
     if (psId) {
       (where as any).ps_id = BigInt(String(psId));
@@ -256,7 +257,7 @@ export const exportOffendersCsv = async (req: Request, res: Response) => {
   }
 }
 
-export const getOffenderHistorySheetPdf = async (req: Request, res: Response) => {
+export const getOffenderHistorySheetPdf = async (req: AuthRequest, res: Response) => {
   try {
     const id = BigInt(String(req.params.id));
     const offender = await prisma.offenders.findUnique({
@@ -316,7 +317,7 @@ export const getOffenderHistorySheetPdf = async (req: Request, res: Response) =>
   }
 };
 
-export const getOffenderHistorySheet = async (req: Request, res: Response) => {
+export const getOffenderHistorySheet = async (req: AuthRequest, res: Response) => {
   try {
     const id = BigInt(String(req.params.id));
     const offender = await prisma.offenders.findUnique({

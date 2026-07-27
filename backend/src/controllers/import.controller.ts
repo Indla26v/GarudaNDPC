@@ -1,9 +1,12 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
+import { AuthRequest } from '../middleware/auth.middleware';
 import * as XLSX from 'xlsx';
 import prisma from '../config/prisma';
 import { successResponse } from '../utils/transformers';
 import { logAudit } from '../utils/audit-logger';
 import { broadcastEvent } from './sse.controller';
+import { STATE_CODES, DISTRICT_NUMBERS } from '../config/constants';
+import { handleControllerError } from '../utils/error-handler';
 
 function normKey(k: string): string {
   return k.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -170,21 +173,7 @@ function parseContrabandType(raw: string): string | null {
   return 'OTHER';
 }
 
-const STATE_CODES: Record<string, string> = {
-  'andhra pradesh': 'AP',
-  'ap': 'AP',
-  'kerala': 'KL',
-  'kl': 'KL',
-  'karnataka': 'KA',
-  'ka': 'KA',
-  'telangana': 'TS',
-  'ts': 'TS',
-};
 
-const DISTRICT_NUMBERS: Record<string, string> = {
-  'tirupati': '39',
-  'chittoor': '03',
-};
 
 interface ParsedAccused {
   offenderId: string;
@@ -362,7 +351,7 @@ export const importDprExcel = async (req: Request, res: Response) => {
     const psByCode = new Map(stations.map((s) => [normKey(s.ps_code), s]));
 
     let userId: bigint | null = null;
-    if ((req as any).user?.userId) userId = BigInt((req as any).user.userId);
+    if (req.user?.userId) userId = BigInt(req.user.userId);
 
     const stats = { rows: rows.length, casesCreated: 0, offendersCreated: 0, skipped: 0, errors: [] as string[] };
 
@@ -948,7 +937,7 @@ export const confirmDprImport = async (req: Request, res: Response) => {
     const psByCode = new Map(stations.map((s) => [normKey(s.ps_code), s]));
 
     let userId: bigint | null = null;
-    if ((req as any).user?.userId) userId = BigInt((req as any).user.userId);
+    if (req.user?.userId) userId = BigInt(req.user.userId);
 
     const stats = { rows: rows.length, casesCreated: 0, offendersCreated: 0, skipped: 0, errors: [] as string[] };
 

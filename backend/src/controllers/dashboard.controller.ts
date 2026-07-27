@@ -7,10 +7,12 @@
  *   Station-level (SDPO, SHO, Constable) → only their PS data
  *   District-level (SP, ASP) → all PS data in the district
  */
-import { Request, Response } from 'express';
+import { Response } from 'express';
+import { AuthRequest } from '../middleware/auth.middleware';
 import prisma from '../config/prisma';
 import { successResponse } from '../utils/transformers';
 import { getDashboardScope, ScopeUser } from '../utils/scope';
+import { handleControllerError } from '../utils/error-handler';
 
 interface CacheEntry {
   data: any;
@@ -19,9 +21,9 @@ interface CacheEntry {
 const dashboardCache = new Map<string, CacheEntry>();
 const CACHE_TTL_SECONDS = 30; // 30 seconds
 
-export const getDashboardSummary = async (req: Request, res: Response) => {
+export const getDashboardSummary = async (req: AuthRequest, res: Response) => {
   try {
-    const user: ScopeUser = (req as any).user || {};
+    const user: ScopeUser = req.user! || {};
     const { psFilter, isStationLevel } = getDashboardScope(user);
 
     const timeRange = req.query.timeRange as string || 'all';

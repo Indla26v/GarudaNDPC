@@ -1,10 +1,11 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
+import { AuthRequest } from '../middleware/auth.middleware';
 import prisma from '../config/prisma';
 import { successResponse } from '../utils/transformers';
 import { logAudit } from '../utils/audit-logger';
 
 // GET /api/offenders/:offenderId/imei
-export const getImeiRecords = async (req: Request, res: Response) => {
+export const getImeiRecords = async (req: AuthRequest, res: Response) => {
   try {
     const offenderId = BigInt(String(req.params.offenderId));
     const records = await (prisma as any).imei_records.findMany({
@@ -32,10 +33,10 @@ export const getImeiRecords = async (req: Request, res: Response) => {
 };
 
 // POST /api/offenders/:offenderId/imei
-export const createImeiRecord = async (req: Request, res: Response) => {
+export const createImeiRecord = async (req: AuthRequest, res: Response) => {
   try {
     const offenderId = BigInt(String(req.params.offenderId));
-    const userId = (req as any).user?.userId ? BigInt((req as any).user.userId) : null;
+    const userId = req.user!?.userId ? BigInt(req.user!.userId) : null;
     const { imeiNumber, deviceMake, deviceModel, simNumber, simProvider, mobileNumber, notes } = req.body;
 
     if (!imeiNumber || imeiNumber.length < 15) {
@@ -67,7 +68,7 @@ export const createImeiRecord = async (req: Request, res: Response) => {
 };
 
 // PUT /api/offenders/:offenderId/imei/:id  (update status e.g. SWAPPED)
-export const updateImeiRecord = async (req: Request, res: Response) => {
+export const updateImeiRecord = async (req: AuthRequest, res: Response) => {
   try {
     const id = BigInt(String(req.params.id));
     const { status, lastSeen, notes } = req.body;

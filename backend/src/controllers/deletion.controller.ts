@@ -1,12 +1,13 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
+import { AuthRequest } from '../middleware/auth.middleware';
 import prisma from '../config/prisma';
 import { successResponse } from '../utils/transformers';
 import { logAudit } from '../utils/audit-logger';
 
-export const getDeletionRequests = async (req: Request, res: Response) => {
+export const getDeletionRequests = async (req: AuthRequest, res: Response) => {
   try {
-    const userRole = (req as any).user.role;
-    const psId = (req as any).user.policeStationId;
+    const userRole = req.user!.role;
+    const psId = req.user!.policeStationId;
     
     // We only show relevant requests to the role
     const where: any = {};
@@ -33,7 +34,7 @@ export const getDeletionRequests = async (req: Request, res: Response) => {
        filteredRequests = requests.filter(r => r.flagged_user?.police_stations?.id.toString() === psId.toString());
     } else if (userRole === 'SP') {
       // Find SP's district
-      const spUser = await prisma.users.findUnique({ where: { id: BigInt((req as any).user.userId) }, include: { police_stations: true } });
+      const spUser = await prisma.users.findUnique({ where: { id: BigInt(req.user!.userId) }, include: { police_stations: true } });
       const spDistrict = spUser?.police_stations?.district;
       filteredRequests = requests.filter(r => r.flagged_user?.police_stations?.district === spDistrict);
     }
@@ -56,10 +57,10 @@ export const getDeletionRequests = async (req: Request, res: Response) => {
   }
 };
 
-export const flagForDeletion = async (req: Request, res: Response) => {
+export const flagForDeletion = async (req: AuthRequest, res: Response) => {
   try {
     const { entityType, entityId, reason } = req.body;
-    const userId = (req as any).user.userId;
+    const userId = req.user!.userId;
 
     const request = await prisma.deletion_requests.create({
       data: {
@@ -76,11 +77,11 @@ export const flagForDeletion = async (req: Request, res: Response) => {
   } catch (error) { res.status(500).json({ message: 'Server error' }); }
 };
 
-export const escalateDeletion = async (req: Request, res: Response) => {
+export const escalateDeletion = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const userId = (req as any).user.userId;
-    const userRole = (req as any).user.role;
+    const userId = req.user!.userId;
+    const userRole = req.user!.role;
 
     if (userRole !== 'SHO') return res.status(403).json({ message: 'Only SHO can escalate' });
 
@@ -96,11 +97,11 @@ export const escalateDeletion = async (req: Request, res: Response) => {
   } catch (error) { res.status(500).json({ message: 'Server error' }); }
 };
 
-export const requestDeletion = async (req: Request, res: Response) => {
+export const requestDeletion = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const userId = (req as any).user.userId;
-    const userRole = (req as any).user.role;
+    const userId = req.user!.userId;
+    const userRole = req.user!.role;
 
     if (userRole !== 'SDPO') return res.status(403).json({ message: 'Only SDPO can request formally' });
 
@@ -116,11 +117,11 @@ export const requestDeletion = async (req: Request, res: Response) => {
   } catch (error) { res.status(500).json({ message: 'Server error' }); }
 };
 
-export const approveDeletion = async (req: Request, res: Response) => {
+export const approveDeletion = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const userId = (req as any).user.userId;
-    const userRole = (req as any).user.role;
+    const userId = req.user!.userId;
+    const userRole = req.user!.role;
 
     if (userRole !== 'SP') return res.status(403).json({ message: 'Only SP can approve' });
 
@@ -136,11 +137,11 @@ export const approveDeletion = async (req: Request, res: Response) => {
   } catch (error) { res.status(500).json({ message: 'Server error' }); }
 };
 
-export const executeDeletion = async (req: Request, res: Response) => {
+export const executeDeletion = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const userId = (req as any).user.userId;
-    const userRole = (req as any).user.role;
+    const userId = req.user!.userId;
+    const userRole = req.user!.role;
 
     if (userRole !== 'SP') return res.status(403).json({ message: 'Only SP can execute' });
 
@@ -164,10 +165,10 @@ export const executeDeletion = async (req: Request, res: Response) => {
     res.json(successResponse({ id }, 'Deleted successfully'));
   } catch (error) { res.status(500).json({ message: 'Server error' }); }
 };
-export const rejectDeletion = async (req: Request, res: Response) => {
+export const rejectDeletion = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const userId = (req as any).user.userId;
+    const userId = req.user!.userId;
 
     const request = await prisma.deletion_requests.findUnique({ where: { id: BigInt(id as string) } });
     if (!request) return res.status(404).json({ message: 'Request not found' });

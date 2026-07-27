@@ -1,4 +1,5 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
+import { AuthRequest } from '../middleware/auth.middleware';
 import prisma from '../config/prisma';
 import { successResponse } from '../utils/transformers';
 import { getDashboardScope, ScopeUser } from '../utils/scope';
@@ -35,9 +36,9 @@ async function getInformerWhere(user: ScopeUser): Promise<Record<string, any>> {
 }
 
 // GET /api/informers
-export const listInformers = async (req: Request, res: Response) => {
+export const listInformers = async (req: AuthRequest, res: Response) => {
   try {
-    const user: ScopeUser = (req as any).user || {};
+    const user: ScopeUser = req.user! || {};
     const baseWhere = await getInformerWhere(user);
 
     const informersList = await prisma.informers.findMany({
@@ -68,9 +69,9 @@ export const listInformers = async (req: Request, res: Response) => {
 };
 
 // POST /api/informers
-export const registerInformer = async (req: Request, res: Response) => {
+export const registerInformer = async (req: AuthRequest, res: Response) => {
   try {
-    const user: ScopeUser = (req as any).user || {};
+    const user: ScopeUser = req.user! || {};
     const userId = user.userId ? BigInt(user.userId) : null;
     const { codeName, phone, rating } = req.body;
 
@@ -111,7 +112,7 @@ export const registerInformer = async (req: Request, res: Response) => {
 };
 
 // PUT /api/informers/:id
-export const updateInformer = async (req: Request, res: Response) => {
+export const updateInformer = async (req: AuthRequest, res: Response) => {
   try {
     const informerId = BigInt(req.params.id as string);
     const { rating, status, phone } = req.body;

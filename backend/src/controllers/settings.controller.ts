@@ -1,4 +1,5 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
+import { AuthRequest } from '../middleware/auth.middleware';
 import prisma from '../config/prisma';
 import { successResponse } from '../utils/transformers';
 import { logAudit } from '../utils/audit-logger';
@@ -11,7 +12,7 @@ const DEFAULT_SETTINGS: Record<string, string> = {
 };
 
 // GET /api/admin/settings
-export const getSystemSettings = async (req: Request, res: Response) => {
+export const getSystemSettings = async (req: AuthRequest, res: Response) => {
   try {
     const settings = await prisma.system_settings.findMany();
     const settingsMap = { ...DEFAULT_SETTINGS };
@@ -28,7 +29,7 @@ export const getSystemSettings = async (req: Request, res: Response) => {
 };
 
 // POST /api/admin/settings
-export const updateSystemSettings = async (req: Request, res: Response) => {
+export const updateSystemSettings = async (req: AuthRequest, res: Response) => {
   try {
     const updates = req.body; // e.g. { CHARGE_SHEET_DUE_DAYS_COMMERCIAL: '180' }
 
@@ -55,7 +56,7 @@ export const updateSystemSettings = async (req: Request, res: Response) => {
 };
 
 // GET /api/admin/system-health
-export const getSystemHealth = async (req: Request, res: Response) => {
+export const getSystemHealth = async (req: AuthRequest, res: Response) => {
   try {
     // 1. Get database size using a Postgres-safe raw query
     let dbSize = 'Unknown';

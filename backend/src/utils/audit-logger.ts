@@ -1,5 +1,6 @@
 import prisma from '../config/prisma';
 import { Request } from 'express';
+import { AuthRequest } from '../middleware/auth.middleware';
 
 const VALID_ACTIONS = [
   'CREATE', 'UPDATE', 'DELETE', 'VIEW', 'EXPORT',
@@ -14,7 +15,7 @@ export const logAudit = async (
   action: string,
   entityType: string,
   entityId: bigint | string | number | null = null,
-  req?: Request,
+  req?: Request | AuthRequest,
   details?: string
 ) => {
   try {
@@ -23,10 +24,11 @@ export const logAudit = async (
     let userAgent: string | null = null;
 
     if (req) {
-      if ((req as any).user) {
-        userId = BigInt((req as any).user.userId);
+      const authUser = (req as AuthRequest).user;
+      if (authUser?.userId) {
+        userId = BigInt(authUser.userId);
       }
-      ipAddress = req.ip || req.connection.remoteAddress || null;
+      ipAddress = req.ip || req.connection?.remoteAddress || null;
       userAgent = req.headers['user-agent'] || null;
     }
 

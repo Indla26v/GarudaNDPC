@@ -1,4 +1,5 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
+import { AuthRequest } from '../middleware/auth.middleware';
 import prisma from '../config/prisma';
 import { successResponse } from '../utils/transformers';
 import { getDashboardScope, ScopeUser } from '../utils/scope';
@@ -6,13 +7,13 @@ import { getDashboardScope, ScopeUser } from '../utils/scope';
 /**
  * GET /api/vehicles — List all seized vehicles with search/filter/pagination
  */
-export const getSeizedVehicles = async (req: Request, res: Response) => {
+export const getSeizedVehicles = async (req: AuthRequest, res: Response) => {
   try {
     const { page = 0, size = 20, search, vehicleType, status } = req.query;
     const skip = Number(page) * Number(size);
     const take = Number(size);
 
-    const user: ScopeUser = (req as any).user || {};
+    const user: ScopeUser = req.user! || {};
     const { psFilter, isStationLevel } = getDashboardScope(user);
 
     // Build where clause scoped to user's jurisdiction
@@ -80,7 +81,7 @@ export const getSeizedVehicles = async (req: Request, res: Response) => {
 /**
  * GET /api/vehicles/:id — Get single vehicle details
  */
-export const getSeizedVehicleById = async (req: Request, res: Response) => {
+export const getSeizedVehicleById = async (req: AuthRequest, res: Response) => {
   try {
     const id = BigInt(req.params.id as string);
     const vehicle = await prisma.seized_vehicles.findUnique({
@@ -108,7 +109,7 @@ export const getSeizedVehicleById = async (req: Request, res: Response) => {
 /**
  * PUT /api/vehicles/:id — Update vehicle status/details
  */
-export const updateSeizedVehicle = async (req: Request, res: Response) => {
+export const updateSeizedVehicle = async (req: AuthRequest, res: Response) => {
   try {
     const id = BigInt(req.params.id as string);
     const data = req.body;

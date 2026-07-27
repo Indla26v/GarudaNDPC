@@ -4,7 +4,8 @@
  * Generates operational reports for absconders, pending charge sheets, etc.
  * Data is scoped by the requesting user's role/station.
  */
-import { Request, Response } from 'express';
+import { Response } from 'express';
+import { AuthRequest } from '../middleware/auth.middleware';
 import * as XLSX from 'xlsx';
 import prisma from '../config/prisma';
 import { successResponse } from '../utils/transformers';
@@ -29,9 +30,9 @@ function getSeverity(daysOutstanding: number): string {
   return 'LOW';
 }
 
-export const getAbsconderReport = async (req: Request, res: Response) => {
+export const getAbsconderReport = async (req: AuthRequest, res: Response) => {
   try {
-    const user: ScopeUser = (req as any).user || {};
+    const user: ScopeUser = req.user! || {};
     const { psFilter } = getDashboardScope(user);
     const format = (req.query.format as string) || 'json';
     const minDays = req.query.minDays ? parseInt(String(req.query.minDays), 10) : 0;
@@ -149,9 +150,9 @@ export const getAbsconderReport = async (req: Request, res: Response) => {
   }
 };
 
-export const getMonthlyAbstractReport = async (req: Request, res: Response) => {
+export const getMonthlyAbstractReport = async (req: AuthRequest, res: Response) => {
   try {
-    const user: ScopeUser = (req as any).user || {};
+    const user: ScopeUser = req.user! || {};
     const { psFilter } = getDashboardScope(user);
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -201,9 +202,9 @@ export const getMonthlyAbstractReport = async (req: Request, res: Response) => {
   }
 };
 
-export const getYearlyComparisonReport = async (req: Request, res: Response) => {
+export const getYearlyComparisonReport = async (req: AuthRequest, res: Response) => {
   try {
-    const user: ScopeUser = (req as any).user || {};
+    const user: ScopeUser = req.user! || {};
     const { psFilter } = getDashboardScope(user);
 
     const cases = await prisma.cases.findMany({
@@ -243,9 +244,9 @@ export const getYearlyComparisonReport = async (req: Request, res: Response) => 
   }
 };
 
-export const getPendingChargeSheetsReport = async (req: Request, res: Response) => {
+export const getPendingChargeSheetsReport = async (req: AuthRequest, res: Response) => {
   try {
-    const user: ScopeUser = (req as any).user || {};
+    const user: ScopeUser = req.user! || {};
     const { psFilter } = getDashboardScope(user);
     const sixtyDaysAgo = new Date();
     sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
@@ -290,9 +291,9 @@ export const getPendingChargeSheetsReport = async (req: Request, res: Response) 
   }
 };
 
-export const getBailExpiryAlertsReport = async (req: Request, res: Response) => {
+export const getBailExpiryAlertsReport = async (req: AuthRequest, res: Response) => {
   try {
-    const user: ScopeUser = (req as any).user || {};
+    const user: ScopeUser = req.user! || {};
     const { psFilter } = getDashboardScope(user);
 
     const bails = await prisma.case_accused.findMany({
@@ -339,9 +340,9 @@ export const getBailExpiryAlertsReport = async (req: Request, res: Response) => 
   }
 };
 
-export const getCourtPendingReport = async (req: Request, res: Response) => {
+export const getCourtPendingReport = async (req: AuthRequest, res: Response) => {
   try {
-    const user: ScopeUser = (req as any).user || {};
+    const user: ScopeUser = req.user! || {};
     const { psFilter } = getDashboardScope(user);
 
     const cases = await prisma.cases.findMany({
@@ -386,9 +387,9 @@ export const getCourtPendingReport = async (req: Request, res: Response) => {
   }
 };
 
-export const getDrugSeizuresReport = async (req: Request, res: Response) => {
+export const getDrugSeizuresReport = async (req: AuthRequest, res: Response) => {
   try {
-    const user: ScopeUser = (req as any).user || {};
+    const user: ScopeUser = req.user! || {};
     const { psFilter } = getDashboardScope(user);
 
     const seizures = await prisma.seizures.findMany({
@@ -427,9 +428,9 @@ export const getDrugSeizuresReport = async (req: Request, res: Response) => {
   }
 };
 
-export const getTopOffendersReport = async (req: Request, res: Response) => {
+export const getTopOffendersReport = async (req: AuthRequest, res: Response) => {
   try {
-    const user: ScopeUser = (req as any).user || {};
+    const user: ScopeUser = req.user! || {};
     const { psFilter } = getDashboardScope(user);
 
     const offenders = await prisma.offenders.findMany({
@@ -471,9 +472,9 @@ export const getTopOffendersReport = async (req: Request, res: Response) => {
   }
 };
 
-export const getDprExport = async (req: Request, res: Response) => {
+export const getDprExport = async (req: AuthRequest, res: Response) => {
   try {
-    const user: ScopeUser = (req as any).user || {};
+    const user: ScopeUser = req.user! || {};
     const { psFilter } = getDashboardScope(user);
     const { startDate, endDate } = req.query;
 
@@ -547,9 +548,9 @@ export const getDprExport = async (req: Request, res: Response) => {
   }
 };
 
-export const getCustomReport = async (req: Request, res: Response) => {
+export const getCustomReport = async (req: AuthRequest, res: Response) => {
   try {
-    const user: ScopeUser = (req as any).user || {};
+    const user: ScopeUser = req.user! || {};
     const { psFilter } = getDashboardScope(user);
     const { startDate, endDate, psId, contrabandType, stage, format } = req.query;
 
@@ -639,9 +640,9 @@ export const getCustomReport = async (req: Request, res: Response) => {
   }
 };
 
-export const getCourtDiary = async (req: Request, res: Response) => {
+export const getCourtDiary = async (req: AuthRequest, res: Response) => {
   try {
-    const user: ScopeUser = (req as any).user || {};
+    const user: ScopeUser = req.user! || {};
     const { psFilter } = getDashboardScope(user);
     const days = req.query.days ? parseInt(String(req.query.days), 10) : 30;
 
@@ -696,9 +697,9 @@ export const getCourtDiary = async (req: Request, res: Response) => {
   }
 };
 
-export const getPerformanceMetrics = async (req: Request, res: Response) => {
+export const getPerformanceMetrics = async (req: AuthRequest, res: Response) => {
   try {
-    const user: ScopeUser = (req as any).user || {};
+    const user: ScopeUser = req.user! || {};
     const { psFilter } = getDashboardScope(user);
 
     const cases = await prisma.cases.findMany({

@@ -976,7 +976,7 @@ export default function FinancialAnalysis() {
                 <h3 className="text-md font-bold text-garuda-100">Monthly Transaction Audit Trend</h3>
                 <div className="h-72 w-full p-4 rounded-xl bg-garuda-900/25 border border-garuda-700">
                   {monthlyTrend.length > 0 ? (
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ResponsiveContainer minWidth={0} width="100%" height="100%">
                       <LineChart data={monthlyTrend}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
                         <XAxis dataKey="month" stroke="#94a3b8" fontSize={11} />
@@ -1441,7 +1441,7 @@ export default function FinancialAnalysis() {
                     <h3 className="text-sm font-bold text-garuda-100">Inflow vs Outflow MoM Analysis</h3>
                     <div className="h-72 w-full p-4 rounded-xl bg-garuda-900/25 border border-garuda-700">
                       {profileData.monthlyFlow && profileData.monthlyFlow.length > 0 ? (
-                        <ResponsiveContainer width="100%" height="100%">
+                        <ResponsiveContainer minWidth={0} width="100%" height="100%">
                           <BarChart data={profileData.monthlyFlow}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
                             <XAxis dataKey="month" stroke="#94a3b8" fontSize={11} />

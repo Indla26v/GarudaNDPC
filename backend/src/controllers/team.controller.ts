@@ -3,13 +3,14 @@
  * 
  * CRUD for teams: create, list, update, assign/remove members.
  */
-import { Request, Response } from 'express';
+import { Response } from 'express';
+import { AuthRequest } from '../middleware/auth.middleware';
 import prisma from '../config/prisma';
 import { successResponse } from '../utils/transformers';
 import { logAudit } from '../utils/audit-logger';
 
 // ── List all teams ──────────────────────────────────────────────────
-export const getTeams = async (req: Request, res: Response) => {
+export const getTeams = async (req: AuthRequest, res: Response) => {
   try {
     const teams = await prisma.teams.findMany({
       include: {
@@ -55,7 +56,7 @@ export const getTeams = async (req: Request, res: Response) => {
 };
 
 // ── Create team ─────────────────────────────────────────────────────
-export const createTeam = async (req: Request, res: Response) => {
+export const createTeam = async (req: AuthRequest, res: Response) => {
   try {
     const { name, department, description } = req.body;
     if (!name || !department) {
@@ -80,7 +81,7 @@ export const createTeam = async (req: Request, res: Response) => {
 };
 
 // ── Update team ─────────────────────────────────────────────────────
-export const updateTeam = async (req: Request, res: Response) => {
+export const updateTeam = async (req: AuthRequest, res: Response) => {
   try {
     const id = req.params.id as string;
     const { name, department, description, isActive } = req.body;
@@ -105,7 +106,7 @@ export const updateTeam = async (req: Request, res: Response) => {
 };
 
 // ── Add member to team ──────────────────────────────────────────────
-export const addMember = async (req: Request, res: Response) => {
+export const addMember = async (req: AuthRequest, res: Response) => {
   try {
     const id = req.params.id as string;
     const { userId } = req.body;
@@ -132,7 +133,7 @@ export const addMember = async (req: Request, res: Response) => {
 };
 
 // ── Remove member from team ─────────────────────────────────────────
-export const removeMember = async (req: Request, res: Response) => {
+export const removeMember = async (req: AuthRequest, res: Response) => {
   try {
     const id = req.params.id as string;
     const userId = req.params.userId as string;
@@ -154,7 +155,7 @@ export const removeMember = async (req: Request, res: Response) => {
 };
 
 // ── Delete team ─────────────────────────────────────────────────────
-export const deleteTeam = async (req: Request, res: Response) => {
+export const deleteTeam = async (req: AuthRequest, res: Response) => {
   try {
     const id = req.params.id as string;
 

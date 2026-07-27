@@ -1,4 +1,5 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
+import { AuthRequest } from '../middleware/auth.middleware';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
@@ -23,7 +24,7 @@ function generateRefreshToken() {
   return crypto.randomBytes(40).toString('hex');
 }
 
-export const login = async (req: Request, res: Response) => {
+export const login = async (req: AuthRequest, res: Response) => {
   const { username, password } = req.body;
 
   try {
@@ -91,7 +92,7 @@ export const login = async (req: Request, res: Response) => {
     });
 
     // We can't attach req to logAudit directly without modifying it, but we can set mock req user.
-    (req as any).user = { userId: user.id };
+    req.user! = { userId: user.id };
     await logAudit('LOGIN', 'USER', user.id, req);
 
     // ── SECURITY FIX #12: Store JWTs in HttpOnly cookies to prevent XSS theft
@@ -130,7 +131,7 @@ export const login = async (req: Request, res: Response) => {
   }
 };
 
-export const refresh = async (req: Request, res: Response) => {
+export const refresh = async (req: AuthRequest, res: Response) => {
   const { refreshToken } = req.body;
   const token = refreshToken || req.cookies?.garuda_refresh_token;
 
@@ -207,7 +208,7 @@ export const refresh = async (req: Request, res: Response) => {
   }
 };
 
-export const logout = async (req: Request, res: Response) => {
+export const logout = async (req: AuthRequest, res: Response) => {
   try {
     const refreshToken = req.body?.refreshToken;
     
@@ -221,8 +222,8 @@ export const logout = async (req: Request, res: Response) => {
       });
     }
 
-    if ((req as any).user) {
-      await logAudit('LOGOUT', 'USER', (req as any).user.userId, req);
+    if (req.user!) {
+      await logAudit('LOGOUT', 'USER', req.user!.userId, req);
     }
 
     // ── SECURITY FIX #12: Clear HttpOnly cookies on logout
@@ -242,10 +243,10 @@ export const logout = async (req: Request, res: Response) => {
   }
 };
 
-export const getMe = async (req: Request, res: Response) => {
+export const getMe = async (req: AuthRequest, res: Response) => {
   try {
     const user = await prisma.users.findUnique({
-      where: { id: (req as any).user.userId }
+      where: { id: req.user!.userId }
     });
     
     if (!user) {
@@ -260,9 +261,9 @@ export const getMe = async (req: Request, res: Response) => {
 };
 
 // ── Update own profile (self-service) ─────────────────────────────────
-export const updateMyProfile = async (req: Request, res: Response) => {
+export const updateMyProfile = async (req: AuthRequest, res: Response) => {
   try {
-    const userId = (req as any).user.userId;
+    const userId = req.user!.userId;
     const { fullName, badgeNumber } = req.body;
 
     const user = await prisma.users.findUnique({ where: { id: userId } });
@@ -299,9 +300,9 @@ export const updateMyProfile = async (req: Request, res: Response) => {
 };
 
 // ── Change own password (self-service) ────────────────────────────────
-export const changeMyPassword = async (req: Request, res: Response) => {
+export const changeMyPassword = async (req: AuthRequest, res: Response) => {
   try {
-    const userId = (req as any).user.userId;
+    const userId = req.user!.userId;
     const { currentPassword, newPassword } = req.body;
 
     if (!currentPassword || !newPassword) {

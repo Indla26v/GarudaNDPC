@@ -1,8 +1,9 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
+import { AuthRequest } from '../middleware/auth.middleware';
 import prisma from '../config/prisma';
 import { successResponse } from '../utils/transformers';
 
-export const getAllPoliceStations = async (req: Request, res: Response) => {
+export const getAllPoliceStations = async (req: AuthRequest, res: Response) => {
   try {
     const stations = await prisma.police_stations.findMany();
     const formatted = stations.map(s => ({
@@ -19,7 +20,7 @@ export const getAllPoliceStations = async (req: Request, res: Response) => {
   }
 };
 
-export const getPoliceStationById = async (req: Request, res: Response) => {
+export const getPoliceStationById = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const s = await prisma.police_stations.findUnique({

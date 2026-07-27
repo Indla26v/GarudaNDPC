@@ -1,4 +1,5 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
+import { AuthRequest } from '../middleware/auth.middleware';
 import prisma from '../config/prisma';
 import { successResponse } from '../utils/transformers';
 import { logAudit } from '../utils/audit-logger';
@@ -6,56 +7,18 @@ import { getOffenderWhere } from '../utils/scope';
 import { paramId } from '../utils/params';
 import { maskAadhaar, canRevealAadhaar } from '../utils/pii';
 import { broadcastEvent } from './sse.controller';
+import {
+  isValidText, isValidSectionOfLaw, isValidPan, isValidIfsc,
+  isValidUpiId, isValidNumeric, isValidPhone, isValidEmail, validateAadhaar,
+} from '../utils/validators';
+import { STATE_CODES, DISTRICT_NUMBERS } from '../config/constants';
+import { handleControllerError } from '../utils/error-handler';
 
-const isValidText = (val: any): boolean => !val || /^[a-zA-Z0-9\s.,/-]*$/.test(String(val));
-const isValidSectionOfLaw = (val: any): boolean => !val || /^[a-zA-Z0-9\s()./,-]*$/.test(String(val));
-const isValidPan = (val: any): boolean => !val || /^[a-zA-Z0-9]{10}$/.test(String(val));
-const isValidIfsc = (val: any): boolean => !val || /^[a-zA-Z0-9]{11}$/.test(String(val));
-const isValidUpiId = (val: any): boolean => !val || /^[a-zA-Z0-9@._-]*$/.test(String(val));
-const isValidNumeric = (val: any): boolean => {
-  if (val === undefined || val === null || val === '') return true;
-  return /^\d*$/.test(String(val));
-};
-const isValidPhone = (val: any): boolean => !val || /^\+?[0-9\s-]*$/.test(String(val));
-const isValidEmail = (val: any): boolean => !val || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(val));
-const validateAadhaar = (val: any): string | null => {
-  if (!val) return null;
-  const s = String(val).trim();
-  const isMasked = s.includes('X') || s.includes('x') || s.includes('*');
-  if (isMasked) {
-    const cleanMasked = s.replace(/[^a-zA-Z0-9*]/g, '');
-    if (cleanMasked.length !== 12) {
-      return 'Aadhaar must be exactly 12 digits';
-    }
-  } else {
-    if (!/^\d{12}$/.test(s)) {
-      return 'Aadhaar must be exactly 12 digits and contain only numbers';
-    }
-  }
-  return null;
-};
-
-const STATE_CODES: Record<string, string> = {
-  'andhra pradesh': 'AP',
-  'ap': 'AP',
-  'kerala': 'KL',
-  'kl': 'KL',
-  'karnataka': 'KA',
-  'ka': 'KA',
-  'telangana': 'TS',
-  'ts': 'TS',
-};
-
-const DISTRICT_NUMBERS: Record<string, string> = {
-  'tirupati': '39',
-  'chittoor': '03',
-};
-
-export const getOffenders = async (req: Request, res: Response) => {
+export const getOffenders = async (req: AuthRequest, res: Response) => {
   try {
     const { query, psId, category, page = 0, size = 10 } = req.query;
     
-    let whereClause: any = { ...getOffenderWhere((req as any).user) };
+    let whereClause: any = { ...getOffenderWhere(req.user!) };
     if (psId) {
       whereClause.ps_id = BigInt(psId as string);
     } else if (psId === '') {
@@ -127,7 +90,7 @@ export const getOffenders = async (req: Request, res: Response) => {
   }
 };
 
-export const getOffenderById = async (req: Request, res: Response) => {
+export const getOffenderById = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
 
@@ -149,7 +112,7 @@ export const getOffenderById = async (req: Request, res: Response) => {
 
     if (!o) return res.status(404).json({ message: 'Offender not found' });
 
-    const userRole = (req as any).user?.role || '';
+    const userRole = req.user?.role || '';
     const reveal = req.query.reveal === 'true' && canRevealAadhaar(userRole);
     const rawAadhaar = o.offender_identity_docs?.[0]?.aadhaar_no ?? null;
 
@@ -242,7 +205,7 @@ export const getOffenderById = async (req: Request, res: Response) => {
   }
 };
 
-export const createOffender = async (req: Request, res: Response) => {
+export const createOffender = async (req: AuthRequest, res: Response) => {
   try {
     const data = req.body;
 
@@ -371,8 +334,8 @@ export const createOffender = async (req: Request, res: Response) => {
     }
     
     let userId = null;
-    if ((req as any).user) {
-       userId = BigInt((req as any).user.userId);
+    if (req.user) {
+       userId = BigInt(req.user.userId);
     }
     
     // Build nested creations safely
@@ -521,7 +484,7 @@ export const createOffender = async (req: Request, res: Response) => {
   }
 };
 
-export const updateOffender = async (req: Request, res: Response) => {
+export const updateOffender = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const data = req.body;
@@ -670,7 +633,7 @@ export const updateOffender = async (req: Request, res: Response) => {
     }
     
     // ── SECURITY FIX #8: Apply row-level scope to prevent cross-PS record tampering
-    const scope = getOffenderWhere((req as any).user);
+    const scope = getOffenderWhere(req.user!);
     const existing = await prisma.offenders.findFirst({ where: { id: BigInt(id as string), ...scope } });
     if (!existing) return res.status(404).json({ message: 'Offender not found or access denied' });
 
@@ -839,7 +802,7 @@ export const updateOffender = async (req: Request, res: Response) => {
   }
 };
 
-export const getDatabankRecords = async (req: Request, res: Response) => {
+export const getDatabankRecords = async (req: AuthRequest, res: Response) => {
   try {
     const records = await (prisma as any).south_india_databank.findMany({
       orderBy: { created_at: 'desc' }
