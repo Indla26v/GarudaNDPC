@@ -11,6 +11,7 @@ import { getImeiRecords, createImeiRecord, updateImeiRecord } from '../controlle
 import { authenticate } from '../middleware/auth.middleware';
 import { authorize, requirePermission } from '../middleware/authorize.middleware';
 import { uploadPhoto, uploadExcel } from '../middleware/upload.middleware';
+import { validateMagicBytes, scanForMalware } from '../utils/file-security';
 import { importDprExcel } from '../controllers/import.controller';
 import { getInterrogations, addInterrogation } from '../controllers/case-lifecycle.controller';
 
@@ -33,6 +34,22 @@ router.post('/upload', uploadPhoto.single('photo'), (req: any, res) => {
   if (!req.file) {
     return res.status(400).json({ message: 'No file uploaded' });
   }
+
+  // ── SECURITY: Magic bytes validation ──
+  const mbCheck = validateMagicBytes(req.file.buffer, req.file.originalname);
+  if (!mbCheck.valid) {
+    return res.status(400).json({ message: mbCheck.reason });
+  }
+
+  // ── SECURITY: Malware / virus scan ──
+  const scanResult = scanForMalware(req.file.buffer, req.file.originalname);
+  if (!scanResult.clean) {
+    return res.status(400).json({
+      message: 'File rejected: potential security threat detected.',
+      threats: scanResult.threats,
+    });
+  }
+
   const base64Data = req.file.buffer.toString('base64');
   const dataUrl = `data:${req.file.mimetype};base64,${base64Data}`;
   res.json({

@@ -17,8 +17,10 @@ import {
   addBailRecord,
 } from '../controllers/case-lifecycle.controller';
 import { authenticate } from '../middleware/auth.middleware';
+import fs from 'fs';
 import { requirePermission } from '../middleware/authorize.middleware';
 import { uploadDocument } from '../middleware/upload.middleware';
+import { validateMagicBytes, scanForMalware } from '../utils/file-security';
 
 const router = Router();
 
@@ -29,6 +31,37 @@ router.post('/upload', uploadDocument.single('file'), (req: any, res) => {
   if (!req.file) {
     return res.status(400).json({ message: 'No file uploaded' });
   }
+
+  // ── SECURITY: Magic bytes validation for uploaded document ──
+  try {
+    const fileBuffer = fs.readFileSync(req.file.path);
+    const mbCheck = validateMagicBytes(fileBuffer, req.file.originalname);
+    if (!mbCheck.valid) {
+      // Cleanup invalid file from disk
+      if (fs.existsSync(req.file.path)) {
+        fs.unlinkSync(req.file.path);
+      }
+      return res.status(400).json({ message: mbCheck.reason });
+    }
+
+    // ── SECURITY: Malware / virus scan ──
+    const scanResult = scanForMalware(fileBuffer, req.file.originalname);
+    if (!scanResult.clean) {
+      if (fs.existsSync(req.file.path)) {
+        fs.unlinkSync(req.file.path);
+      }
+      return res.status(400).json({
+        message: 'File rejected: potential security threat detected.',
+        threats: scanResult.threats,
+      });
+    }
+  } catch (err: any) {
+    if (req.file.path && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
+    return res.status(500).json({ message: 'Failed to process uploaded file' });
+  }
+
   res.json({
     success: true,
     data: {

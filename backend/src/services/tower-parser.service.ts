@@ -7,7 +7,7 @@
  * Missing geo-coordinates default to 0 (schema requires non-null lat/lng).
  */
 import * as XLSX from 'xlsx';
-import { validateMagicBytes, guardZipBomb } from '../utils/file-security';
+import { validateMagicBytes, guardZipBomb, scanForMalware } from '../utils/file-security';
 
 export interface ParsedTowerLog {
   mobile_number: string;
@@ -117,6 +117,12 @@ export async function parseTowerDump(buffer: Buffer, fileType: string): Promise<
   const mbCheck = validateMagicBytes(buffer, `file.${ext}`);
   if (!mbCheck.valid) {
     return { logs: [], detectedColumns: [], errors: [mbCheck.reason || 'File content does not match the declared format.'] };
+  }
+
+  // ── SECURITY: Malware / virus scan ──
+  const scanResult = scanForMalware(buffer, `file.${ext}`);
+  if (!scanResult.clean) {
+    return { logs: [], detectedColumns: [], errors: [`File rejected: ${scanResult.threats.join('; ')}`] };
   }
 
   const wb = XLSX.read(buffer, { type: 'buffer', cellDates: true });

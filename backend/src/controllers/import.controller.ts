@@ -7,7 +7,7 @@ import { logAudit } from '../utils/audit-logger';
 import { broadcastEvent } from './sse.controller';
 import { STATE_CODES, DISTRICT_NUMBERS } from '../config/constants';
 import { handleControllerError } from '../utils/error-handler';
-import { validateMagicBytes, guardZipBomb } from '../utils/file-security';
+import { validateMagicBytes, guardZipBomb, acquireImportLock, releaseImportLock, scanForMalware } from '../utils/file-security';
 
 function normKey(k: string): string {
   return k.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -301,6 +301,15 @@ function cleanString(s: string | null | undefined): string | null {
 }
 
 export const importDprExcel = async (req: AuthRequest, res: Response) => {
+  const userIdStr = req.user?.userId?.toString() || 'unknown';
+  const userName = (req as any).user?.name || userIdStr;
+
+  // ── SECURITY: Concurrent import lock ──
+  const lockResult = await acquireImportLock(userIdStr, userName);
+  if (!lockResult.acquired) {
+    return res.status(409).json({ message: lockResult.reason });
+  }
+
   try {
     let sheet: XLSX.WorkSheet;
     const body = req.body || {};
@@ -309,18 +318,31 @@ export const importDprExcel = async (req: AuthRequest, res: Response) => {
     if (body.aoa) {
       const aoa = body.aoa;
       if (!Array.isArray(aoa)) {
+        await releaseImportLock(userIdStr);
         return res.status(400).json({ message: 'Invalid data format. Expected aoa array.' });
       }
       sheet = XLSX.utils.aoa_to_sheet(aoa);
     } else {
       if (!file?.buffer) {
+        await releaseImportLock(userIdStr);
         return res.status(400).json({ message: 'Upload an Excel file (.xlsx, .xls) or provide parsed aoa.' });
       }
 
       // ── SECURITY: Magic bytes validation ──
       const mbCheck = validateMagicBytes(file.buffer, file.originalname);
       if (!mbCheck.valid) {
+        await releaseImportLock(userIdStr);
         return res.status(400).json({ message: mbCheck.reason });
+      }
+
+      // ── SECURITY: Malware / virus scan ──
+      const scanResult = scanForMalware(file.buffer, file.originalname);
+      if (!scanResult.clean) {
+        await releaseImportLock(userIdStr);
+        return res.status(400).json({
+          message: 'File rejected: potential security threat detected.',
+          threats: scanResult.threats,
+        });
       }
 
       const wb = XLSX.read(file.buffer, { type: 'buffer' });
@@ -328,15 +350,18 @@ export const importDprExcel = async (req: AuthRequest, res: Response) => {
       // ── SECURITY: Zip bomb / decompression bomb guard ──
       const zbCheck = guardZipBomb(wb, file.buffer.length);
       if (!zbCheck.safe) {
+        await releaseImportLock(userIdStr);
         return res.status(400).json({ message: zbCheck.reason });
       }
 
       const firstSheetName = wb.SheetNames[0];
       if (!firstSheetName) {
+        await releaseImportLock(userIdStr);
         return res.status(400).json({ message: 'Excel workbook has no sheets' });
       }
       const s = wb.Sheets[firstSheetName];
       if (!s) {
+        await releaseImportLock(userIdStr);
         return res.status(400).json({ message: 'Excel sheet could not be loaded' });
       }
       sheet = s;
@@ -360,6 +385,7 @@ export const importDprExcel = async (req: AuthRequest, res: Response) => {
     const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { range: headerRowIndex });
 
     if (!rows.length) {
+      await releaseImportLock(userIdStr);
       return res.status(400).json({ message: 'Sheet is empty or missing headers' });
     }
 
@@ -582,8 +608,13 @@ export const importDprExcel = async (req: AuthRequest, res: Response) => {
 
     broadcastEvent('data_updated', { source: 'import', stats });
 
+    // ── Release import lock on success ──
+    await releaseImportLock(userIdStr);
+
     res.json(successResponse(stats, 'Import completed'));
   } catch (error) {
+    // ── Release import lock on failure ──
+    await releaseImportLock(userIdStr);
     console.error(error);
     res.status(500).json({ message: 'Import failed' });
   }
@@ -611,6 +642,15 @@ export const previewDprExcel = async (req: AuthRequest, res: Response) => {
       const mbCheck = validateMagicBytes(file.buffer, file.originalname);
       if (!mbCheck.valid) {
         return res.status(400).json({ message: mbCheck.reason });
+      }
+
+      // ── SECURITY: Malware / virus scan ──
+      const scanResult = scanForMalware(file.buffer, file.originalname);
+      if (!scanResult.clean) {
+        return res.status(400).json({
+          message: 'File rejected: potential security threat detected.',
+          threats: scanResult.threats,
+        });
       }
 
       const wb = XLSX.read(file.buffer, { type: 'buffer' });
@@ -959,9 +999,19 @@ export const previewDprExcel = async (req: AuthRequest, res: Response) => {
 };
 
 export const confirmDprImport = async (req: AuthRequest, res: Response) => {
+  const userIdStr = req.user?.userId?.toString() || 'unknown';
+  const userName = (req as any).user?.name || userIdStr;
+
+  // ── SECURITY: Concurrent import lock ──
+  const lockResult = await acquireImportLock(userIdStr, userName);
+  if (!lockResult.acquired) {
+    return res.status(409).json({ message: lockResult.reason });
+  }
+
   try {
     const { rows, importType = 'UNIFIED' } = req.body || {};
     if (!rows || !Array.isArray(rows)) {
+      await releaseImportLock(userIdStr);
       return res.status(400).json({ message: 'Invalid data format' });
     }
 
@@ -1514,8 +1564,13 @@ export const confirmDprImport = async (req: AuthRequest, res: Response) => {
 
     broadcastEvent('data_updated', { source: 'import', stats });
 
+    // ── Release import lock on success ──
+    await releaseImportLock(userIdStr);
+
     res.json(successResponse(stats, 'Import completed successfully'));
   } catch (error) {
+    // ── Release import lock on failure ──
+    await releaseImportLock(userIdStr);
     console.error(error);
     res.status(500).json({ message: 'Import confirmation failed' });
   }

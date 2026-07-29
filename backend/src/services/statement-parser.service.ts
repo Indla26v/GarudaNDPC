@@ -13,7 +13,7 @@
  */
 import * as XLSX from 'xlsx';
 import pdfParse from 'pdf-parse';
-import { validateMagicBytes, guardZipBomb } from '../utils/file-security';
+import { validateMagicBytes, guardZipBomb, scanForMalware } from '../utils/file-security';
 
 export type ParsedDirection = 'INCOMING' | 'OUTGOING';
 export type ParsedMode = 'BANK' | 'UPI' | 'CASH' | 'WALLET' | 'NEFT' | 'RTGS' | 'IMPS';
@@ -375,6 +375,12 @@ export async function parseStatement(buffer: Buffer, fileType: string): Promise<
   const mbCheck = validateMagicBytes(buffer, `file.${ext}`);
   if (!mbCheck.valid) {
     return { transactions: [], detectedColumns: [], sampleRows: [], errors: [mbCheck.reason || 'File content does not match the declared format.'] };
+  }
+
+  // ── SECURITY: Malware / virus scan ──
+  const scanResult = scanForMalware(buffer, `file.${ext}`);
+  if (!scanResult.clean) {
+    return { transactions: [], detectedColumns: [], sampleRows: [], errors: [`File rejected: ${scanResult.threats.join('; ')}`] };
   }
 
   if (ft === 'PDF') return parsePdf(buffer);
