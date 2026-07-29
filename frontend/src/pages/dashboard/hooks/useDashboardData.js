@@ -7,7 +7,7 @@ export function useDashboardData() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [timeRange, setTimeRange] = useState('all');
+  const [timeRange, setTimeRange] = useState('monthly');
 
   const fetchSummary = useCallback(async (range = timeRange, force = false) => {
     setLoading(true);

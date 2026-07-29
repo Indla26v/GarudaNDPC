@@ -3,6 +3,13 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 
+// ── SECURITY: Macro-enabled Office formats that must always be rejected ──
+const BLOCKED_MACRO_EXTENSIONS = new Set([
+  '.xlsm', '.xlsb', '.xltm', '.xla', '.xlam',
+  '.docm', '.dotm',
+  '.pptm', '.potm', '.ppam', '.ppsm',
+]);
+
 const isVercel = process.env.VERCEL === '1';
 const uploadsDir = isVercel 
   ? path.join(os.tmpdir(), 'uploads')
@@ -16,11 +23,20 @@ export const uploadExcel = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
   fileFilter: (_req, file, cb) => {
+    // ── SECURITY: Block macro-enabled Office formats ──
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (BLOCKED_MACRO_EXTENSIONS.has(ext)) {
+      return cb(new Error('Macro-enabled file formats are not allowed.') as any, false);
+    }
+
     const ok =
       file.mimetype.includes('spreadsheet') ||
       file.mimetype.includes('excel') ||
       file.originalname.match(/\.(xlsx|xls|csv)$/i);
-    cb(null, !!ok);
+    if (!ok) {
+      return cb(new Error('Invalid file type. Only XLSX, XLS, and CSV files are allowed.') as any, false);
+    }
+    cb(null, true);
   },
 });
 
@@ -78,7 +94,12 @@ export const uploadStatement = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 25 * 1024 * 1024 }, // 25MB
   fileFilter: (_req, file, cb) => {
+    // ── SECURITY: Block macro-enabled Office formats ──
     const ext = path.extname(file.originalname).toLowerCase();
+    if (BLOCKED_MACRO_EXTENSIONS.has(ext)) {
+      return cb(new Error('Macro-enabled file formats are not allowed.') as any, false);
+    }
+
     const okExt = ['.csv', '.xlsx', '.xls', '.pdf'].includes(ext);
     const okMime =
       file.mimetype.includes('spreadsheet') ||

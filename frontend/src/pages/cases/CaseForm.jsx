@@ -82,8 +82,20 @@ const COUNTRY_CODES = [
 const inp = "w-full px-3 py-2.5 rounded-lg text-sm outline-none";
 const fieldStyle = { background: 'var(--color-garuda-900)', border: '1px solid var(--color-garuda-600)', color: 'var(--color-garuda-100)' };
 
+export const parseNotesList = (raw) => {
+  if (!raw || !raw.trim()) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed;
+  } catch (e) {
+    /* ignore fallback */
+  }
+  return [{ id: 'legacy-1', text: raw, timestamp: null }];
+};
+
 export default function CaseForm() {
-  const { id } = useParams();
+  const { id: rawId } = useParams();
+  const id = rawId ? String(rawId).replace(/\/+$/, '') : undefined;
   const navigate = useNavigate();
   const isEdit = !!id;
 
@@ -120,6 +132,17 @@ export default function CaseForm() {
   const [fileUploading, setFileUploading] = useState(false);
   const [snackbar, setSnackbar] = useState(null);
   const [sectionErrors, setSectionErrors] = useState({});
+  const [notesHistory, setNotesHistory] = useState([]);
+  const [newNote, setNewNote] = useState('');
+
+  const quickAccessSections = [
+    { id: 'section-details', label: 'Case Details' },
+    { id: 'section-contraband', label: 'Contraband & Route' },
+    { id: 'section-accused', label: `Accused (${accused.length})` },
+    { id: 'section-seizure', label: 'Seizures' },
+    { id: 'section-vehicles', label: `Seized Vehicles (${seizedVehicles.length})` },
+    { id: 'section-files', label: `Relevant PDF Files (${uploadedFiles.length})` },
+  ];
 
   const showSnackbar = (type, message, duration = 4000) => {
     setSnackbar({ type, message });
@@ -167,6 +190,8 @@ export default function CaseForm() {
         isHistorySheet: c.isHistorySheet || false,
         isRowdySheet: c.isRowdySheet || false,
       });
+      setNotesHistory(parseNotesList(c.intelligenceNotes));
+      setNewNote('');
       setAccused((c.accused || []).map((a) => ({
         offenderId: a.offenderId,
         offenderName: a.offenderName,
@@ -389,8 +414,19 @@ export default function CaseForm() {
     }
 
     try {
+      let updatedNotesHistory = [...notesHistory];
+      if (newNote.trim()) {
+        const entry = {
+          id: Date.now().toString(),
+          text: newNote.trim(),
+          timestamp: new Date().toISOString()
+        };
+        updatedNotesHistory = [entry, ...updatedNotesHistory];
+      }
+
       const payload = {
         ...form,
+        intelligenceNotes: updatedNotesHistory.length > 0 ? JSON.stringify(updatedNotesHistory) : (form.intelligenceNotes || null),
         psId: parseInt(form.psId, 10),
         quantity: form.quantity ? parseFloat(form.quantity) : null,
         streetValue: form.streetValue ? parseFloat(form.streetValue) : null,
@@ -435,7 +471,7 @@ export default function CaseForm() {
   };
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6 animate-fade-in">
+    <div className="max-w-7xl mx-auto space-y-6 animate-fade-in relative">
       <div>
         <h1 className="text-2xl font-bold" style={{ color: 'var(--color-garuda-50)' }}>
           {isEdit ? 'Edit Case' : 'Register New Case'}
@@ -461,7 +497,10 @@ export default function CaseForm() {
           </div>
         </div>
       ) : (
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="grid grid-cols-12 gap-6 items-start">
+          {/* Left Form Column */}
+          <div className="col-span-12 lg:col-span-9 space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-6">
           {sectionErrors['Case Details'] && (
             <div className="px-4 py-3 rounded-lg text-sm mb-3" style={{ background: 'rgba(239,68,68,0.15)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)' }}>
               {sectionErrors['Case Details']}
@@ -588,8 +627,8 @@ export default function CaseForm() {
                 <input name="destinationLocation" value={form.destinationLocation} onChange={handleChange} className={inp} style={fieldStyle} />
               </div>
               <div className="md:col-span-2">
-                <label className="block text-xs font-medium mb-1" style={{ color: 'var(--color-garuda-400)' }}>Intelligence Notes</label>
-                <textarea name="intelligenceNotes" value={form.intelligenceNotes} onChange={handleChange} rows={3} className={inp} style={fieldStyle} />
+                <label className="block text-xs font-medium mb-1" style={{ color: 'var(--color-garuda-400)' }}>Remarks</label>
+                <textarea name="intelligenceNotes" value={form.intelligenceNotes} onChange={handleChange} rows={3} placeholder="Add case remarks..." className={inp} style={fieldStyle} />
               </div>
             </div>
             <div className="flex gap-6">
@@ -991,7 +1030,65 @@ export default function CaseForm() {
             </button>
           </div>
         </form>
-      )}
+      </div>
+
+      {/* Right Sticky Quick Access Panel */}
+      <div className="hidden lg:block lg:col-span-3 sticky top-24 self-start space-y-4">
+        <div className="pl-4 border-l-2 border-slate-700 space-y-2">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-4 px-2">Quick Navigation</p>
+          {quickAccessSections.map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              onClick={() => document.getElementById(s.id)?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+              className="w-full text-left px-2 py-1.5 rounded-lg text-xs font-semibold block transition-all cursor-pointer border-none bg-transparent text-slate-400 hover:text-orange-400 hover:bg-slate-800"
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Quick Notes Section Below Quick Nav */}
+        <div className="rounded-xl p-4 border space-y-3" style={{ background: 'var(--color-garuda-800)', borderColor: 'var(--color-garuda-700)' }}>
+          <div className="flex items-center justify-between pb-1.5 border-b" style={{ borderColor: 'var(--color-garuda-700)' }}>
+            <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--color-garuda-300)' }}>
+              Add Quick Note for Edit
+            </span>
+          </div>
+          <textarea
+            value={newNote}
+            onChange={(e) => setNewNote(e.target.value)}
+            rows={3}
+            placeholder="Type a note for this edit..."
+            className="w-full p-2.5 rounded-lg text-xs outline-none resize-none"
+            style={{ background: 'var(--color-garuda-900)', border: '1px solid var(--color-garuda-600)', color: 'var(--color-garuda-100)' }}
+          />
+
+          {notesHistory.length > 0 && (
+            <div className="space-y-2 pt-2 border-t" style={{ borderColor: 'var(--color-garuda-700)' }}>
+              <span className="text-[10px] font-bold uppercase tracking-wider block" style={{ color: 'var(--color-garuda-400)' }}>
+                Notes History ({notesHistory.length})
+              </span>
+              <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                {notesHistory.map((item, idx) => (
+                  <div key={item.id || idx} className="p-2 rounded text-xs space-y-1" style={{ background: 'var(--color-garuda-900)', border: '1px solid var(--color-garuda-700)' }}>
+                    <p className="whitespace-pre-wrap font-medium" style={{ color: 'var(--color-garuda-100)' }}>
+                      "{item.text}"
+                    </p>
+                    {item.timestamp && (
+                      <span className="text-[10px] block" style={{ color: 'var(--color-garuda-400)' }}>
+                        {new Date(item.timestamp).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )}
       <AddAccusedModal
         isOpen={showAddModal}
         onClose={() => setShowAddModal(false)}

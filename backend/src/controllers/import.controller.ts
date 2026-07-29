@@ -7,6 +7,7 @@ import { logAudit } from '../utils/audit-logger';
 import { broadcastEvent } from './sse.controller';
 import { STATE_CODES, DISTRICT_NUMBERS } from '../config/constants';
 import { handleControllerError } from '../utils/error-handler';
+import { validateMagicBytes, guardZipBomb } from '../utils/file-security';
 
 function normKey(k: string): string {
   return k.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -315,7 +316,21 @@ export const importDprExcel = async (req: AuthRequest, res: Response) => {
       if (!file?.buffer) {
         return res.status(400).json({ message: 'Upload an Excel file (.xlsx, .xls) or provide parsed aoa.' });
       }
+
+      // ── SECURITY: Magic bytes validation ──
+      const mbCheck = validateMagicBytes(file.buffer, file.originalname);
+      if (!mbCheck.valid) {
+        return res.status(400).json({ message: mbCheck.reason });
+      }
+
       const wb = XLSX.read(file.buffer, { type: 'buffer' });
+
+      // ── SECURITY: Zip bomb / decompression bomb guard ──
+      const zbCheck = guardZipBomb(wb, file.buffer.length);
+      if (!zbCheck.safe) {
+        return res.status(400).json({ message: zbCheck.reason });
+      }
+
       const firstSheetName = wb.SheetNames[0];
       if (!firstSheetName) {
         return res.status(400).json({ message: 'Excel workbook has no sheets' });
@@ -591,7 +606,21 @@ export const previewDprExcel = async (req: AuthRequest, res: Response) => {
       if (!file?.buffer) {
         return res.status(400).json({ message: 'Upload an Excel file (.xlsx, .xls) or provide parsed aoa.' });
       }
+
+      // ── SECURITY: Magic bytes validation ──
+      const mbCheck = validateMagicBytes(file.buffer, file.originalname);
+      if (!mbCheck.valid) {
+        return res.status(400).json({ message: mbCheck.reason });
+      }
+
       const wb = XLSX.read(file.buffer, { type: 'buffer' });
+
+      // ── SECURITY: Zip bomb / decompression bomb guard ──
+      const zbCheck = guardZipBomb(wb, file.buffer.length);
+      if (!zbCheck.safe) {
+        return res.status(400).json({ message: zbCheck.reason });
+      }
+
       const firstSheetName = wb.SheetNames[0];
       if (!firstSheetName) {
         return res.status(400).json({ message: 'Excel workbook has no sheets' });

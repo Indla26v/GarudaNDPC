@@ -100,6 +100,7 @@ export default function OffenderForm() {
   const [cameraActive, setCameraActive] = useState(false);
   const videoRef = useRef(null);
   const streamRef = useRef(null);
+  const [quickNotes, setQuickNotes] = useState('');
 
   const [form, setForm] = useState({
     slNo:'', psId:'', fullName:'', alias:'', fatherHusbandName:'',
@@ -1685,19 +1686,42 @@ export default function OffenderForm() {
         </div>
 
         {/* Right Sticky Quick Access Panel */}
-        <div className="hidden lg:block lg:col-span-3 sticky top-24 self-start">
-          <div className="pl-4 border-l-2 border-slate-300 space-y-2">
+        <div className="hidden lg:block lg:col-span-3 sticky top-24 self-start space-y-4">
+          <div className="pl-4 border-l-2 border-slate-300 dark:border-slate-700 space-y-2">
             <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-4 px-2">Quick Navigation</p>
             {quickAccessSections.map((s) => (
               <button
                 key={s.id}
                 type="button"
                 onClick={() => document.getElementById(s.id)?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
-                className="w-full text-left px-2 py-1.5 rounded-lg text-xs font-semibold block transition-all cursor-pointer border-none bg-transparent text-slate-700 hover:text-orange-600 hover:bg-slate-100"
+                className="w-full text-left px-2 py-1.5 rounded-lg text-xs font-semibold block transition-all cursor-pointer border-none bg-transparent text-slate-700 dark:text-slate-400 hover:text-orange-600 dark:hover:text-orange-400 hover:bg-slate-100 dark:hover:bg-slate-800"
               >
                 {s.label}
               </button>
             ))}
+          </div>
+
+          {/* Quick Notes Section Below Quick Nav */}
+          <div className="rounded-xl p-4 border space-y-2" style={{ background: 'var(--color-garuda-800)', borderColor: 'var(--color-garuda-700)' }}>
+            <div className="flex items-center justify-between pb-1.5 border-b" style={{ borderColor: 'var(--color-garuda-700)' }}>
+              <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--color-garuda-300)' }}>
+                Quick Notes
+              </span>
+            </div>
+            <textarea
+              name="notes"
+              value={form.notes || quickNotes || ''}
+              onChange={(e) => {
+                const val = e.target.value;
+                setQuickNotes(val);
+                setForm(prev => ({ ...prev, notes: val }));
+              }}
+              rows={5}
+              placeholder="Type quick offender notes or remarks to save..."
+              className="w-full p-2.5 rounded-lg text-xs outline-none resize-none"
+              style={{ background: 'var(--color-garuda-900)', border: '1px solid var(--color-garuda-600)', color: 'var(--color-garuda-100)' }}
+              disabled={isView}
+            />
           </div>
         </div>
       </div>

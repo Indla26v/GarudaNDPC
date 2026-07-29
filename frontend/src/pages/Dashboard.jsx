@@ -126,7 +126,7 @@ let cachedToken = null;
 const CACHE_TTL = 30000; // 30 seconds cache
 
 export default function Dashboard() {
-  const [timeRange, setTimeRange] = useState('all');
+  const [timeRange, setTimeRange] = useState('monthly');
   const [sortColumn, setSortColumn] = useState('totalCases');
   const [sortOrder, setSortOrder] = useState('desc');
 

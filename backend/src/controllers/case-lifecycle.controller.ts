@@ -12,7 +12,23 @@ export const getChargeSheet = async (req: AuthRequest, res: Response) => {
     const cs = await prisma.charge_sheets.findUnique({
       where: { case_id: caseId },
     });
-    res.json(successResponse(cs ? { ...cs, id: cs.id.toString(), case_id: cs.case_id.toString() } : null));
+    res.json(
+      successResponse(
+        cs
+          ? {
+              id: cs.id.toString(),
+              caseId: cs.case_id.toString(),
+              expectedSubmissionDate: cs.expected_submission_date,
+              actualSubmissionDate: cs.actual_submission_date,
+              missingDocuments: cs.missing_documents,
+              prosecutorName: cs.prosecutor_name,
+              notes: cs.notes,
+              createdAt: cs.created_at,
+              updatedAt: cs.updated_at,
+            }
+          : null
+      )
+    );
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
   }
@@ -23,8 +39,14 @@ export const upsertChargeSheet = async (req: AuthRequest, res: Response) => {
     const caseId = paramId(req);
     const d = req.body;
     const updateData: Record<string, unknown> = { updated_at: new Date() };
-    if (d.expectedSubmissionDate) updateData.expected_submission_date = new Date(d.expectedSubmissionDate);
-    if (d.actualSubmissionDate) updateData.actual_submission_date = new Date(d.actualSubmissionDate);
+    if (d.expectedSubmissionDate !== undefined || d.expected_submission_date !== undefined) {
+      const dateVal = d.expectedSubmissionDate ?? d.expected_submission_date;
+      updateData.expected_submission_date = dateVal ? new Date(dateVal) : null;
+    }
+    if (d.actualSubmissionDate !== undefined || d.actual_submission_date !== undefined) {
+      const dateVal = d.actualSubmissionDate ?? d.actual_submission_date;
+      updateData.actual_submission_date = dateVal ? new Date(dateVal) : null;
+    }
     if (d.missingDocuments !== undefined || d.missing_documents !== undefined) {
       updateData.missing_documents = d.missingDocuments ?? d.missing_documents;
     }
@@ -37,14 +59,24 @@ export const upsertChargeSheet = async (req: AuthRequest, res: Response) => {
       where: { case_id: caseId },
       create: {
         case_id: caseId,
-        expected_submission_date: d.expectedSubmissionDate ? new Date(d.expectedSubmissionDate) : null,
-        actual_submission_date: d.actualSubmissionDate ? new Date(d.actualSubmissionDate) : null,
+        expected_submission_date: d.expectedSubmissionDate || d.expected_submission_date ? new Date(d.expectedSubmissionDate || d.expected_submission_date) : null,
+        actual_submission_date: d.actualSubmissionDate || d.actual_submission_date ? new Date(d.actualSubmissionDate || d.actual_submission_date) : null,
         missing_documents: d.missingDocuments ?? d.missing_documents,
         prosecutor_name: d.prosecutorName ?? d.prosecutor_name,
         notes: d.notes,
       },
       update: updateData as any,
     });
+
+    // Auto update stage to CHARGESHEET if case is currently in FIR stage
+    const currentCase = await prisma.cases.findUnique({ where: { id: caseId } });
+    if (currentCase && currentCase.stage === 'FIR') {
+      await prisma.cases.update({
+        where: { id: caseId },
+        data: { stage: 'CHARGESHEET', updated_at: new Date() },
+      });
+    }
+
     await logAudit('UPDATE', 'CHARGE_SHEET', cs.id, req);
     broadcastEvent('data_updated', { entity: 'charge_sheet', id: cs.id.toString(), caseId: caseId.toString() });
     res.json(successResponse({ id: cs.id.toString() }, 'Charge sheet saved'));
@@ -60,7 +92,21 @@ export const getCourtHearings = async (req: AuthRequest, res: Response) => {
       where: { case_id: paramId(req) },
       orderBy: { hearing_date: 'desc' },
     });
-    res.json(successResponse(rows.map((h) => ({ ...h, id: h.id.toString(), case_id: h.case_id.toString() }))));
+    res.json(
+      successResponse(
+        rows.map((h) => ({
+          id: h.id.toString(),
+          caseId: h.case_id.toString(),
+          scNumber: h.sc_number,
+          courtName: h.court_name,
+          hearingDate: h.hearing_date,
+          judgeName: h.judge_name,
+          orderText: h.order_text,
+          nextHearingDate: h.next_hearing_date,
+          createdAt: h.created_at,
+        }))
+      )
+    );
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
   }
@@ -68,10 +114,11 @@ export const getCourtHearings = async (req: AuthRequest, res: Response) => {
 
 export const addCourtHearing = async (req: AuthRequest, res: Response) => {
   try {
+    const caseId = paramId(req);
     const d = req.body;
     const h = await prisma.court_hearings.create({
       data: {
-        case_id: paramId(req),
+        case_id: caseId,
         sc_number: d.scNumber ?? d.sc_number,
         court_name: d.courtName ?? d.court_name,
         hearing_date: d.hearingDate || d.hearing_date ? new Date(d.hearingDate || d.hearing_date) : null,
@@ -80,6 +127,16 @@ export const addCourtHearing = async (req: AuthRequest, res: Response) => {
         next_hearing_date: d.nextHearingDate || d.next_hearing_date ? new Date(d.nextHearingDate || d.next_hearing_date) : null,
       },
     });
+
+    // Auto update stage to TRIAL if case is currently in FIR or CHARGESHEET stage
+    const currentCase = await prisma.cases.findUnique({ where: { id: caseId } });
+    if (currentCase && (currentCase.stage === 'FIR' || currentCase.stage === 'CHARGESHEET')) {
+      await prisma.cases.update({
+        where: { id: caseId },
+        data: { stage: 'TRIAL', updated_at: new Date() },
+      });
+    }
+
     await logAudit('CREATE', 'COURT_HEARING', h.id, req);
     broadcastEvent('data_updated', { entity: 'court_hearing', id: h.id.toString(), caseId: h.case_id.toString() });
     res.status(201).json(successResponse({ id: h.id.toString() }, 'Hearing added'));
@@ -94,12 +151,23 @@ export const getBailRecords = async (req: AuthRequest, res: Response) => {
       where: { case_id: paramId(req) },
       orderBy: { created_at: 'desc' },
     });
-    res.json(successResponse(rows.map((b) => ({
-      ...b,
-      id: b.id.toString(),
-      case_id: b.case_id.toString(),
-      case_accused_id: b.case_accused_id?.toString() ?? null,
-    }))));
+    res.json(
+      successResponse(
+        rows.map((b) => ({
+          id: b.id.toString(),
+          caseId: b.case_id.toString(),
+          caseAccusedId: b.case_accused_id?.toString() ?? null,
+          applicationDate: b.application_date,
+          status: b.status,
+          grantedDate: b.granted_date,
+          courtName: b.court_name,
+          suretyDetails: b.surety_details,
+          conditions: b.conditions,
+          notes: b.notes,
+          createdAt: b.created_at,
+        }))
+      )
+    );
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
   }

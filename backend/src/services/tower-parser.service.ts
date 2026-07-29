@@ -7,6 +7,7 @@
  * Missing geo-coordinates default to 0 (schema requires non-null lat/lng).
  */
 import * as XLSX from 'xlsx';
+import { validateMagicBytes, guardZipBomb } from '../utils/file-security';
 
 export interface ParsedTowerLog {
   mobile_number: string;
@@ -111,7 +112,21 @@ export async function parseTowerDump(buffer: Buffer, fileType: string): Promise<
   const errors: string[] = [];
   void fileType; // dispatch is by extension upstream; xlsx auto-detects CSV vs XLSX from the buffer
 
+  // ── SECURITY: Magic bytes validation ──
+  const ext = (fileType || 'xlsx').toLowerCase();
+  const mbCheck = validateMagicBytes(buffer, `file.${ext}`);
+  if (!mbCheck.valid) {
+    return { logs: [], detectedColumns: [], errors: [mbCheck.reason || 'File content does not match the declared format.'] };
+  }
+
   const wb = XLSX.read(buffer, { type: 'buffer', cellDates: true });
+
+  // ── SECURITY: Zip bomb / decompression bomb guard ──
+  const zbCheck = guardZipBomb(wb, buffer.length);
+  if (!zbCheck.safe) {
+    return { logs: [], detectedColumns: [], errors: [zbCheck.reason || 'File rejected: possible decompression bomb.'] };
+  }
+
   const sheetName = wb.SheetNames[0];
   if (!sheetName) return { logs: [], detectedColumns: [], errors: ['No sheets found in the file.'] };
   const sheet = wb.Sheets[sheetName];

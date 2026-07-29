@@ -15,7 +15,7 @@ const CACHE_TTL_SECONDS = 30;
 
 export class DashboardService {
   /** Fetch dashboard KPIs with in-memory TTL caching. */
-  static async getSummary(user: ScopeUser, timeRange = 'all', forceBypass = false) {
+  static async getSummary(user: ScopeUser, timeRange = 'monthly', forceBypass = false) {
     const { psFilter, isStationLevel } = getDashboardScope(user);
 
     let dateFilter: { gte?: Date } | undefined = undefined;
@@ -37,25 +37,49 @@ export class DashboardService {
       }
     }
 
-    const caseWhere: any = { ...psFilter };
-    const offenderWhere: any = { ...psFilter };
-    const caseAccusedWhere: any = psFilter.ps_id
-      ? { cases: { ps_id: psFilter.ps_id } }
-      : psFilter.police_stations
-      ? { cases: { police_stations: psFilter.police_stations } }
-      : {};
-    const seizureWhere: any = psFilter.ps_id
-      ? { cases: { ps_id: psFilter.ps_id } }
-      : psFilter.police_stations
-      ? { cases: { police_stations: psFilter.police_stations } }
-      : {};
+    const caseDateCondition = dateFilter ? {
+      OR: [
+        { case_date: dateFilter },
+        { case_date: null, created_at: dateFilter }
+      ]
+    } : {};
 
-    if (dateFilter) {
-      caseWhere.created_at = dateFilter;
-      offenderWhere.created_at = dateFilter;
-      caseAccusedWhere.created_at = dateFilter;
-      seizureWhere.created_at = dateFilter;
-    }
+    const seizureDateCondition = dateFilter ? {
+      OR: [
+        { seizure_date: dateFilter },
+        { seizure_date: null, cases: { case_date: dateFilter } },
+        { seizure_date: null, cases: { case_date: null }, created_at: dateFilter }
+      ]
+    } : {};
+
+    const accusedDateCondition = dateFilter ? {
+      cases: {
+        OR: [
+          { case_date: dateFilter },
+          { case_date: null, created_at: dateFilter }
+        ]
+      }
+    } : {};
+
+    const offenderDateCondition = dateFilter ? {
+      OR: [
+        { case_accused: { some: { cases: { OR: [{ case_date: dateFilter }, { case_date: null, created_at: dateFilter }] } } } },
+        { case_accused: { none: {} }, created_at: dateFilter }
+      ]
+    } : {};
+
+    const caseWhere: any = { ...psFilter, ...caseDateCondition };
+    const offenderWhere: any = { ...psFilter, ...offenderDateCondition };
+    const caseAccusedWhere: any = psFilter.ps_id
+      ? { cases: { ps_id: psFilter.ps_id, ...(accusedDateCondition.cases || {}) } }
+      : psFilter.police_stations
+      ? { cases: { police_stations: psFilter.police_stations, ...(accusedDateCondition.cases || {}) } }
+      : { ...accusedDateCondition };
+    const seizureWhere: any = psFilter.ps_id
+      ? { cases: { ps_id: psFilter.ps_id }, ...seizureDateCondition }
+      : psFilter.police_stations
+      ? { cases: { police_stations: psFilter.police_stations }, ...seizureDateCondition }
+      : { ...seizureDateCondition };
 
     const [totalCases, totalOffenders, totalArrests, seizures] = await Promise.all([
       prisma.cases.count({ where: caseWhere }),

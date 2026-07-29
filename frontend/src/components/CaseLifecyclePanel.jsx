@@ -10,7 +10,7 @@ const inputStyle = {
   color: 'var(--color-garuda-100)',
 };
 
-export default function CaseLifecyclePanel({ caseId, canEdit }) {
+export default function CaseLifecyclePanel({ caseId, canEdit, onCaseUpdated }) {
   const [chargeSheet, setChargeSheet] = useState(null);
   const [hearings, setHearings] = useState([]);
   const [bailRecords, setBailRecords] = useState([]);
@@ -34,8 +34,8 @@ export default function CaseLifecyclePanel({ caseId, canEdit }) {
       setChargeSheet(csData);
       if (csData) {
         setCsForm({
-          expectedSubmissionDate: csData.expectedSubmissionDate?.split?.('T')?.[0] || '',
-          actualSubmissionDate: csData.actualSubmissionDate?.split?.('T')?.[0] || '',
+          expectedSubmissionDate: csData.expectedSubmissionDate ? String(csData.expectedSubmissionDate).split('T')[0] : '',
+          actualSubmissionDate: csData.actualSubmissionDate ? String(csData.actualSubmissionDate).split('T')[0] : '',
           prosecutorName: csData.prosecutorName || '',
           missingDocuments: csData.missingDocuments || '',
           notes: csData.notes || '',
@@ -51,7 +51,8 @@ export default function CaseLifecyclePanel({ caseId, canEdit }) {
     try {
       await api.put(`/cases/${caseId}/charge-sheet`, csForm);
       setMsg('Charge sheet saved');
-      loadAll();
+      await loadAll();
+      onCaseUpdated?.();
     } catch {
       setMsg('Failed to save charge sheet');
     }
@@ -63,7 +64,8 @@ export default function CaseLifecyclePanel({ caseId, canEdit }) {
       await api.post(`/cases/${caseId}/court-hearings`, hearingForm);
       setHearingForm({});
       setMsg('Hearing added');
-      loadAll();
+      await loadAll();
+      onCaseUpdated?.();
     } catch {
       setMsg('Failed to add hearing');
     }
@@ -75,7 +77,8 @@ export default function CaseLifecyclePanel({ caseId, canEdit }) {
       await api.post(`/cases/${caseId}/bail-records`, bailForm);
       setBailForm({});
       setMsg('Bail record added');
-      loadAll();
+      await loadAll();
+      onCaseUpdated?.();
     } catch {
       setMsg('Failed to add bail record');
     }
@@ -91,22 +94,27 @@ export default function CaseLifecyclePanel({ caseId, canEdit }) {
         <h3 className="font-semibold mb-4" style={{ color: 'var(--color-garuda-200)' }}>Charge Sheet</h3>
         <form onSubmit={saveChargeSheet} className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <label className="text-xs" style={{ color: 'var(--color-garuda-400)' }}>
-            Expected date
+            Expected Submission Date
             <input type="date" className="w-full mt-1 px-2 py-2 rounded text-sm" style={inputStyle}
               value={csForm.expectedSubmissionDate || ''} onChange={e => setCsForm(f => ({ ...f, expectedSubmissionDate: e.target.value }))} disabled={!canEdit} />
           </label>
           <label className="text-xs" style={{ color: 'var(--color-garuda-400)' }}>
-            Actual submission
+            Actual Submission Date
             <input type="date" className="w-full mt-1 px-2 py-2 rounded text-sm" style={inputStyle}
               value={csForm.actualSubmissionDate || ''} onChange={e => setCsForm(f => ({ ...f, actualSubmissionDate: e.target.value }))} disabled={!canEdit} />
           </label>
           <label className="text-xs md:col-span-2" style={{ color: 'var(--color-garuda-400)' }}>
-            Prosecutor
-            <input className="w-full mt-1 px-2 py-2 rounded text-sm" style={inputStyle}
+            Prosecutor Name
+            <input className="w-full mt-1 px-2 py-2 rounded text-sm" style={inputStyle} placeholder="e.g. Adv. K. Sharma"
               value={csForm.prosecutorName || ''} onChange={e => setCsForm(f => ({ ...f, prosecutorName: e.target.value }))} disabled={!canEdit} />
           </label>
+          <label className="text-xs md:col-span-2" style={{ color: 'var(--color-garuda-400)' }}>
+            Notes / Remarks
+            <textarea rows={2} className="w-full mt-1 px-2 py-2 rounded text-sm outline-none" style={inputStyle} placeholder="Add notes or remarks regarding charge sheet submission..."
+              value={csForm.notes || ''} onChange={e => setCsForm(f => ({ ...f, notes: e.target.value }))} disabled={!canEdit} />
+          </label>
           {canEdit && (
-            <button type="submit" className="md:col-span-2 px-4 py-2 rounded text-sm text-white" style={{ background: 'var(--color-accent-500)' }}>
+            <button type="submit" className="md:col-span-2 px-4 py-2 rounded text-sm text-white font-semibold cursor-pointer" style={{ background: 'var(--color-accent-500)' }}>
               Save Charge Sheet
             </button>
           )}
@@ -118,22 +126,46 @@ export default function CaseLifecyclePanel({ caseId, canEdit }) {
         {hearings.length > 0 && (
           <ul className="space-y-2 mb-4">
             {hearings.map(h => (
-              <li key={h.id} className="p-3 rounded text-sm" style={{ background: 'var(--color-garuda-900)' }}>
-                <span style={{ color: 'var(--color-garuda-100)' }}>{h.courtName || 'Court'} — SC {h.scNumber || '—'}</span>
+              <li key={h.id} className="p-3 rounded text-sm space-y-1" style={{ background: 'var(--color-garuda-900)' }}>
+                <div className="flex justify-between">
+                  <span style={{ color: 'var(--color-garuda-100)' }}>{h.courtName || 'Court'} — SC {h.scNumber || '—'}</span>
+                </div>
                 <span className="block text-xs" style={{ color: 'var(--color-garuda-400)' }}>
-                  {h.hearingDate ? new Date(h.hearingDate).toLocaleDateString('en-IN') : '—'}
-                  {h.nextHearingDate ? ` → Next: ${new Date(h.nextHearingDate).toLocaleDateString('en-IN')}` : ''}
+                  Hearing Date: {h.hearingDate ? new Date(h.hearingDate).toLocaleDateString('en-IN') : '—'}
+                  {h.nextHearingDate ? ` → Next Hearing: ${new Date(h.nextHearingDate).toLocaleDateString('en-IN')}` : ''}
                 </span>
+                {h.orderText && (
+                  <p className="text-xs italic" style={{ color: 'var(--color-garuda-300)' }}>
+                    Notes/Order: "{h.orderText}"
+                  </p>
+                )}
               </li>
             ))}
           </ul>
         )}
         {canEdit && (
           <form onSubmit={addHearing} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <input placeholder="SC Number" className="px-2 py-2.5 rounded text-sm" style={inputStyle} value={hearingForm.scNumber || ''} onChange={e => setHearingForm(f => ({ ...f, scNumber: e.target.value }))} />
-            <input placeholder="Court name" className="px-2 py-2.5 rounded text-sm" style={inputStyle} value={hearingForm.courtName || ''} onChange={e => setHearingForm(f => ({ ...f, courtName: e.target.value }))} />
-            <input type="date" className="px-2 py-2.5 rounded text-sm" style={inputStyle} value={hearingForm.hearingDate || ''} onChange={e => setHearingForm(f => ({ ...f, hearingDate: e.target.value }))} />
-            <input type="date" className="px-2 py-2.5 rounded text-sm" style={inputStyle} value={hearingForm.nextHearingDate || ''} onChange={e => setHearingForm(f => ({ ...f, nextHearingDate: e.target.value }))} />
+            <label className="text-xs" style={{ color: 'var(--color-garuda-400)' }}>
+              SC Number
+              <input placeholder="e.g. SC/102/2026" className="w-full mt-1 px-2 py-2.5 rounded text-sm" style={inputStyle} value={hearingForm.scNumber || ''} onChange={e => setHearingForm(f => ({ ...f, scNumber: e.target.value }))} />
+            </label>
+            <label className="text-xs" style={{ color: 'var(--color-garuda-400)' }}>
+              Court Name
+              <input placeholder="e.g. NDPS Special Court, Tirupati" className="w-full mt-1 px-2 py-2.5 rounded text-sm" style={inputStyle} value={hearingForm.courtName || ''} onChange={e => setHearingForm(f => ({ ...f, courtName: e.target.value }))} />
+            </label>
+            <label className="text-xs" style={{ color: 'var(--color-garuda-400)' }}>
+              Hearing Date
+              <input type="date" className="w-full mt-1 px-2 py-2.5 rounded text-sm" style={inputStyle} value={hearingForm.hearingDate || ''} onChange={e => setHearingForm(f => ({ ...f, hearingDate: e.target.value }))} />
+            </label>
+            <label className="text-xs" style={{ color: 'var(--color-garuda-400)' }}>
+              Next Hearing Date
+              <input type="date" className="w-full mt-1 px-2 py-2.5 rounded text-sm" style={inputStyle} value={hearingForm.nextHearingDate || ''} onChange={e => setHearingForm(f => ({ ...f, nextHearingDate: e.target.value }))} />
+            </label>
+            <label className="text-xs sm:col-span-2" style={{ color: 'var(--color-garuda-400)' }}>
+              Order / Hearing Notes
+              <textarea rows={2} className="w-full mt-1 px-2 py-2 rounded text-sm outline-none" style={inputStyle} placeholder="Add court order details or hearing notes..."
+                value={hearingForm.orderText || ''} onChange={e => setHearingForm(f => ({ ...f, orderText: e.target.value }))} />
+            </label>
             <button type="submit" className="col-span-1 sm:col-span-2 px-4 py-2.5 rounded text-sm text-white font-semibold cursor-pointer" style={{ background: 'var(--color-accent-500)' }}>Add Hearing</button>
           </form>
         )}
@@ -144,22 +176,40 @@ export default function CaseLifecyclePanel({ caseId, canEdit }) {
         {bailRecords.length > 0 && (
           <ul className="space-y-2 mb-4">
             {bailRecords.map(b => (
-              <li key={b.id} className="p-3 rounded text-sm" style={{ background: 'var(--color-garuda-900)' }}>
-                <span style={{ color: 'var(--color-garuda-100)' }}>{b.status}</span>
-                <span className="block text-xs" style={{ color: 'var(--color-garuda-400)' }}>{b.courtName || '—'}</span>
+              <li key={b.id} className="p-3 rounded text-sm space-y-1" style={{ background: 'var(--color-garuda-900)' }}>
+                <div className="flex justify-between">
+                  <span style={{ color: 'var(--color-garuda-100)' }}>Status: {b.status}</span>
+                  <span style={{ color: 'var(--color-garuda-400)' }}>{b.courtName || '—'}</span>
+                </div>
+                {b.notes && (
+                  <p className="text-xs italic" style={{ color: 'var(--color-garuda-300)' }}>
+                    Notes: "{b.notes}"
+                  </p>
+                )}
               </li>
             ))}
           </ul>
         )}
         {canEdit && (
           <form onSubmit={addBail} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <select className="px-2 py-2.5 rounded text-sm cursor-pointer" style={inputStyle} value={bailForm.status || 'PENDING'} onChange={e => setBailForm(f => ({ ...f, status: e.target.value }))}>
-              <option value="PENDING">Pending</option>
-              <option value="GRANTED">Granted</option>
-              <option value="REJECTED">Rejected</option>
-              <option value="CANCELLED">Cancelled</option>
-            </select>
-            <input placeholder="Court" className="px-2 py-2.5 rounded text-sm" style={inputStyle} value={bailForm.courtName || ''} onChange={e => setBailForm(f => ({ ...f, courtName: e.target.value }))} />
+            <label className="text-xs" style={{ color: 'var(--color-garuda-400)' }}>
+              Bail Status
+              <select className="w-full mt-1 px-2 py-2.5 rounded text-sm cursor-pointer" style={inputStyle} value={bailForm.status || 'PENDING'} onChange={e => setBailForm(f => ({ ...f, status: e.target.value }))}>
+                <option value="PENDING">Pending</option>
+                <option value="GRANTED">Granted</option>
+                <option value="REJECTED">Rejected</option>
+                <option value="CANCELLED">Cancelled</option>
+              </select>
+            </label>
+            <label className="text-xs" style={{ color: 'var(--color-garuda-400)' }}>
+              Court Name
+              <input placeholder="e.g. Sessions Court" className="w-full mt-1 px-2 py-2.5 rounded text-sm" style={inputStyle} value={bailForm.courtName || ''} onChange={e => setBailForm(f => ({ ...f, courtName: e.target.value }))} />
+            </label>
+            <label className="text-xs sm:col-span-2" style={{ color: 'var(--color-garuda-400)' }}>
+              Bail Notes / Conditions
+              <textarea rows={2} className="w-full mt-1 px-2 py-2 rounded text-sm outline-none" style={inputStyle} placeholder="Add bail conditions or remarks..."
+                value={bailForm.notes || ''} onChange={e => setBailForm(f => ({ ...f, notes: e.target.value }))} />
+            </label>
             <button type="submit" className="col-span-1 sm:col-span-2 px-4 py-2.5 rounded text-sm text-white font-semibold cursor-pointer" style={{ background: 'var(--color-accent-500)' }}>Add Bail Record</button>
           </form>
         )}

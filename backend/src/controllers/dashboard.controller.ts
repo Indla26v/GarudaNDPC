@@ -26,7 +26,7 @@ export const getDashboardSummary = async (req: AuthRequest, res: Response) => {
     const user: ScopeUser = req.user! || {};
     const { psFilter, isStationLevel } = getDashboardScope(user);
 
-    const timeRange = req.query.timeRange as string || 'all';
+    const timeRange = req.query.timeRange as string || 'monthly';
     let dateFilter: { gte?: Date } | undefined = undefined;
 
     if (timeRange !== 'all') {
@@ -58,26 +58,58 @@ export const getDashboardSummary = async (req: AuthRequest, res: Response) => {
       }
     }
 
-    // Build case/offender/seizure where clauses based on scope and time range
-    const caseWhere: any = { ...psFilter };
-    const offenderWhere: any = { ...psFilter };
-    const caseAccusedWhere: any = psFilter.ps_id
-      ? { cases: { ps_id: psFilter.ps_id } }
-      : (psFilter.police_stations
-          ? { cases: { police_stations: psFilter.police_stations } }
-          : {});
-    const seizureWhere: any = psFilter.ps_id
-      ? { cases: { ps_id: psFilter.ps_id } }
-      : (psFilter.police_stations
-          ? { cases: { police_stations: psFilter.police_stations } }
-          : {});
+    // Build case/offender/seizure date conditions based on time range
+    const caseDateCondition = dateFilter ? {
+      OR: [
+        { case_date: dateFilter },
+        { case_date: null, created_at: dateFilter }
+      ]
+    } : {};
 
-    if (dateFilter) {
-      caseWhere.created_at = dateFilter;
-      offenderWhere.created_at = dateFilter;
-      caseAccusedWhere.created_at = dateFilter;
-      seizureWhere.created_at = dateFilter;
-    }
+    const seizureDateCondition = dateFilter ? {
+      OR: [
+        { seizure_date: dateFilter },
+        { seizure_date: null, cases: { case_date: dateFilter } },
+        { seizure_date: null, cases: { case_date: null }, created_at: dateFilter }
+      ]
+    } : {};
+
+    const vehicleDateCondition = dateFilter ? {
+      OR: [
+        { seizure_date: dateFilter },
+        { seizure_date: null, cases: { case_date: dateFilter } },
+        { seizure_date: null, cases: { case_date: null }, created_at: dateFilter }
+      ]
+    } : {};
+
+    const accusedDateCondition = dateFilter ? {
+      cases: {
+        OR: [
+          { case_date: dateFilter },
+          { case_date: null, created_at: dateFilter }
+        ]
+      }
+    } : {};
+
+    const offenderDateCondition = dateFilter ? {
+      OR: [
+        { case_accused: { some: { cases: { OR: [{ case_date: dateFilter }, { case_date: null, created_at: dateFilter }] } } } },
+        { case_accused: { none: {} }, created_at: dateFilter }
+      ]
+    } : {};
+
+    const caseWhere: any = { ...psFilter, ...caseDateCondition };
+    const offenderWhere: any = { ...psFilter, ...offenderDateCondition };
+    const caseAccusedWhere: any = psFilter.ps_id
+      ? { cases: { ps_id: psFilter.ps_id, ...(accusedDateCondition.cases || {}) } }
+      : (psFilter.police_stations
+          ? { cases: { police_stations: psFilter.police_stations, ...(accusedDateCondition.cases || {}) } }
+          : { ...accusedDateCondition });
+    const seizureWhere: any = psFilter.ps_id
+      ? { cases: { ps_id: psFilter.ps_id }, ...seizureDateCondition }
+      : (psFilter.police_stations
+          ? { cases: { police_stations: psFilter.police_stations }, ...seizureDateCondition }
+          : { ...seizureDateCondition });
 
     // ── Core KPIs ──────────────────────────────────────────────────────
     const totalCases = await prisma.cases.count({ where: caseWhere });
@@ -99,14 +131,11 @@ export const getDashboardSummary = async (req: AuthRequest, res: Response) => {
       where: { ...caseWhere, stage: 'TRIAL' },
     });
 
-    // Convictions this year
-    const currentYear = new Date().getFullYear();
-    const yearStart = new Date(`${currentYear}-01-01`);
+    // Convictions in period
     const convictionsThisYear = await prisma.cases.count({
       where: {
         ...caseWhere,
         stage: 'CONVICTED',
-        updated_at: { gte: yearStart },
       },
     });
 
@@ -126,13 +155,10 @@ export const getDashboardSummary = async (req: AuthRequest, res: Response) => {
 
     // ── Seized vehicles (individual records) count ──────────────────────
     const seizedVehicleWhere: any = psFilter.ps_id
-      ? { cases: { ps_id: psFilter.ps_id } }
+      ? { cases: { ps_id: psFilter.ps_id }, ...vehicleDateCondition }
       : (psFilter.police_stations
-          ? { cases: { police_stations: psFilter.police_stations } }
-          : {});
-    if (dateFilter) {
-      seizedVehicleWhere.created_at = dateFilter;
-    }
+          ? { cases: { police_stations: psFilter.police_stations }, ...vehicleDateCondition }
+          : { ...vehicleDateCondition });
     const totalSeizedVehicleRecords = await prisma.seized_vehicles.count({ where: seizedVehicleWhere });
 
     // Resolve the stations for this user's scope
@@ -263,19 +289,22 @@ export const getDashboardSummary = async (req: AuthRequest, res: Response) => {
     const psWiseData = await Promise.all(stationsToQuery.map(async (ps) => {
       const psId = ps.id;
 
-      const stationCaseWhere: any = { ps_id: psId };
-      const stationOffenderWhere: any = { ps_id: psId };
-      const stationArrestsWhere: any = { cases: { ps_id: psId }, arrest_status: { in: ['POLICE_CUSTODY', 'JUDICIAL_CUSTODY'] } };
-      const stationAbscondingWhere: any = { cases: { ps_id: psId }, arrest_status: 'ABSCONDING' };
-      const stationSeizureWhere: any = { cases: { ps_id: psId } };
-
-      if (dateFilter) {
-        stationCaseWhere.created_at = dateFilter;
-        stationOffenderWhere.created_at = dateFilter;
-        stationArrestsWhere.created_at = dateFilter;
-        stationAbscondingWhere.created_at = dateFilter;
-        stationSeizureWhere.created_at = dateFilter;
-      }
+      const stationCaseWhere: any = { ps_id: psId, ...caseDateCondition };
+      const stationOffenderWhere: any = { ps_id: psId, ...offenderDateCondition };
+      const stationArrestsWhere: any = {
+        cases: { ps_id: psId },
+        arrest_status: { in: ['POLICE_CUSTODY', 'JUDICIAL_CUSTODY'] },
+        ...accusedDateCondition
+      };
+      const stationAbscondingWhere: any = {
+        cases: { ps_id: psId },
+        arrest_status: 'ABSCONDING',
+        ...accusedDateCondition
+      };
+      const stationSeizureWhere: any = {
+        cases: { ps_id: psId },
+        ...seizureDateCondition
+      };
 
       const psCases = await prisma.cases.count({ where: stationCaseWhere });
       const psOffenders = await prisma.offenders.count({ where: stationOffenderWhere });

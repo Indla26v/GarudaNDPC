@@ -13,6 +13,7 @@
  */
 import * as XLSX from 'xlsx';
 import pdfParse from 'pdf-parse';
+import { validateMagicBytes, guardZipBomb } from '../utils/file-security';
 
 export type ParsedDirection = 'INCOMING' | 'OUTGOING';
 export type ParsedMode = 'BANK' | 'UPI' | 'CASH' | 'WALLET' | 'NEFT' | 'RTGS' | 'IMPS';
@@ -287,6 +288,13 @@ function parseSheetRows(rows: any[][]): ParseResult {
 /** Parse a CSV or XLSX buffer (xlsx handles both). */
 export function parseTabular(buffer: Buffer): ParseResult {
   const wb = XLSX.read(buffer, { type: 'buffer', cellDates: true });
+
+  // ── SECURITY: Zip bomb / decompression bomb guard ──
+  const zbCheck = guardZipBomb(wb, buffer.length);
+  if (!zbCheck.safe) {
+    return { transactions: [], detectedColumns: [], sampleRows: [], errors: [zbCheck.reason || 'File rejected: possible decompression bomb.'] };
+  }
+
   const firstSheet = wb.SheetNames[0];
   if (!firstSheet) {
     return { transactions: [], detectedColumns: [], sampleRows: [], errors: ['No sheets found in the file.'] };
@@ -357,9 +365,18 @@ export function parseCsv(buffer: Buffer): ParseResult {
   return parseSheetRows(rows);
 }
 
-/** Entry point — dispatch by declared file type. */
+/** Entry point — dispatch by declared file type with security validation. */
 export async function parseStatement(buffer: Buffer, fileType: string): Promise<ParseResult> {
   const ft = (fileType || '').toUpperCase();
+
+  // ── SECURITY: Magic bytes validation ──
+  const extMap: Record<string, string> = { PDF: 'pdf', CSV: 'csv', XLSX: 'xlsx', XLS: 'xls' };
+  const ext = extMap[ft] || ft.toLowerCase();
+  const mbCheck = validateMagicBytes(buffer, `file.${ext}`);
+  if (!mbCheck.valid) {
+    return { transactions: [], detectedColumns: [], sampleRows: [], errors: [mbCheck.reason || 'File content does not match the declared format.'] };
+  }
+
   if (ft === 'PDF') return parsePdf(buffer);
   if (ft === 'CSV') return parseCsv(buffer);
   return parseTabular(buffer); // XLSX / XLS (true date cells)
