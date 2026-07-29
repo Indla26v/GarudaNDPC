@@ -100,11 +100,15 @@ export const getDashboardSummary = async (req: AuthRequest, res: Response) => {
 
     const caseWhere: any = { ...psFilter, ...caseDateCondition };
     const offenderWhere: any = { ...psFilter, ...offenderDateCondition };
-    const caseAccusedWhere: any = psFilter.ps_id
-      ? { cases: { ps_id: psFilter.ps_id, ...(accusedDateCondition.cases || {}) } }
+    const caseAccusedStationScope: any = psFilter.ps_id
+      ? { cases: { ps_id: psFilter.ps_id } }
       : (psFilter.police_stations
-          ? { cases: { police_stations: psFilter.police_stations, ...(accusedDateCondition.cases || {}) } }
-          : { ...accusedDateCondition });
+          ? { cases: { police_stations: psFilter.police_stations } }
+          : {});
+    const caseAccusedWhere: any = {
+      ...caseAccusedStationScope,
+      ...(accusedDateCondition.cases ? { cases: { ...caseAccusedStationScope.cases, ...accusedDateCondition.cases } } : {})
+    };
     const seizureWhere: any = psFilter.ps_id
       ? { cases: { ps_id: psFilter.ps_id }, ...seizureDateCondition }
       : (psFilter.police_stations
@@ -292,14 +296,12 @@ export const getDashboardSummary = async (req: AuthRequest, res: Response) => {
       const stationCaseWhere: any = { ps_id: psId, ...caseDateCondition };
       const stationOffenderWhere: any = { ps_id: psId, ...offenderDateCondition };
       const stationArrestsWhere: any = {
-        cases: { ps_id: psId },
-        arrest_status: { in: ['POLICE_CUSTODY', 'JUDICIAL_CUSTODY'] },
-        ...accusedDateCondition
+        cases: { ps_id: psId, ...(accusedDateCondition.cases || {}) },
+        arrest_status: { in: ['POLICE_CUSTODY', 'JUDICIAL_CUSTODY'] }
       };
       const stationAbscondingWhere: any = {
-        cases: { ps_id: psId },
-        arrest_status: 'ABSCONDING',
-        ...accusedDateCondition
+        cases: { ps_id: psId, ...(accusedDateCondition.cases || {}) },
+        arrest_status: 'ABSCONDING'
       };
       const stationSeizureWhere: any = {
         cases: { ps_id: psId },
@@ -346,7 +348,7 @@ export const getDashboardSummary = async (req: AuthRequest, res: Response) => {
 
     // Add absconder alerts (scoped)
     const recentAbsconders = await prisma.case_accused.findMany({
-      where: { ...caseAccusedWhere, arrest_status: 'ABSCONDING' },
+      where: { ...caseAccusedStationScope, arrest_status: 'ABSCONDING' },
       take: 5,
       orderBy: { created_at: 'desc' },
       include: {
@@ -392,7 +394,7 @@ export const getDashboardSummary = async (req: AuthRequest, res: Response) => {
 
     // ── Absconder list for ticker (scoped) ───────────────────────────────
     const absconders = await prisma.case_accused.findMany({
-      where: { ...caseAccusedWhere, arrest_status: 'ABSCONDING' },
+      where: { ...caseAccusedStationScope, arrest_status: 'ABSCONDING' },
       orderBy: { cases: { case_date: 'asc' } },
       take: 10,
       include: {
@@ -416,7 +418,7 @@ export const getDashboardSummary = async (req: AuthRequest, res: Response) => {
     // ── Most Wanted List (Top 10, scoped) ────────────────────────────────
     const mostWantedOffenders = await prisma.offenders.findMany({
       where: {
-        ...offenderWhere,
+        ...psFilter,
         status: { in: ['ACTIVE', 'ABSCONDING'] },
         case_accused: {
           none: {
