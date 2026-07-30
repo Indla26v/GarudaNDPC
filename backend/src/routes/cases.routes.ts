@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import rateLimit from 'express-rate-limit';
 import {
   createCase,
   getCases,
@@ -26,8 +27,17 @@ const router = Router();
 
 router.use(authenticate);
 
+// ── SECURITY: Rate limit upload endpoints to prevent disk exhaustion ──
+const uploadLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { message: 'Too many upload attempts. Please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // Document upload endpoint
-router.post('/upload', uploadDocument.single('file'), (req: any, res) => {
+router.post('/upload', uploadLimiter, uploadDocument.single('file'), (req: any, res) => {
   if (!req.file) {
     return res.status(400).json({ message: 'No file uploaded' });
   }

@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import rateLimit from 'express-rate-limit';
 import {
   uploadStatement,
   getDashboard,
@@ -20,8 +21,17 @@ const router = Router();
 
 router.use(authenticate);
 
+// ── SECURITY: Rate limit upload endpoints to prevent disk exhaustion ──
+const uploadLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { message: 'Too many upload attempts. Please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // Upload + parse a bank/UPI statement (FIN upload permission)
-router.post('/upload-statement', requirePermission('FINANCE_UPLOAD'), uploadStatementFile.single('file'), uploadStatement);
+router.post('/upload-statement', uploadLimiter, requirePermission('FINANCE_UPLOAD'), uploadStatementFile.single('file'), uploadStatement);
 
 // Intelligence query APIs (FIN view permission)
 router.get('/dashboard', requirePermission('FINANCE_VIEW'), getDashboard);

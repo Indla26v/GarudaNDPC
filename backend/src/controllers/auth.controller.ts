@@ -7,6 +7,8 @@ import prisma from '../config/prisma';
 import { convertBigIntsToNumbers, successResponse } from '../utils/transformers';
 import { logAudit } from '../utils/audit-logger';
 import { validatePassword } from '../utils/password-policy';
+import { checkPasswordHistory, recordPasswordHash } from '../utils/password-history';
+import { checkBreachedPassword } from '../utils/breached-password';
 
 // ── SECURITY FIX #1: No hardcoded fallback — fail-fast if JWT_SECRET is missing
 const JWT_KEY = process.env.JWT_SECRET;
@@ -335,6 +337,18 @@ export const changeMyPassword = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ message: 'New password must be different from the current password' });
     }
 
+    // ── SECURITY: Check against password history (last 5 passwords) ──
+    const historyCheck = await checkPasswordHistory(userId, newPassword);
+    if (historyCheck.reused) {
+      return res.status(400).json({ message: historyCheck.message });
+    }
+
+    // ── SECURITY: Check against known breached passwords (HIBP) ──
+    const breachCheck = await checkBreachedPassword(newPassword);
+    if (breachCheck.breached) {
+      return res.status(400).json({ message: breachCheck.message });
+    }
+
     const newHash = await bcrypt.hash(newPassword, 12);
     await prisma.users.update({
       where: { id: userId },
@@ -343,6 +357,9 @@ export const changeMyPassword = async (req: AuthRequest, res: Response) => {
         password_changed_at: new Date(),
       },
     });
+
+    // ── Record in password history ──
+    await recordPasswordHash(userId, newHash);
 
     await logAudit('UPDATE', 'USER', userId, req, 'Self-service password change');
 

@@ -10,6 +10,8 @@ import prisma from '../config/prisma';
 import { successResponse } from '../utils/transformers';
 import { logAudit } from '../utils/audit-logger';
 import { validatePassword } from '../utils/password-policy';
+import { recordPasswordHash } from '../utils/password-history';
+import { checkBreachedPassword } from '../utils/breached-password';
 
 // ── List all users ────────────────────────────────────────────────────
 export const getUsers = async (req: AuthRequest, res: Response) => {
@@ -110,6 +112,15 @@ export const createUser = async (req: AuthRequest, res: Response) => {
       });
     }
 
+    // ── SECURITY: Breached Password Check ──
+    const breachCheck = await checkBreachedPassword(password);
+    if (breachCheck.breached) {
+      return res.status(400).json({
+        message: 'Password has appeared in known data breaches. Choose a different password.',
+        details: breachCheck.message,
+      });
+    }
+
     // Check for existing username
     const existing = await prisma.users.findUnique({ where: { username } });
     if (existing) {
@@ -132,6 +143,9 @@ export const createUser = async (req: AuthRequest, res: Response) => {
         is_active: true,
       }
     });
+
+    // ── Seed initial password history entry ──
+    await recordPasswordHash(newUser.id, passwordHash);
 
     await logAudit('CREATE', 'USER', newUser.id, req,
       `User ${username} created with role ${role}`);
@@ -189,6 +203,8 @@ export const updateUser = async (req: AuthRequest, res: Response) => {
         });
       }
       updateData.password_hash = await bcrypt.hash(password, 12);
+      // ── Record admin-reset password in history ──
+      await recordPasswordHash(BigInt(id), updateData.password_hash);
     }
 
     await prisma.users.update({

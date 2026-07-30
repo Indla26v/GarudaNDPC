@@ -21,10 +21,44 @@ interface HistorySheetData {
     arrestStatus?: string | null;
   }>;
   generatedAt: string;
+  /** Watermark text to stamp on every page (e.g., "username | 2026-07-30 14:30") */
+  watermark?: string;
+}
+
+/**
+ * Apply a semi-transparent diagonal watermark to the current page.
+ * Called after all content is drawn on a page.
+ */
+function applyWatermark(doc: PDFKit.PDFDocument, text: string): void {
+  if (!text) return;
+
+  doc.save();
+
+  // Semi-transparent grey
+  doc.opacity(0.08);
+  doc.fontSize(48);
+  doc.font('Helvetica-Bold');
+  doc.fillColor('#000000');
+
+  // Rotate and position the text diagonally across the page center
+  const pageWidth = doc.page.width;
+  const pageHeight = doc.page.height;
+  const centerX = pageWidth / 2;
+  const centerY = pageHeight / 2;
+
+  doc.translate(centerX, centerY);
+  doc.rotate(-45, { origin: [0, 0] });
+  doc.text(text, -200, -20, {
+    width: 400,
+    align: 'center',
+  });
+
+  doc.restore();
 }
 
 export function generateHistorySheetPdf(data: HistorySheetData): PDFKit.PDFDocument {
   const doc = new PDFDocument({ size: 'A4', margin: 50 });
+  const watermarkText = data.watermark || '';
 
   // Header
   doc.fontSize(16).font('Helvetica-Bold')
@@ -86,6 +120,8 @@ export function generateHistorySheetPdf(data: HistorySheetData): PDFKit.PDFDocum
 
     for (const row of data.timeline) {
       if (y > 750) { // page break
+        // ── Watermark the current page before adding a new one ──
+        applyWatermark(doc, watermarkText);
         doc.addPage();
         y = 50;
       }
@@ -112,5 +148,9 @@ export function generateHistorySheetPdf(data: HistorySheetData): PDFKit.PDFDocum
      .text(`Generated: ${data.generatedAt}`, { align: 'right' });
   doc.text('GARUDA — Confidential', { align: 'right' });
 
+  // ── Watermark the final page ──
+  applyWatermark(doc, watermarkText);
+
   return doc;
 }
+

@@ -474,7 +474,33 @@ export function scanForMalware(buffer: Buffer, filename: string): MalwareScanRes
     if (/\/AA\s/i.test(pdfStr) && /\/OpenAction\s/i.test(pdfStr)) {
       threats.push('PDF contains auto-executing actions (AA/OpenAction).');
     }
+
+    // ── 7. PDF XFA form detection ──
+    // XFA (XML Forms Architecture) can contain complex dynamic logic
+    // that bypasses standard security scanners.
+    if (/\/XFA\s/i.test(pdfStr) || /\/XDP\s/i.test(pdfStr)) {
+      threats.push('PDF contains an XFA form. XFA forms can execute complex dynamic logic and are not allowed.');
+    }
+
+    // ── 8. PDF SSRF prevention: external references ──
+    // These PDF actions can cause a server that processes the PDF
+    // to make outbound HTTP requests (Server-Side Request Forgery).
+    if (/\/GoToR\s/i.test(pdfStr)) {
+      threats.push('PDF contains a GoToR (remote GoTo) action, which can trigger external requests.');
+    }
+    if (/\/SubmitForm\s/i.test(pdfStr)) {
+      threats.push('PDF contains a SubmitForm action, which can exfiltrate data to an external URL.');
+    }
+    if (/\/ImportData\s/i.test(pdfStr)) {
+      threats.push('PDF contains an ImportData action, which can load external data sources.');
+    }
+    // Check for /URI with http(s) URLs (informational — very common in benign PDFs,
+    // so only flag when combined with suspicious action markers)
+    if (/\/URI\s/i.test(pdfStr) && (/\/AA\s/i.test(pdfStr) || /\/OpenAction\s/i.test(pdfStr))) {
+      threats.push('PDF contains URI actions combined with auto-executing triggers, which may indicate SSRF.');
+    }
   }
+
 
   return {
     clean: threats.length === 0,

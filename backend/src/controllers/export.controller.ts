@@ -302,6 +302,8 @@ export const getOffenderHistorySheetPdf = async (req: AuthRequest, res: Response
         mobile: offender.offender_contacts.find((c) => c.contact_type === 'MOBILE_PRIMARY')?.value || '',
       },
       timeline,
+      // ── SECURITY: Watermark with exporting user's identity for leak traceability ──
+      watermark: `${(req as any).user?.username || 'SYSTEM'} | ${new Date().toLocaleString('en-IN')}`,
     };
 
     await logAudit('EXPORT', 'OFFENDER', id, req, `PDF history sheet exported for ${offender.full_name}`);

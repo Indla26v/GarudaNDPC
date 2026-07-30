@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import rateLimit from 'express-rate-limit';
 import {
   listSurveillanceRecords,
   createSurveillanceRecord,
@@ -45,6 +46,15 @@ router.post('/mobile', requirePermission('TECH_ADD'), addMobile);
 router.post('/imei', requirePermission('TECH_ADD'), addImei);
 router.post('/social', requirePermission('TECH_ADD'), addSocialIntel);
 router.post('/messaging', requirePermission('TECH_ADD'), addMessagingIntel);
-router.post('/tower-dump', requirePermission('TECH_ADD'), uploadExcel.single('file'), uploadTowerDump);
+// ── SECURITY: Rate limit upload endpoints to prevent disk exhaustion ──
+const uploadLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { message: 'Too many upload attempts. Please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+router.post('/tower-dump', uploadLimiter, requirePermission('TECH_ADD'), uploadExcel.single('file'), uploadTowerDump);
 
 export default router;

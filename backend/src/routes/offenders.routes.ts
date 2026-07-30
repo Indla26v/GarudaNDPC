@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import rateLimit from 'express-rate-limit';
 import { 
   getOffenders, 
   getOffenderById, 
@@ -12,10 +13,20 @@ import { authenticate } from '../middleware/auth.middleware';
 import { authorize, requirePermission } from '../middleware/authorize.middleware';
 import { uploadPhoto, uploadExcel } from '../middleware/upload.middleware';
 import { validateMagicBytes, scanForMalware } from '../utils/file-security';
+import { stripImageMetadata, validateImageDimensions } from '../utils/image-sanitizer';
 import { importDprExcel } from '../controllers/import.controller';
 import { getInterrogations, addInterrogation } from '../controllers/case-lifecycle.controller';
 
 const router = Router();
+
+// ── SECURITY: Rate limit upload endpoints to prevent disk exhaustion ──
+const uploadLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,  // 15 minute window
+  max: 10,                    // 10 uploads per window per IP
+  message: { message: 'Too many upload attempts. Please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 router.use(authenticate);
 
@@ -30,7 +41,7 @@ router.post('/:offenderId/interrogations', requirePermission('EDIT_RECORDS'), ad
 router.get('/:id', getOffenderById);
 
 // Photo upload endpoint
-router.post('/upload', uploadPhoto.single('photo'), (req: any, res) => {
+router.post('/upload', uploadLimiter, uploadPhoto.single('photo'), (req: any, res) => {
   if (!req.file) {
     return res.status(400).json({ message: 'No file uploaded' });
   }
@@ -50,7 +61,16 @@ router.post('/upload', uploadPhoto.single('photo'), (req: any, res) => {
     });
   }
 
-  const base64Data = req.file.buffer.toString('base64');
+  // ── SECURITY: Image dimension validation (max 4096×4096) ──
+  const dimCheck = validateImageDimensions(req.file.buffer, req.file.originalname);
+  if (!dimCheck.valid) {
+    return res.status(400).json({ message: dimCheck.reason });
+  }
+
+  // ── SECURITY: Strip EXIF/IPTC/XMP metadata (GPS, device info) ──
+  const sanitizedBuffer = stripImageMetadata(req.file.buffer, req.file.originalname);
+
+  const base64Data = sanitizedBuffer.toString('base64');
   const dataUrl = `data:${req.file.mimetype};base64,${base64Data}`;
   res.json({
     success: true,
@@ -61,8 +81,9 @@ router.post('/upload', uploadPhoto.single('photo'), (req: any, res) => {
   });
 });
 
+
 // Admin endpoint for Excel upload
-router.post('/import', requirePermission('ADD_CASE'), uploadExcel.single('file'), importDprExcel);
+router.post('/import', uploadLimiter, requirePermission('ADD_CASE'), uploadExcel.single('file'), importDprExcel);
 
 // CI/SI can create
 router.post('/', requirePermission('ADD_CASE'), createOffender);
