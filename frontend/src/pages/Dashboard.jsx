@@ -236,7 +236,7 @@ export default function Dashboard() {
               onClick={() => handleTimeRangeChange('monthly')}
               className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
                 timeRange === 'monthly'
-                  ? 'bg-amber-500 text-slate-950 font-black shadow-xs'
+                  ? 'bg-amber-500 text-white font-extrabold shadow-xs'
                   : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
@@ -246,7 +246,7 @@ export default function Dashboard() {
               onClick={() => handleTimeRangeChange('yearly')}
               className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
                 timeRange === 'yearly'
-                  ? 'bg-amber-500 text-slate-950 font-black shadow-xs'
+                  ? 'bg-amber-500 text-white font-extrabold shadow-xs'
                   : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
@@ -256,7 +256,7 @@ export default function Dashboard() {
               onClick={() => handleTimeRangeChange('all')}
               className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
                 timeRange === 'all'
-                  ? 'bg-amber-500 text-slate-950 font-black shadow-xs'
+                  ? 'bg-amber-500 text-white font-extrabold shadow-xs'
                   : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
@@ -267,7 +267,7 @@ export default function Dashboard() {
           {perms.canRegisterCase && (
             <Link 
               to="/cases/new" 
-              className="px-3.5 py-2 text-xs font-black bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-xl shadow-xs transition-all flex items-center gap-1.5"
+              className="px-3.5 py-2 text-xs font-extrabold bg-amber-500 hover:bg-amber-600 text-white rounded-xl shadow-xs transition-all flex items-center gap-1.5"
             >
               + New Case
             </Link>

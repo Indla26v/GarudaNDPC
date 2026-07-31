@@ -7,10 +7,76 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
+import fs from 'fs';
+import path from 'path';
 import prisma from '../config/prisma';
 import { successResponse } from '../utils/transformers';
 import { getDashboardScope, ScopeUser } from '../utils/scope';
 import { logAudit } from '../utils/audit-logger';
+import { maskAadhaar, canRevealAadhaar } from '../utils/pii';
+
+async function getImageBufferAndExtension(photoUrl: string | null | undefined): Promise<{ buffer: Buffer; extension: 'png' | 'jpeg' | 'gif' } | null> {
+  if (!photoUrl || typeof photoUrl !== 'string' || !photoUrl.trim()) return null;
+  const cleanedUrl = photoUrl.trim();
+
+  try {
+    if (cleanedUrl.startsWith('data:image/')) {
+      const matches = cleanedUrl.match(/^data:image\/(png|jpeg|jpg|gif|webp);base64,(.+)$/i);
+      if (matches && matches[1] && matches[2]) {
+        let extStr = matches[1].toLowerCase();
+        if (extStr === 'jpg' || extStr === 'webp') extStr = 'jpeg';
+        const extension = extStr as 'png' | 'jpeg' | 'gif';
+        const buffer = Buffer.from(matches[2], 'base64');
+        return { buffer, extension };
+      }
+    }
+
+    let relPath = cleanedUrl;
+    if (relPath.startsWith('/api/uploads/')) {
+      relPath = relPath.replace('/api/uploads/', 'uploads/');
+    } else if (relPath.startsWith('/uploads/')) {
+      relPath = relPath.substring(1);
+    } else if (relPath.startsWith('api/uploads/')) {
+      relPath = relPath.replace('api/uploads/', 'uploads/');
+    }
+
+    const possiblePaths = [
+      path.resolve(process.cwd(), relPath),
+      path.resolve(process.cwd(), 'uploads', path.basename(relPath)),
+      path.resolve(relPath)
+    ];
+
+    for (const p of possiblePaths) {
+      if (fs.existsSync(p) && fs.statSync(p).isFile()) {
+        const extName = path.extname(p).toLowerCase().replace('.', '');
+        let extension: 'png' | 'jpeg' | 'gif' = 'jpeg';
+        if (extName === 'png') extension = 'png';
+        else if (extName === 'gif') extension = 'gif';
+        const buffer = fs.readFileSync(p);
+        return { buffer, extension };
+      }
+    }
+
+    if (cleanedUrl.startsWith('http://') || cleanedUrl.startsWith('https://')) {
+      const response = await fetch(cleanedUrl);
+      if (response.ok) {
+        const arrayBuffer = await response.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        const contentType = response.headers.get('content-type') || '';
+        let extension: 'png' | 'jpeg' | 'gif' = 'jpeg';
+        if (contentType.includes('png')) extension = 'png';
+        else if (contentType.includes('gif')) extension = 'gif';
+        return { buffer, extension };
+      }
+    }
+  } catch (err) {
+    console.error('Error fetching image for Excel export:', err);
+  }
+  return null;
+}
+
+
 
 function csvEscape(v: unknown): string {
   let s = v == null ? '' : String(v);
@@ -22,6 +88,16 @@ function csvEscape(v: unknown): string {
   }
   return s;
 }
+
+function cleanCellText(val: unknown): string {
+  if (val == null) return '';
+  const s = String(val);
+  if (s.length > 32000) {
+    return s.slice(0, 32000) + '... [TRUNCATED]';
+  }
+  return s;
+}
+
 
 function getSeverity(daysOutstanding: number): string {
   if (daysOutstanding > 90) return 'CRITICAL';
@@ -475,6 +551,7 @@ export const getTopOffendersReport = async (req: AuthRequest, res: Response) => 
 export const getDprExport = async (req: AuthRequest, res: Response) => {
   try {
     const user: ScopeUser = req.user! || {};
+    const userRole = req.user?.role || '';
     const { psFilter } = getDashboardScope(user);
     const { startDate, endDate } = req.query;
 
@@ -493,60 +570,317 @@ export const getDprExport = async (req: AuthRequest, res: Response) => {
         police_stations: true,
         seizures: true,
         case_accused: {
-          include: { offenders: true }
+          include: {
+            offenders: {
+              include: {
+                police_stations: true,
+                offender_contacts: true,
+                offender_identity_docs: true,
+                offender_drug_profile: true,
+                offender_financials: true,
+                social_media_intel: true,
+                messaging_intel: true,
+                supply_chain_links_supply_chain_links_offender_idTooffenders: true,
+                case_accused: {
+                  include: {
+                    cases: {
+                      include: { police_stations: true }
+                    }
+                  }
+                }
+              }
+            }
+          }
         }
       },
       orderBy: { case_date: 'asc' }
     });
 
-    const exportRows = cases.map((c) => {
-      const accusedDetails = c.case_accused.map((ca: any, idx: number) => {
-        const off = ca.offenders;
-        if (!off) return '';
-        const parts = [];
-        parts.push(`A-${idx + 1}`);
-        parts.push(off.full_name);
-        if (off.age) parts.push(`Age: ${off.age} Yrs`);
-        if (off.father_husband_name) parts.push(`S/o: ${off.father_husband_name}`);
-        if (off.full_address) parts.push(`R/o: ${off.full_address}`);
-        return parts.join(', ');
-      }).join('\n');
+    const exportRows: any[] = [];
+    let slNo = 1;
 
-      const qty = c.seizures.reduce((acc: number, s: any) => acc + (s.contraband_kg ? Number(s.contraband_kg) : 0), 0);
+    for (const c of cases) {
+      const qty = c.seizures.reduce((acc: number, s: any) => acc + (s.contraband_kg ? Number(s.contraband_kg) : 0), 0) || (c.quantity ? Number(c.quantity) : 0);
       const cash = c.seizures.reduce((acc: number, s: any) => acc + (s.cash_amount ? Number(s.cash_amount) : 0), 0);
       const vehicles = c.seizures.reduce((acc: number, s: any) => acc + (s.vehicles_count ? Number(s.vehicles_count) : 0), 0);
+      const caseDateStr = c.case_date ? new Date(c.case_date).toLocaleDateString('en-IN') : '';
 
-      const arrestStatus = c.case_accused.map((ca: any) => ca.arrest_status).join(', ');
+      if (c.case_accused.length === 0) {
+        exportRows.push({
+          'Sl. No.': slNo++,
+          'Cr. No. & Year': c.fir_no,
+          'Name of the P.S.': c.police_stations?.name || '',
+          'Section of Law': c.section_of_law || '',
+          'Stage of Case': c.stage || '',
+          'Case Date': caseDateStr,
+          'Accused Photo': '',
 
-      return {
-        'Cr. No.': c.fir_no,
-        'Section of Law': c.section_of_law || '',
-        'Police Station': c.police_stations?.name || '',
-        'Accused Details': accusedDetails,
-        'Quantity': qty > 0 ? `${qty} KG` : '',
-        'Cash': cash > 0 ? String(cash) : '',
-        'Vehicle': vehicles > 0 ? String(vehicles) : '',
-        'Arrest status': arrestStatus,
-        'Source': c.source_location || '',
-        'Destination': c.destination_location || '',
-        'Intelligence inputs': c.intelligence_notes || ''
+          // 1. PERSONAL DETAILS
+          'Full Name': '',
+          'Alias': '',
+          'Gender': '',
+          'Age': '',
+          'Father / Husband Name': '',
+          'Category of Accused (Local Peddeler, Local Supplier, Transporter and etc.)': '',
+          'Pedller/ Accused Mobile No. 1': '',
+          'Pedller/ Accused Mobile No. 2': '',
+          'Gmail ID / Email': '',
+          'Other Contacts': '',
+          'Test Results (Positive/ Negative/ Invalid)': '',
+
+          // 2. ADDRESS DETAILS
+          'Present Address (Long. & Lat.)': '',
+          'Permanent Address (Long. & Lat. If Possible)': '',
+          'Landmark / Area': '',
+          'Mandal': '',
+          'District': '',
+          'State': '',
+
+          // 6. SOCIO-ECONOMIC PROFILE
+          'Occupation (Student/ Labor/ Employee/ Bussiness/ etc.)': '',
+
+          // 7. Source of Procurement / DRUG SUPPLY CHAIN MAPPING
+          'Source Location': c.source_location || '',
+          'Destination Location': c.destination_location || '',
+
+          // 9. PURCHASE MODUS OPERANDI
+          'Quantity (KG)': qty > 0 ? `${qty} KG` : '',
+          'Cash Seized (INR)': cash > 0 ? String(cash) : '',
+          'Vehicles Seized': vehicles > 0 ? String(vehicles) : '',
+
+          // 10. CRIME HISTORY
+          'Arrest status': '',
+          'Arrest Date': '',
+          'Bail Date & Conditions': '',
+          'History Sheet / Rowdy Sheet': c.is_history_sheet ? 'History Sheet' : (c.is_rowdy_sheet ? 'Rowdy Sheet' : 'No'),
+          'Total Cases Count': '0',
+          'Linked Cases / Crime History': '',
+          _imageInfo: null
+        });
+      } else {
+        for (let idx = 0; idx < c.case_accused.length; idx++) {
+          const ca = c.case_accused[idx];
+          if (!ca || !ca.offenders) continue;
+          const o = ca.offenders;
+
+          // Fetch photo image buffer if photo_url exists
+          const imageInfo = await getImageBufferAndExtension(o.photo_url);
+
+          // Contacts
+          const mobile1Contact = o.offender_contacts?.find(ct => String(ct.contact_type) === 'MOBILE_PRIMARY') || o.offender_contacts?.find(ct => String(ct.contact_type).startsWith('MOBILE'));
+          const mobile2Contact = o.offender_contacts?.find(ct => String(ct.contact_type) === 'MOBILE_SECONDARY');
+          const emailContact = o.offender_contacts?.find(ct => String(ct.contact_type) === 'GMAIL');
+
+          const mobile1 = mobile1Contact?.value || '';
+          const mobile2 = mobile2Contact?.value || '';
+          const email = emailContact?.value || '';
+
+          const otherContacts = (o.offender_contacts || [])
+            .filter(ct => ct.id !== mobile1Contact?.id && ct.id !== mobile2Contact?.id && ct.id !== emailContact?.id)
+            .map(ct => `${ct.contact_type}: ${ct.value}${ct.notes ? ` (${ct.notes})` : ''}`)
+            .join('; ');
+
+          // Financials (only Bank Name retained per request)
+          const financials = o.offender_financials || [];
+          const bankNames = Array.from(new Set(financials.map(f => f.bank_name).filter(Boolean))).join('; ');
+
+          // Crime history (linked cases)
+          const linkedCasesList = (o.case_accused || []).map(link => {
+            const lc = link.cases;
+            if (!lc) return '';
+            const psName = lc.police_stations?.name ? ` in ${lc.police_stations.name}` : '';
+            const dateStr = lc.case_date ? ` on ${new Date(lc.case_date).toLocaleDateString('en-IN')}` : '';
+            const lawStr = lc.section_of_law ? ` (${lc.section_of_law})` : '';
+            const statusStr = link.arrest_status ? ` - ${link.arrest_status}` : '';
+            return `Cr.No. ${lc.fir_no}${psName}${dateStr}${lawStr}${statusStr}`;
+          }).filter(Boolean).join('; ');
+
+          // Arrest & Bail
+          const arrestDateStr = ca?.arrest_date ? new Date(ca.arrest_date).toLocaleDateString('en-IN') : '';
+          const bailDateStr = ca?.bail_date ? new Date(ca.bail_date).toLocaleDateString('en-IN') : '';
+          const bailDetails = ca?.bail_conditions ? `${bailDateStr} (Cond: ${ca.bail_conditions})` : bailDateStr;
+
+          exportRows.push({
+            'Sl. No.': slNo++,
+            'Cr. No. & Year': c.fir_no,
+            'Name of the P.S.': c.police_stations?.name || '',
+            'Section of Law': c.section_of_law || '',
+            'Stage of Case': c.stage || '',
+            'Case Date': caseDateStr,
+            'Accused Photo': '',
+
+            // 1. PERSONAL DETAILS
+            'Full Name': o.full_name || '',
+            'Alias': o.alias || '',
+            'Gender': o.gender || '',
+            'Age': o.age != null ? String(o.age) : '',
+            'Father / Husband Name': o.father_husband_name || '',
+            'Category of Accused (Local Peddeler, Local Supplier, Transporter and etc.)': o.category || '',
+            'Pedller/ Accused Mobile No. 1': mobile1,
+            'Pedller/ Accused Mobile No. 2': mobile2,
+            'Gmail ID / Email': email,
+            'Other Contacts': otherContacts,
+            'Test Results (Positive/ Negative/ Invalid)': o.test_result || '',
+
+            // 2. ADDRESS DETAILS
+            'Present Address (Long. & Lat.)': o.full_address || '',
+            'Permanent Address (Long. & Lat. If Possible)': o.landmark_area || '',
+            'Landmark / Area': o.landmark_area || '',
+            'Mandal': o.mandal || '',
+            'District': o.district || '',
+            'State': o.state || '',
+
+            // 6. SOCIO-ECONOMIC PROFILE
+            'Occupation (Student/ Labor/ Employee/ Bussiness/ etc.)': o.occupation || '',
+
+            // 7. Source of Procurement / DRUG SUPPLY CHAIN MAPPING
+            'Source Location': c.source_location || '',
+            'Destination Location': c.destination_location || '',
+
+            // 9. PURCHASE MODUS OPERANDI
+            'Quantity (KG)': qty > 0 ? `${qty} KG` : '',
+            'Cash Seized (INR)': cash > 0 ? String(cash) : '',
+            'Vehicles Seized': vehicles > 0 ? String(vehicles) : '',
+
+            // 10. CRIME HISTORY
+            'Arrest status': ca?.arrest_status || '',
+            'Arrest Date': arrestDateStr,
+            'Bail Date & Conditions': bailDetails,
+            'History Sheet / Rowdy Sheet': c.is_history_sheet ? 'History Sheet' : (c.is_rowdy_sheet ? 'Rowdy Sheet' : 'No'),
+            'Total Cases Count': String(o.case_accused?.length || 0),
+            'Linked Cases / Crime History': linkedCasesList,
+            _imageInfo: imageInfo
+          });
+        }
+      }
+    }
+
+    await logAudit('EXPORT', 'REPORT', null, req,
+      `Exported DPR Excel with ${exportRows.length} rows for ${cases.length} cases`
+    );
+
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'GARUDA NDPS';
+    const worksheet = workbook.addWorksheet('DPR Export');
+
+    const columnsHeader = [
+      'Sl. No.',
+      'Cr. No. & Year',
+      'Name of the P.S.',
+      'Section of Law',
+      'Stage of Case',
+      'Case Date',
+      'Accused Photo',
+      'Full Name',
+      'Alias',
+      'Gender',
+      'Age',
+      'Father / Husband Name',
+      'Category of Accused (Local Peddeler, Local Supplier, Transporter and etc.)',
+      'Pedller/ Accused Mobile No. 1',
+      'Pedller/ Accused Mobile No. 2',
+      'Gmail ID / Email',
+      'Other Contacts',
+      'Test Results (Positive/ Negative/ Invalid)',
+      'Present Address (Long. & Lat.)',
+      'Permanent Address (Long. & Lat. If Possible)',
+      'Landmark / Area',
+      'Mandal',
+      'District',
+      'State',
+      'Occupation (Student/ Labor/ Employee/ Bussiness/ etc.)',
+      'Source Location',
+      'Destination Location',
+      'Quantity (KG)',
+      'Cash Seized (INR)',
+      'Vehicles Seized',
+      'Arrest status',
+      'Arrest Date',
+      'Bail Date & Conditions',
+      'History Sheet / Rowdy Sheet',
+      'Total Cases Count',
+      'Linked Cases / Crime History'
+    ];
+
+    worksheet.columns = columnsHeader.map(header => ({
+      header,
+      key: header,
+      width: header === 'Accused Photo' ? 18 : 22
+    }));
+
+    // Header row styling
+    const headerRow = worksheet.getRow(1);
+    headerRow.height = 32;
+    headerRow.eachCell((cell) => {
+      cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 };
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF1F4E79' }
       };
+      cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
     });
 
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.json_to_sheet(exportRows);
-    XLSX.utils.book_append_sheet(wb, ws, 'DPR Export');
+    // Process data rows & images
+    for (let i = 0; i < exportRows.length; i++) {
+      const rowData = exportRows[i];
+      const rowNumber = i + 2; // Row 1 is header
+      const excelRow = worksheet.getRow(rowNumber);
 
-    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+      const cellValues: Record<string, string> = {};
+      for (const [key, val] of Object.entries(rowData)) {
+        if (key !== '_imageInfo') {
+          cellValues[key] = cleanCellText(val);
+        }
+      }
+      excelRow.values = cellValues;
+      excelRow.alignment = { vertical: 'middle', wrapText: true };
+
+      const imgInfo = rowData._imageInfo;
+      if (imgInfo) {
+        excelRow.height = 65;
+        const imageId = workbook.addImage({
+          buffer: imgInfo.buffer,
+          extension: imgInfo.extension
+        });
+        // Column 'Accused Photo' is 7th column (index 6 0-based)
+        worksheet.addImage(imageId, {
+          tl: { col: 6, row: rowNumber - 1 },
+          ext: { width: 55, height: 55 },
+          editAs: 'oneCell'
+        });
+      } else {
+        excelRow.height = 24;
+      }
+    }
+
+    // Dynamic Column Width Adjustment
+    worksheet.columns.forEach((column) => {
+      if (column.header === 'Accused Photo') {
+        column.width = 18;
+        return;
+      }
+      let maxLen = column.header ? String(column.header).length : 10;
+      column.eachCell?.({ includeEmpty: false }, (cell) => {
+        const valLen = cell.value ? String(cell.value).length : 0;
+        if (valLen > maxLen) {
+          maxLen = valLen;
+        }
+      });
+      column.width = Math.min(Math.max(maxLen + 3, 14), 50);
+    });
+
+    const buffer = await workbook.xlsx.writeBuffer();
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="dpr-export-${Date.now()}.xlsx"`);
-    res.send(buf);
+    res.send(Buffer.from(buffer));
   } catch (error) {
-    console.error(error);
+    console.error('DPR Export Error:', error);
     res.status(500).json({ message: 'Failed to export DPR Excel' });
   }
 };
+
 
 export const getCustomReport = async (req: AuthRequest, res: Response) => {
   try {

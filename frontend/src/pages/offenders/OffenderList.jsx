@@ -216,7 +216,7 @@ export default function OffenderList({ isConsumerOnly = false }) {
           </button>
           <button
             onClick={() => navigate('/offenders/new')}
-            className="px-4 py-2 text-xs font-black bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-xl shadow-xs transition-all flex items-center gap-1.5"
+            className="px-4 py-2 text-xs font-extrabold bg-amber-500 hover:bg-amber-600 text-white rounded-xl shadow-xs transition-all flex items-center gap-1.5"
           >
             {isConsumerOnly ? '+ Add Consumer' : '+ Add Offender'}
           </button>

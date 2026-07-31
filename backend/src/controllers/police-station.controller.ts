@@ -5,7 +5,16 @@ import { successResponse } from '../utils/transformers';
 
 export const getAllPoliceStations = async (req: AuthRequest, res: Response) => {
   try {
-    const stations = await prisma.police_stations.findMany();
+    const stations = await prisma.police_stations.findMany({
+      where: {
+        AND: [
+          { station_type: { not: 'EXCISE' } },
+          { NOT: { name: { contains: 'Excise', mode: 'insensitive' } } },
+          { NOT: { ps_code: { startsWith: 'EX-', mode: 'insensitive' } } }
+        ]
+      },
+      orderBy: { name: 'asc' }
+    });
     const formatted = stations.map(s => ({
       id: s.id.toString(),
       name: s.name,

@@ -21,12 +21,12 @@ const DEPT_LABELS = {
   POLICE: 'Police', CYBER_ANALYTICS: 'Cyber Analytics (STF)', EXCISE: 'Excise Officer',
 };
 
-const ROLE_COLORS = {
-  SP:        { bg: '#8b5cf6', text: '#fff' },
-  ASP:       { bg: '#6366f1', text: '#fff' },
-  SDPO:      { bg: '#3b82f6', text: '#fff' },
-  SHO:       { bg: '#22c55e', text: '#fff' },
-  CONSTABLE: { bg: '#6b7280', text: '#fff' },
+const ROLE_BADGES = {
+  SP:        'bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800',
+  ASP:       'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800',
+  SDPO:      'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800',
+  SHO:       'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800',
+  CONSTABLE: 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-600',
 };
 
 const AP_DISTRICTS = [
@@ -335,7 +335,7 @@ export default function UserManagement() {
         </div>
         <button
           onClick={() => { setEditUser(null); setForm({ username: '', password: '', fullName: '', role: 'CONSTABLE', policeStationId: '', department: 'POLICE', badgeNumber: '', district: '', divisionId: '' }); setShowForm(true); }}
-          className="px-4 py-2 text-xs font-black bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-xl shadow-xs transition-all flex items-center gap-1.5 whitespace-nowrap self-start sm:self-auto cursor-pointer"
+          className="px-4 py-2 text-xs font-extrabold bg-amber-500 hover:bg-amber-600 text-white rounded-xl shadow-xs transition-all flex items-center gap-1.5 whitespace-nowrap self-start sm:self-auto cursor-pointer"
         >
           + Add Officer
         </button>
@@ -624,135 +624,100 @@ export default function UserManagement() {
           <h3 className="text-lg font-medium" style={{ color: 'var(--color-garuda-200)' }}>No police stations or officers matched your search</h3>
         </div>
       ) : (
-        // Grid of Police Stations
-        <div className="columns-1 lg:columns-2 xl:columns-3 gap-6">
+        // Masonry Grid of Police Stations (No empty vertical gaps)
+        <div className="columns-1 md:columns-2 lg:columns-3 gap-6">
           {filteredStationsWithUsers.map(station => (
             <div 
               key={station.id} 
-              className="rounded-xl overflow-hidden flex flex-col break-inside-avoid mb-6"
-              style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}
+              className="break-inside-avoid inline-block w-full mb-6 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xs hover:border-slate-300 dark:hover:border-slate-600 transition-all overflow-hidden flex flex-col"
             >
-              {/* Card Header */}
-              <div 
-                className="px-5 py-4 flex justify-between items-center border-b"
-                style={{ background: 'var(--color-garuda-600)', borderColor: 'var(--color-garuda-700)' }}
-              >
-                <div>
-                  <h3 className="text-base font-semibold" style={{ color: 'var(--color-garuda-50)' }}>
-                    PS: {station.name} <span className="opacity-60 font-normal">({station.psCode})</span>
+              {/* Card Header (Full Orange Banner Bar) */}
+              <div className="bg-amber-500 px-5 py-3.5 flex justify-between items-center gap-3">
+                <div className="min-w-0 flex items-center gap-2">
+                  <h3 className="text-sm font-black text-white truncate">
+                    {station.name}
                   </h3>
+                  <span className="text-[11px] font-mono font-extrabold text-white/90 bg-black/20 px-2 py-0.5 rounded-md">
+                    {station.psCode}
+                  </span>
                 </div>
-                <div className="text-xs font-semibold px-2.5 py-1 rounded-md" style={{ background: 'var(--color-garuda-700)', color: 'var(--color-garuda-300)' }}>
-                  {station.users.length} Officer(s)
+                <div className="text-xs font-black text-white bg-white/20 backdrop-blur-xs px-2.5 py-1 rounded-full whitespace-nowrap border border-white/30">
+                  {station.users.length} Officer{station.users.length !== 1 ? 's' : ''}
                 </div>
               </div>
 
-              {/* Card Body / Table */}
-              <div className="flex-1 p-0 overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr style={{ background: 'var(--color-garuda-600)' }}>
-                      <th className="text-left px-5 py-2 font-medium" style={{ color: 'var(--color-garuda-300)' }}>Officer</th>
-                      <th className="text-left px-5 py-2 font-medium" style={{ color: 'var(--color-garuda-300)' }}>Role</th>
-                      <th className="text-right px-5 py-2 font-medium" style={{ color: 'var(--color-garuda-300)' }}>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {station.users.map((u, i) => {
-                      const roleColor = ROLE_COLORS[u.role] || ROLE_COLORS.CONSTABLE;
-                      return (
-                        <tr 
-                          key={u.id}
-                          style={{
-                            borderBottom: '1px solid var(--color-garuda-700)',
-                            background: i % 2 === 0 ? 'transparent' : 'var(--color-garuda-800)',
-                          }}
+              {/* Card Body / Officer List */}
+              <div className="divide-y divide-slate-100 dark:divide-slate-750">
+                {station.users.map((u) => (
+                  <div 
+                    key={u.id}
+                    className="p-4 hover:bg-slate-50/60 dark:hover:bg-slate-700/30 transition-colors flex flex-col gap-2"
+                  >
+                    {/* Top Row: Name + Username + Status */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0 flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-bold text-slate-800 dark:text-slate-100">
+                          {u.fullName}
+                        </span>
+                        <span className="text-xs font-mono text-slate-400">
+                          @{u.username}
+                        </span>
+                      </div>
+
+                      {/* Minimal Dot Status */}
+                      <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                        <span className={`w-2 h-2 rounded-full ${u.isActive ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+                        <span>{u.isActive ? 'Active' : 'Inactive'}</span>
+                      </div>
+                    </div>
+
+                    {/* Middle Row: Unified Monochromatic Badges */}
+                    <div className="flex items-center justify-between gap-2 flex-wrap pt-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className={`text-[11px] font-extrabold tracking-wider px-2.5 py-0.5 rounded-md border ${ROLE_BADGES[u.role] || ROLE_BADGES.CONSTABLE}`}>
+                          {u.role}
+                        </span>
+                        <span className="text-[11px] font-medium text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-750 border border-slate-200/60 dark:border-slate-700 px-2 py-0.5 rounded-md">
+                          {DEPT_LABELS[u.department] || u.department}
+                        </span>
+                        {u.district && (
+                          <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-750 border border-slate-200/60 dark:border-slate-700 px-2 py-0.5 rounded-md">
+                            Dist: {u.district}
+                          </span>
+                        )}
+                        {u.divisionId && (
+                          <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-750 border border-slate-200/60 dark:border-slate-700 px-2 py-0.5 rounded-md">
+                            SDPO: {u.divisionId}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Action Links */}
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleEdit(u)}
+                          className="text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer"
                         >
-                          <td className="px-5 py-3">
-                            <div className="font-medium" style={{ color: 'var(--color-garuda-100)' }}>{u.fullName}</div>
-                            <div className="text-xs font-mono mt-0.5" style={{ color: 'var(--color-garuda-400)' }}>{u.username}</div>
-                            {u.teamName && (
-                              <div className="text-xs mt-1 font-medium flex items-center gap-1" style={{ color: 'var(--color-garuda-300)' }}>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><line x1="9" y1="6" x2="9" y2="6.01"/><line x1="15" y1="6" x2="15" y2="6.01"/><line x1="9" y1="10" x2="9" y2="10.01"/><line x1="15" y1="10" x2="15" y2="10.01"/><line x1="9" y1="14" x2="9" y2="14.01"/><line x1="15" y1="14" x2="15" y2="14.01"/><line x1="9" y1="18" x2="15" y2="18"/></svg>
-                                {u.teamName}
-                              </div>
-                            )}
-                          </td>
-                          <td className="px-5 py-3">
-                            <div className="flex flex-col gap-1 items-start">
-                              <span
-                                className="text-[10px] font-bold tracking-wider px-2 py-0.5 rounded uppercase"
-                                style={{ background: roleColor.bg, color: roleColor.text }}
-                              >
-                                {u.role}
-                              </span>
-                              <span
-                                className="text-[10px] font-medium tracking-wider px-2 py-0.5 rounded uppercase"
-                                style={{ background: 'var(--color-garuda-700)', color: 'var(--color-garuda-300)' }}
-                              >
-                                {DEPT_LABELS[u.department] || u.department}
-                              </span>
-                              {u.district && (
-                                <span
-                                  className="text-[10px] font-semibold tracking-wider px-2 py-0.5 rounded"
-                                  style={{ background: 'var(--color-garuda-600)', color: 'var(--color-garuda-100)' }}
-                                >
-                                  Dist: {u.district}
-                                </span>
-                              )}
-                              {u.divisionId && (
-                                <span
-                                  className="text-[10px] font-semibold tracking-wider px-2 py-0.5 rounded"
-                                  style={{ background: 'var(--color-garuda-600)', color: 'var(--color-garuda-100)' }}
-                                >
-                                  SDPO: {u.divisionId}
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-5 py-3 text-right">
-                            <div className="flex flex-col items-end gap-2">
-                              <span
-                                className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
-                                style={{
-                                  background: u.isActive ? 'rgba(22, 163, 74, 0.1)' : 'rgba(220, 38, 38, 0.1)',
-                                  color: u.isActive ? '#16a34a' : '#dc2626',
-                                }}
-                              >
-                                {u.isActive ? 'Active' : 'Inactive'}
-                              </span>
-                              <div className="flex gap-2">
-                                <button
-                                  onClick={() => handleEdit(u)}
-                                  className="text-xs hover:underline font-medium"
-                                  style={{ color: '#2563eb' }}
-                                >
-                                  Edit
-                                </button>
-                                {u.isActive && (
-                                  <button
-                                    onClick={() => handleDeactivate(u.id)}
-                                    className="text-xs hover:underline font-medium"
-                                    style={{ color: '#dc2626' }}
-                                  >
-                                    Deactivate
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                    {station.users.length === 0 && (
-                      <tr>
-                        <td colSpan={3} className="px-5 py-8 text-center" style={{ color: 'var(--color-garuda-500)' }}>
-                          No officers currently assigned to this station.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
+                          Edit
+                        </button>
+                        {u.isActive && (
+                          <button
+                            onClick={() => handleDeactivate(u.id)}
+                            className="text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400 transition-colors cursor-pointer"
+                          >
+                            Deactivate
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                {station.users.length === 0 && (
+                  <div className="p-6 text-center text-xs font-medium text-slate-400">
+                    No officers currently assigned to this station.
+                  </div>
+                )}
               </div>
             </div>
           ))}

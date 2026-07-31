@@ -11,10 +11,6 @@ import { AuthRequest } from '../middleware/auth.middleware';
 const clients: Map<string, Response> = new Map();
 let clientIdCounter = 0;
 
-/**
- * SSE endpoint: clients connect here to receive real-time updates.
- */
-// ── SECURITY FIX #21: Prevent SSE Connection DoS
 const MAX_TOTAL_CLIENTS = 500;
 const MAX_CLIENTS_PER_USER = 3;
 const userConnectionCount = new Map<string, number>();
@@ -24,7 +20,7 @@ export const sseConnect = (req: AuthRequest, res: Response) => {
     return res.status(503).json({ message: 'Too many active connections across the server' });
   }
 
-  const userId = req.user!?.userId || 'anonymous';
+  const userId = String(req.user?.userId || 'anonymous');
   const userCount = userConnectionCount.get(userId) || 0;
   if (userCount >= MAX_CLIENTS_PER_USER) {
     return res.status(429).json({ message: 'Too many concurrent SSE connections for this user' });
@@ -68,10 +64,6 @@ export const sseConnect = (req: AuthRequest, res: Response) => {
   console.log(`SSE client connected: ${clientId} (total: ${clients.size}, user: ${userId} has ${userCount + 1})`);
 };
 
-/**
- * Broadcast an event to all connected SSE clients.
- * Call this from controllers when data changes.
- */
 export function broadcastEvent(eventType: string, data: any) {
   const payload = JSON.stringify({
     type: eventType,
@@ -83,15 +75,11 @@ export function broadcastEvent(eventType: string, data: any) {
     try {
       client.write(`data: ${payload}\n\n`);
     } catch (err) {
-      // Client disconnected, clean up
       clients.delete(clientId);
     }
   });
 }
 
-/**
- * Get the number of connected clients (for health checks).
- */
 export function getConnectedClientCount(): number {
   return clients.size;
 }

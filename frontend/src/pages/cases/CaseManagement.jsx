@@ -111,7 +111,7 @@ export default function CaseManagement() {
         {perms.canRegisterCase && (
           <Link
             to="/cases/new"
-            className="px-4 py-2 text-xs font-black bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-xl shadow-xs transition-all flex items-center gap-1.5 whitespace-nowrap self-start sm:self-auto"
+            className="px-4 py-2 text-xs font-extrabold bg-amber-500 hover:bg-amber-600 text-white rounded-xl shadow-xs transition-all flex items-center gap-1.5 whitespace-nowrap self-start sm:self-auto"
           >
             + Register New Case
           </Link>

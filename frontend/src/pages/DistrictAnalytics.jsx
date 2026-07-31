@@ -166,7 +166,7 @@ export default function DistrictAnalytics() {
               onClick={() => setTimeRange('monthly')}
               className={`px-3.5 py-1.5 text-xs sm:text-sm font-bold rounded-lg transition-all ${
                 timeRange === 'monthly'
-                  ? 'bg-amber-500 text-slate-950 font-extrabold shadow-xs'
+                  ? 'bg-amber-500 text-white font-extrabold shadow-xs'
                   : 'text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white'
               }`}
             >
@@ -176,7 +176,7 @@ export default function DistrictAnalytics() {
               onClick={() => setTimeRange('yearly')}
               className={`px-3.5 py-1.5 text-xs sm:text-sm font-bold rounded-lg transition-all ${
                 timeRange === 'yearly'
-                  ? 'bg-amber-500 text-slate-950 font-extrabold shadow-xs'
+                  ? 'bg-amber-500 text-white font-extrabold shadow-xs'
                   : 'text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white'
               }`}
             >
@@ -186,7 +186,7 @@ export default function DistrictAnalytics() {
               onClick={() => setTimeRange('all')}
               className={`px-3.5 py-1.5 text-xs sm:text-sm font-bold rounded-lg transition-all ${
                 timeRange === 'all'
-                  ? 'bg-amber-500 text-slate-950 font-extrabold shadow-xs'
+                  ? 'bg-amber-500 text-white font-extrabold shadow-xs'
                   : 'text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white'
               }`}
             >
