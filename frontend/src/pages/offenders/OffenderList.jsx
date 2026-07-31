@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
 import { useSSE } from '../../hooks/useSSE';
+import CustomSelect from '../../components/CustomSelect';
 
 const getAvatarColor = (name) => {
   const colors = [
@@ -173,18 +174,19 @@ export default function OffenderList({ isConsumerOnly = false }) {
 
   return (
     <div className={`space-y-6 animate-fade-in ${totalPages > 1 ? 'pb-20 sm:pb-6 pr-0 sm:pr-16' : ''}`}>
-      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: 'var(--color-garuda-50)' }}>
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-800 dark:text-white">
             {isConsumerOnly ? 'Consumer Database' : 'Offender Database'}
           </h1>
-          <p className="text-sm mt-1" style={{ color: 'var(--color-garuda-400)' }}>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 font-medium">
             {isConsumerOnly ? 'Search, filter, and manage consumer profiles' : 'Search, filter, and manage offender profiles'}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2.5 items-center">
           {importing ? (
-            <span className="text-xs animate-pulse font-semibold self-center" style={{ color: 'var(--color-garuda-400)' }}>Importing...</span>
+            <span className="text-xs animate-pulse font-semibold self-center text-slate-500">Importing...</span>
           ) : (
             <>
               <input
@@ -199,18 +201,22 @@ export default function OffenderList({ isConsumerOnly = false }) {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="btn btn-secondary btn-sm"
+                className="px-3.5 py-2 text-xs font-bold bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750 rounded-xl shadow-xs transition-all"
               >
                 Import Excel
               </button>
             </>
           )}
-          <button type="button" onClick={handleExport} className="btn btn-secondary btn-sm">
+          <button
+            type="button"
+            onClick={handleExport}
+            className="px-3.5 py-2 text-xs font-bold bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750 rounded-xl shadow-xs transition-all"
+          >
             Export CSV
           </button>
           <button
             onClick={() => navigate('/offenders/new')}
-            className="btn btn-primary btn-sm"
+            className="px-4 py-2 text-xs font-black bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-xl shadow-xs transition-all flex items-center gap-1.5"
           >
             {isConsumerOnly ? '+ Add Consumer' : '+ Add Offender'}
           </button>
@@ -250,8 +256,8 @@ export default function OffenderList({ isConsumerOnly = false }) {
       )}
 
       {/* Search & Filter Bar */}
-      <div className="card flex flex-col md:flex-row gap-3 p-4 rounded-xl">
-        <form onSubmit={handleSearch} className="flex-1 flex gap-2">
+      <div className="flex flex-col md:flex-row gap-3 items-center">
+        <form onSubmit={handleSearch} className="flex-1 flex gap-2 w-full">
           <input
             id="offender-search"
             name="search"
@@ -259,40 +265,45 @@ export default function OffenderList({ isConsumerOnly = false }) {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search by name, alias, or mobile..."
-            className="input flex-1"
+            className="px-3.5 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs focus:ring-2 focus:ring-amber-500/50 outline-none flex-1 min-w-[200px]"
           />
-          <button type="submit" className="btn btn-secondary">
+          <button
+            type="submit"
+            className="px-4 py-2 text-xs font-bold bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750 rounded-xl shadow-xs transition-colors"
+          >
             Search
           </button>
         </form>
         {!isConsumerOnly && (
-          <select
+          <CustomSelect
             id="offender-category-filter"
             value={categoryFilter}
             onChange={(e) => { setCategoryFilter(e.target.value); setPage(0); }}
-            className="select"
-          >
-            <option value="">All Categories</option>
-            <option value="CONSUMER">Consumer</option>
-            <option value="LOCAL_PEDDLER">Local Peddler</option>
-            <option value="LOCAL_KINGPIN">Local Kingpin</option>
-            <option value="TRANSPORTER">Transporter</option>
-            <option value="SUPPLIER">Supplier</option>
-            <option value="FINANCIER">Financier</option>
-            <option value="INTERSTATE_LINK">Interstate Link</option>
-          </select>
+            placeholder="All Categories"
+            className="w-full md:w-52"
+            options={[
+              { value: '', label: 'All Categories' },
+              { value: 'CONSUMER', label: 'Consumer' },
+              { value: 'LOCAL_PEDDLER', label: 'Local Peddler' },
+              { value: 'LOCAL_KINGPIN', label: 'Local Kingpin' },
+              { value: 'TRANSPORTER', label: 'Transporter' },
+              { value: 'SUPPLIER', label: 'Supplier' },
+              { value: 'FINANCIER', label: 'Financier' },
+              { value: 'INTERSTATE_LINK', label: 'Interstate Link' }
+            ]}
+          />
         )}
-        <select
+        <CustomSelect
           id="offender-ps-filter"
           value={psFilter}
           onChange={(e) => { setPsFilter(e.target.value); setPage(0); }}
-          className="select"
-        >
-          <option value="">All Police Stations</option>
-          {stations.map((ps) => (
-            <option key={ps.id} value={ps.id}>{ps.name}</option>
-          ))}
-        </select>
+          placeholder="All Police Stations"
+          className="w-full md:w-56"
+          options={[
+            { value: '', label: 'All Police Stations' },
+            ...stations.map((ps) => ({ value: ps.id, label: ps.name }))
+          ]}
+        />
       </div>
 
       {/* Table */}

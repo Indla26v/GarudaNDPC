@@ -222,16 +222,6 @@ export default function Dashboard() {
             <h1 className="text-2xl font-bold" style={{ color: 'var(--color-garuda-50)' }}>
               Command Dashboard
             </h1>
-            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium" style={{ background: isConnected ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)', border: isConnected ? '1px solid rgba(34,197,94,0.2)' : '1px solid rgba(239,68,68,0.2)' }}>
-              <span
-                className="w-1.5 h-1.5 rounded-full animate-pulse"
-                style={{ background: isConnected ? '#22c55e' : '#ef4444' }}
-              />
-              <span style={{ color: isConnected ? '#22c55e' : '#ef4444' }}>
-                {isConnected ? 'Live' : 'Offline'}
-              </span>
-            </div>
-
           </div>
           <p className="text-sm mt-1" style={{ color: 'var(--color-garuda-400)' }}>
             NDPS Operations{summary?.isStationLevel
@@ -240,30 +230,58 @@ export default function Dashboard() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2 items-center">
-          {/* Global Dashboard Period Filter */}
-          <div className="flex items-center gap-1.5 mr-2">
-            <span className="text-[11px] font-bold tracking-wide uppercase select-none text-[var(--color-garuda-400)]">Period:</span>
-            <select 
-              className="select py-1 px-2.5 text-xs rounded-md border border-slate-700/20 bg-[var(--color-garuda-800)] text-[var(--color-garuda-100)] font-bold cursor-pointer hover:bg-[var(--color-garuda-600)] transition-colors duration-150 outline-none" 
-              value={timeRange} 
-              onChange={(e) => handleTimeRangeChange(e.target.value)}
+          {/* Global Dashboard Period Filter Pill Toggle */}
+          <div className="flex items-center bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-1 rounded-xl shadow-xs mr-2">
+            <button
+              onClick={() => handleTimeRangeChange('monthly')}
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                timeRange === 'monthly'
+                  ? 'bg-amber-500 text-slate-950 font-black shadow-xs'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+              }`}
             >
-              <option value="all">All Time</option>
-              <option value="weekly">Weekly</option>
-              <option value="monthly">Monthly</option>
-              <option value="yearly">Yearly</option>
-            </select>
+              Month
+            </button>
+            <button
+              onClick={() => handleTimeRangeChange('yearly')}
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                timeRange === 'yearly'
+                  ? 'bg-amber-500 text-slate-950 font-black shadow-xs'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              Year
+            </button>
+            <button
+              onClick={() => handleTimeRangeChange('all')}
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                timeRange === 'all'
+                  ? 'bg-amber-500 text-slate-950 font-black shadow-xs'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              All Time
+            </button>
           </div>
 
           {perms.canRegisterCase && (
-            <Link to="/cases/new" className="btn btn-primary btn-sm">
+            <Link 
+              to="/cases/new" 
+              className="px-3.5 py-2 text-xs font-black bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-xl shadow-xs transition-all flex items-center gap-1.5"
+            >
               + New Case
             </Link>
           )}
-          <Link to="/offenders" className="btn btn-secondary btn-sm">
+          <Link 
+            to="/offenders" 
+            className="px-3.5 py-2 text-xs font-bold bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750 rounded-xl shadow-xs transition-all flex items-center gap-1.5"
+          >
             <IconSearch size={14} /> Search Accused
           </Link>
-          <Link to="/reports" className="btn btn-secondary btn-sm">
+          <Link 
+            to="/reports" 
+            className="px-3.5 py-2 text-xs font-bold bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750 rounded-xl shadow-xs transition-all flex items-center gap-1.5"
+          >
             <IconReports size={14} /> Reports
           </Link>
         </div>
@@ -691,26 +709,45 @@ export default function Dashboard() {
               </h2>
               
               <div className="flex flex-wrap items-center gap-3">
-                {/* Period Filter */}
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[11px] font-semibold tracking-wide uppercase select-none text-[var(--color-garuda-400)]">Period:</span>
-                  <select 
-                    className="select py-1 px-2.5 text-xs rounded-md" 
-                    value={timeRange} 
-                    onChange={(e) => handleTimeRangeChange(e.target.value)}
+                {/* Period Filter Segmented Pill Toggle */}
+                <div className="flex items-center bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-1 rounded-xl shadow-xs">
+                  <button
+                    onClick={() => handleTimeRangeChange('monthly')}
+                    className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${
+                      timeRange === 'monthly'
+                        ? 'bg-amber-500 text-slate-950 font-black shadow-xs'
+                        : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                    }`}
                   >
-                    <option value="all">All Time</option>
-                    <option value="weekly">Weekly</option>
-                    <option value="monthly">Monthly</option>
-                    <option value="yearly">Yearly</option>
-                  </select>
+                    Month
+                  </button>
+                  <button
+                    onClick={() => handleTimeRangeChange('yearly')}
+                    className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${
+                      timeRange === 'yearly'
+                        ? 'bg-amber-500 text-slate-950 font-black shadow-xs'
+                        : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    Year
+                  </button>
+                  <button
+                    onClick={() => handleTimeRangeChange('all')}
+                    className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${
+                      timeRange === 'all'
+                        ? 'bg-amber-500 text-slate-950 font-black shadow-xs'
+                        : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    All Time
+                  </button>
                 </div>
 
                 {/* Sort Column Selector */}
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[11px] font-semibold tracking-wide uppercase select-none text-[var(--color-garuda-400)]">Sort:</span>
+                  <span className="text-[11px] font-bold tracking-wide uppercase select-none text-[var(--color-garuda-400)]">Sort:</span>
                   <select 
-                    className="select py-1 px-2.5 text-xs rounded-md" 
+                    className="py-1 px-2.5 text-xs font-bold rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs outline-none cursor-pointer" 
                     value={sortColumn} 
                     onChange={(e) => setSortColumn(e.target.value)}
                   >
@@ -726,9 +763,9 @@ export default function Dashboard() {
 
                 {/* Sort Order Selector */}
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[11px] font-semibold tracking-wide uppercase select-none text-[var(--color-garuda-400)]">Order:</span>
+                  <span className="text-[11px] font-bold tracking-wide uppercase select-none text-[var(--color-garuda-400)]">Order:</span>
                   <select 
-                    className="select py-1 px-2.5 text-xs rounded-md" 
+                    className="py-1 px-2.5 text-xs font-bold rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs outline-none cursor-pointer" 
                     value={sortOrder} 
                     onChange={(e) => setSortOrder(e.target.value)}
                   >

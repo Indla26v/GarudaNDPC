@@ -94,7 +94,7 @@ export const login = async (req: AuthRequest, res: Response) => {
     });
 
     // We can't attach req to logAudit directly without modifying it, but we can set mock req user.
-    req.user! = { userId: user.id };
+    req.user = { userId: Number(user.id) } as any;
     await logAudit('LOGIN', 'USER', user.id, req);
 
     // ── SECURITY FIX #12: Store JWTs in HttpOnly cookies to prevent XSS theft

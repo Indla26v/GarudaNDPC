@@ -5,6 +5,7 @@
  */
 import { useState, useEffect, useMemo } from 'react';
 import api from '../../api/axios';
+import CustomSelect from '../../components/CustomSelect';
 
 const ROLES = ['SP', 'ASP', 'SDPO', 'SHO', 'CONSTABLE'];
 
@@ -323,17 +324,18 @@ export default function UserManagement() {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: 'var(--color-garuda-50)' }}>System Administration</h1>
-          <p className="text-sm mt-1" style={{ color: 'var(--color-garuda-400)' }}>
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-800 dark:text-white">
+            System Administration
+          </h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 font-medium">
             User management and system configurations
           </p>
         </div>
         <button
           onClick={() => { setEditUser(null); setForm({ username: '', password: '', fullName: '', role: 'CONSTABLE', policeStationId: '', department: 'POLICE', badgeNumber: '', district: '', divisionId: '' }); setShowForm(true); }}
-          className="px-4 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer whitespace-nowrap"
-          style={{ background: 'var(--color-accent-500)', color: '#fff' }}
+          className="px-4 py-2 text-xs font-black bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-xl shadow-xs transition-all flex items-center gap-1.5 whitespace-nowrap self-start sm:self-auto cursor-pointer"
         >
           + Add Officer
         </button>
@@ -511,13 +513,10 @@ export default function UserManagement() {
       )}
 
       {/* Search Bar */}
-      <div 
-        className="p-4 rounded-xl flex items-center gap-3"
-        style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}
-      >
+      <div className="p-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-xs flex items-center gap-3">
         <div className="relative flex-1">
-          <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <svg className="h-5 w-5 text-garuda-400" style={{ fill: 'var(--color-garuda-400)' }} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+          <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+            <svg className="h-4 w-4 fill-current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
             </svg>
           </span>
@@ -526,14 +525,12 @@ export default function UserManagement() {
             placeholder="Search officers by name, username, or police station (name/code)..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="input w-full"
-            style={{ background: 'var(--color-garuda-900)', border: '1px solid var(--color-garuda-700)', paddingLeft: '2.75rem' }}
+            className="w-full text-xs pl-9 pr-8 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500/50 outline-none"
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
-              className="absolute inset-y-0 right-0 pr-3 flex items-center text-sm font-medium hover:text-white"
-              style={{ color: 'var(--color-garuda-400)' }}
+              className="absolute inset-y-0 right-0 pr-3 flex items-center text-xs font-bold text-slate-400 hover:text-slate-700 dark:hover:text-white"
             >
               Clear
             </button>
@@ -542,40 +539,38 @@ export default function UserManagement() {
       </div>
 
       {/* Cascading Filters */}
-      <div 
-        className="p-4 rounded-xl flex flex-col md:flex-row gap-4 items-end"
-        style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}
-      >
+      <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-xs flex flex-col md:flex-row gap-4 items-end">
         <div className="flex-1 w-full">
-          <label className="text-xs font-medium block mb-1" style={{ color: 'var(--color-garuda-300)' }}>Select State</label>
-          <select
+          <CustomSelect
+            label="Select State"
             value={selectedState}
             onChange={(e) => setSelectedState(e.target.value)}
-            className="select w-full"
-          >
-            <option value="">— Select a State —</option>
-            {uniqueStates.map(state => <option key={state} value={state}>{state}</option>)}
-          </select>
+            placeholder="— Select a State —"
+            options={[
+              { value: '', label: '— Select a State —' },
+              ...uniqueStates.map(state => ({ value: state, label: state }))
+            ]}
+          />
         </div>
 
         <div className="flex-1 w-full">
-          <label className="text-xs font-medium block mb-1" style={{ color: 'var(--color-garuda-300)' }}>Select District</label>
-          <select
+          <CustomSelect
+            label="Select District"
             value={selectedDistrict}
             onChange={(e) => setSelectedDistrict(e.target.value)}
             disabled={!selectedState}
-            className="select w-full disabled:opacity-50"
-          >
-            <option value="">— Select a District —</option>
-            {availableDistricts.map(district => <option key={district} value={district}>{district}</option>)}
-          </select>
+            placeholder="— Select a District —"
+            options={[
+              { value: '', label: '— Select a District —' },
+              ...availableDistricts.map(district => ({ value: district, label: district }))
+            ]}
+          />
         </div>
 
         <div>
           <button
             onClick={clearFilters}
-            className="px-4 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer h-[38px]"
-            style={{ background: 'var(--color-garuda-600)', color: 'var(--color-garuda-200)', border: '1px solid var(--color-garuda-700)' }}
+            className="px-4 py-2 text-xs font-bold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-xl transition-colors cursor-pointer h-[38px]"
           >
             Clear Filters
           </button>

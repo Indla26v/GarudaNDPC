@@ -2,9 +2,11 @@
  * GARUDA — Audit Logs Page (Admin Only)
  * 
  * Full audit trail viewer with filtering by action, entity type, and user.
+ * Clean executive UI with readable typography and soft contrast.
  */
 import { useState, useEffect, Fragment } from 'react';
 import api from '../../api/axios';
+import CustomSelect from '../../components/CustomSelect';
 
 const ACTION_COLORS = {
   CREATE:             '#16a34a',
@@ -118,135 +120,132 @@ export default function AuditLogs() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div>
-        <h1 className="text-2xl font-bold" style={{ color: 'var(--color-garuda-50)' }}>Audit Logs</h1>
-        <p className="text-sm mt-1" style={{ color: 'var(--color-garuda-400)' }}>
+    <div className="space-y-6 animate-fade-in pb-10">
+      {/* Header */}
+      <div className="border-b border-slate-200 dark:border-slate-800 pb-4">
+        <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-800 dark:text-white">
+          Audit Logs
+        </h1>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 font-medium">
           Complete system audit trail — every action is logged
         </p>
       </div>
 
-      {/* Filters */}
-      <div className="flex gap-4 flex-wrap">
-        <select
+      {/* Filters Bar */}
+      <div className="flex gap-4 flex-wrap items-center">
+        <CustomSelect
           id="filter-action"
           value={filters.action}
           onChange={(e) => { setFilters({ ...filters, action: e.target.value }); setPage(0); }}
-          className="select"
-        >
-          <option value="">All Actions</option>
-          {Object.keys(ACTION_COLORS).map(a => <option key={a} value={a}>{a}</option>)}
-        </select>
-        <select
+          placeholder="All Actions"
+          className="w-full sm:w-56"
+          options={[
+            { value: '', label: 'All Actions' },
+            ...Object.keys(ACTION_COLORS).map(a => ({ value: a, label: a }))
+          ]}
+        />
+        <CustomSelect
           id="filter-entity"
           value={filters.entityType}
           onChange={(e) => { setFilters({ ...filters, entityType: e.target.value }); setPage(0); }}
-          className="select"
-        >
-          <option value="">All Entities</option>
-          <option value="ADMINISTRATION">ADMINISTRATION</option>
-          <option value="INTELLIGENCE">INTELLIGENCE</option>
-          <option value="OPERATIONS">OPERATIONS</option>
-          <option value="REPORTS_ANALYSIS">REPORTS ANALYSIS</option>
-        </select>
+          placeholder="All Entities"
+          className="w-full sm:w-56"
+          options={[
+            { value: '', label: 'All Entities' },
+            { value: 'ADMINISTRATION', label: 'ADMINISTRATION' },
+            { value: 'INTELLIGENCE', label: 'INTELLIGENCE' },
+            { value: 'OPERATIONS', label: 'OPERATIONS' },
+            { value: 'REPORTS_ANALYSIS', label: 'REPORTS ANALYSIS' }
+          ]}
+        />
       </div>
 
-      {/* Logs Table */}
-      <div
-        className="rounded-xl overflow-hidden"
-        style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}
-      >
+      {/* Logs Table Container */}
+      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xs overflow-hidden">
         {loading ? (
-          <div className="p-8 text-center">
-            <span className="animate-pulse" style={{ color: 'var(--color-garuda-400)' }}>Loading...</span>
+          <div className="p-12 text-center text-sm font-medium text-slate-500 animate-pulse">
+            Loading audit sessions...
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm text-left">
               <thead>
-                <tr style={{ background: 'var(--color-garuda-700)' }}>
-                  <th className="text-left px-4 py-3 font-medium" style={{ color: 'var(--color-garuda-300)' }}>Timestamp</th>
-                  <th className="text-left px-4 py-3 font-medium" style={{ color: 'var(--color-garuda-300)' }}>Action</th>
-                  <th className="text-left px-4 py-3 font-medium" style={{ color: 'var(--color-garuda-300)' }}>Entity</th>
-                  <th className="text-left px-4 py-3 font-medium" style={{ color: 'var(--color-garuda-300)' }}>User</th>
-                  <th className="text-left px-4 py-3 font-medium" style={{ color: 'var(--color-garuda-300)' }}>Details</th>
-                  <th className="text-left px-4 py-3 font-medium" style={{ color: 'var(--color-garuda-300)' }}>IP</th>
+                <tr className="bg-slate-100/80 dark:bg-slate-900 text-slate-700 dark:text-slate-300 font-bold uppercase text-xs tracking-wider border-b border-slate-200 dark:border-slate-700">
+                  <th className="px-5 py-4">Timestamp</th>
+                  <th className="px-5 py-4">Action</th>
+                  <th className="px-5 py-4">Entity</th>
+                  <th className="px-5 py-4">User</th>
+                  <th className="px-5 py-4">Details</th>
+                  <th className="px-5 py-4">IP Address</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {sessions.map((session, i) => (
                   <Fragment key={session.id}>
                     {/* Session Summary Row */}
                     <tr
                       onClick={() => toggleSession(session.id)}
-                      className="transition-colors duration-150 cursor-pointer hover:bg-slate-700"
-                      style={{
-                        borderBottom: '1px solid var(--color-garuda-700)',
-                        background: i % 2 === 0 ? 'transparent' : 'var(--color-garuda-800)',
-                      }}
+                      className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors cursor-pointer"
                     >
-                      <td className="px-4 py-4 text-xs font-mono" style={{ color: 'var(--color-garuda-300)' }}>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs" style={{ color: 'var(--color-garuda-500)' }}>
+                      <td className="px-5 py-4 text-xs font-mono font-medium text-slate-700 dark:text-slate-300">
+                        <div className="flex items-center gap-2.5">
+                          <span className="text-xs text-slate-400 font-bold">
                             {expandedSessions[session.id] ? '▼' : '▶'}
                           </span>
                           <div>
-                            <div>{new Date(session.startTime).toLocaleString('en-IN')}</div>
+                            <div className="font-bold text-slate-800 dark:text-slate-200">{new Date(session.startTime).toLocaleString('en-IN')}</div>
                             {session.loginLog && session.logoutLog && (
-                              <div style={{ color: 'var(--color-garuda-500)', fontSize: '10px' }}>
+                              <div className="text-[11px] text-slate-400 font-medium">
                                 to {new Date(session.endTime).toLocaleTimeString('en-IN')}
                               </div>
                             )}
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-4">
-                        <span
-                          className="text-xs font-semibold px-2 py-0.5 rounded"
-                          style={{ background: 'rgba(124, 58, 237, 0.1)', color: '#a78bfa', border: '1px solid rgba(124, 58, 237, 0.2)' }}
-                        >
+                      <td className="px-5 py-4">
+                        <span className="text-xs font-bold px-2.5 py-1 rounded-md bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
                           USER SESSION
                         </span>
                       </td>
-                      <td className="px-4 py-4" style={{ color: 'var(--color-garuda-400)' }}>
-                        <span className="font-semibold text-garuda-200">{session.actions.length}</span> actions logged
+                      <td className="px-5 py-4 text-sm font-medium text-slate-600 dark:text-slate-300">
+                        <strong className="text-slate-800 dark:text-white font-bold">{session.actions.length}</strong> actions logged
                       </td>
-                      <td className="px-4 py-4" style={{ color: 'var(--color-garuda-200)' }}>
+                      <td className="px-5 py-4 text-sm font-semibold text-slate-800 dark:text-slate-200">
                         {session.user?.name || '—'}
                         {session.user?.role && (
-                          <span className="text-xs ml-1" style={{ color: 'var(--color-garuda-500)' }}>({session.user.role})</span>
+                          <span className="text-xs text-slate-400 font-normal ml-1">({session.user.role})</span>
                         )}
                       </td>
-                      <td className="px-4 py-4 max-w-64 truncate text-xs" style={{ color: 'var(--color-garuda-400)' }}>
+                      <td className="px-5 py-4 max-w-xs truncate text-xs text-slate-600 dark:text-slate-400 font-medium">
                         {session.logoutLog ? 'Session ended' : (session.loginLog?.details || 'Session active')}
                       </td>
-                      <td className="px-4 py-4 text-xs font-mono" style={{ color: 'var(--color-garuda-500)' }}>
+                      <td className="px-5 py-4 text-xs font-mono text-slate-500 font-medium">
                         {session.ipAddress || '—'}
                       </td>
                     </tr>
 
                     {/* Nested Actions Rows */}
                     {expandedSessions[session.id] && (
-                      <tr style={{ background: 'var(--color-garuda-900)' }}>
+                      <tr className="bg-slate-50/80 dark:bg-slate-900/60">
                         <td colSpan={6} className="p-0">
-                          <div className="px-8 py-3 border-l-2 border-garuda-600 ml-4 mb-2 mt-2">
-                            <table className="w-full text-xs">
+                          <div className="px-8 py-3 border-l-4 border-amber-500 my-2 ml-6 mr-6 bg-white dark:bg-slate-850 rounded-xl shadow-xs border border-slate-200 dark:border-slate-700">
+                            <table className="w-full text-xs text-left">
                               <tbody>
                                 {session.actions.map((log) => (
-                                  <tr key={log.id} className="border-b border-slate-700/50 last:border-0 hover:bg-slate-800/50 transition-colors">
-                                    <td className="py-2 px-3 font-mono text-garuda-400 w-40">
+                                  <tr key={log.id} className="border-b border-slate-100 dark:border-slate-750 last:border-0 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                                    <td className="py-2.5 px-3 font-mono font-medium text-slate-500 w-44">
                                       {new Date(log.timestamp).toLocaleTimeString('en-IN')}
                                     </td>
-                                    <td className="py-2 px-3 w-32">
-                                      <span className="font-semibold px-2 py-0.5 rounded" style={{ color: ACTION_COLORS[log.action] || '#9ca3af' }}>
+                                    <td className="py-2.5 px-3 w-36">
+                                      <span className="font-bold px-2 py-0.5 rounded text-[11px]" style={{ color: ACTION_COLORS[log.action] || '#64748b' }}>
                                         {log.action}
                                       </span>
                                     </td>
-                                    <td className="py-2 px-3 text-garuda-300 w-48">
+                                    <td className="py-2.5 px-3 font-semibold text-slate-700 dark:text-slate-300 w-52">
                                       {log.entityType}
-                                      {log.entityId && <span className="text-garuda-500 ml-1">#{log.entityId}</span>}
+                                      {log.entityId && <span className="text-slate-400 font-mono ml-1">#{log.entityId}</span>}
                                     </td>
-                                    <td className="py-2 px-3 text-garuda-400">
+                                    <td className="py-2.5 px-3 text-slate-600 dark:text-slate-400 font-medium">
                                       {log.details || '—'}
                                     </td>
                                   </tr>
@@ -261,7 +260,7 @@ export default function AuditLogs() {
                 ))}
                 {sessions.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-4 py-12 text-center" style={{ color: 'var(--color-garuda-500)' }}>
+                    <td colSpan={6} className="px-5 py-12 text-center text-sm font-medium text-slate-500">
                       No audit sessions found
                     </td>
                   </tr>
@@ -274,23 +273,21 @@ export default function AuditLogs() {
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-3">
+        <div className="flex items-center justify-center gap-3 pt-2">
           <button
             onClick={() => setPage(Math.max(0, page - 1))}
             disabled={page === 0}
-            className="px-3 py-1.5 rounded-md text-xs font-medium transition-all cursor-pointer disabled:opacity-40"
-            style={{ background: 'var(--color-garuda-700)', color: 'var(--color-garuda-300)' }}
+            className="px-4 py-2 text-xs font-bold bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-xl shadow-xs transition-all disabled:opacity-40"
           >
             ← Prev
           </button>
-          <span className="text-xs" style={{ color: 'var(--color-garuda-400)' }}>
+          <span className="text-xs font-mono font-bold text-slate-600 dark:text-slate-400">
             Page {page + 1} of {totalPages}
           </span>
           <button
             onClick={() => setPage(Math.min(totalPages - 1, page + 1))}
             disabled={page >= totalPages - 1}
-            className="px-3 py-1.5 rounded-md text-xs font-medium transition-all cursor-pointer disabled:opacity-40"
-            style={{ background: 'var(--color-garuda-700)', color: 'var(--color-garuda-300)' }}
+            className="px-4 py-2 text-xs font-bold bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-xl shadow-xs transition-all disabled:opacity-40"
           >
             Next →
           </button>

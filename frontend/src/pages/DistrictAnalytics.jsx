@@ -1,8 +1,8 @@
 /**
- * GARUDA — District Analytics Page (SP & Admin Only)
+ * GARUDA — District Analytics Page (SP & Admin Oversight)
  * 
- * Real-time district-level analytics with aggregated data across all PS.
- * Shows trends, comparisons, and key metrics for SP/Admin oversight.
+ * Real-time district-level intelligence with aggregated data across all Police Stations.
+ * Styled with a clean, bespoke, high-contrast executive design system.
  */
 import { useState, useEffect } from 'react';
 import api from '../api/axios';
@@ -11,19 +11,10 @@ import {
   IconClipboard, IconOffender, IconLock, IconRunning, IconPackage, IconDollar, IconCar,
 } from '../components/Icons';
 
-const METRIC_CARDS = [
-  { key: 'totalCases',        label: 'Total Cases',     Icon: IconClipboard, color: '#3b82f6' },
-  { key: 'totalOffenders',    label: 'Total Offenders',  Icon: IconOffender,  color: '#8b5cf6' },
-  { key: 'totalArrests',      label: 'Total Arrests',    Icon: IconLock,      color: '#22c55e' },
-  { key: 'totalAbsconders',   label: 'Absconders',       Icon: IconRunning,   color: '#ef4444' },
-  { key: 'totalContrabandKg', label: 'Contraband (Kg)',  Icon: IconPackage,   color: '#f59e0b' },
-  { key: 'totalCashSeized',   label: 'Cash Seized (₹)',  Icon: IconDollar,    color: '#06b6d4' },
-  { key: 'totalVehiclesSeized', label: 'Vehicles Seized', Icon: IconCar,      color: '#ec4899' },
-];
-
 export default function DistrictAnalytics() {
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [timeRange, setTimeRange] = useState('monthly'); // 'monthly' | 'yearly' | 'all'
   const { lastEvent, isConnected } = useSSE();
 
   // Filters state (Comparison section)
@@ -41,20 +32,21 @@ export default function DistrictAnalytics() {
   const [tableSortAsc, setTableSortAsc] = useState(false);
 
   useEffect(() => {
-    fetchSummary();
+    fetchSummary(timeRange);
     fetchStationsDetails();
-  }, []);
+  }, [timeRange]);
 
   // Refresh data on SSE events
   useEffect(() => {
     if (lastEvent && ['case_created', 'offender_created', 'data_updated'].includes(lastEvent.type)) {
-      fetchSummary();
+      fetchSummary(timeRange);
     }
-  }, [lastEvent]);
+  }, [lastEvent, timeRange]);
 
-  const fetchSummary = async () => {
+  const fetchSummary = async (range = timeRange) => {
+    setLoading(true);
     try {
-      const res = await api.get('/dashboard/summary');
+      const res = await api.get(`/dashboard/summary?timeRange=${range}`);
       setSummary(res.data.data);
     } catch (err) {
       console.error(err);
@@ -87,7 +79,7 @@ export default function DistrictAnalytics() {
     new Set(stationsDetails.map(s => s.sdpo).filter(Boolean))
   ).sort();
 
-  // Filter and Sort the data
+  // Filter and Sort the comparison data
   const filteredPsData = enrichedPsData
     .filter((ps) => {
       const matchesSearch = 
@@ -147,163 +139,288 @@ export default function DistrictAnalytics() {
     return Number(val).toLocaleString('en-IN');
   };
 
-  const renderCardValue = (val) => {
-    if (loading && !summary) {
-      return <div className="w-16 h-8 bg-black/10 rounded animate-pulse" />;
-    }
-    return formatNumber(val);
+  const getTimeRangeLabel = () => {
+    if (timeRange === 'monthly') return 'This Month (Last 30 Days)';
+    if (timeRange === 'yearly') return 'This Year';
+    return 'All Time (Complete History)';
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+    <div className="space-y-6 animate-fade-in pb-10">
+      {/* Executive Header with Time Filter */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: 'var(--color-garuda-50)' }}>District Analytics</h1>
-          <p className="text-sm mt-1" style={{ color: 'var(--color-garuda-400)' }}>
-            Real-time aggregated intelligence across all Police Stations
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-800 dark:text-white">
+            District Intelligence Analytics
+          </h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 font-medium">
+            Aggregated operational metrics, case volumes, and station-level breakdown
           </p>
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <span
-            className="w-2 h-2 rounded-full animate-pulse"
-            style={{ background: isConnected ? '#22c55e' : '#ef4444' }}
-          />
-          <span className="text-xs" style={{ color: 'var(--color-garuda-400)' }}>
-            {isConnected ? 'Live' : 'Offline'}
-          </span>
+
+        {/* Header Right Controls: Time Range Filter */}
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Time Filter Segmented Toggle */}
+          <div className="flex items-center bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-1 rounded-xl shadow-xs">
+            <button
+              onClick={() => setTimeRange('monthly')}
+              className={`px-3.5 py-1.5 text-xs sm:text-sm font-bold rounded-lg transition-all ${
+                timeRange === 'monthly'
+                  ? 'bg-amber-500 text-slate-950 font-extrabold shadow-xs'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white'
+              }`}
+            >
+              Month
+            </button>
+            <button
+              onClick={() => setTimeRange('yearly')}
+              className={`px-3.5 py-1.5 text-xs sm:text-sm font-bold rounded-lg transition-all ${
+                timeRange === 'yearly'
+                  ? 'bg-amber-500 text-slate-950 font-extrabold shadow-xs'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white'
+              }`}
+            >
+              Year
+            </button>
+            <button
+              onClick={() => setTimeRange('all')}
+              className={`px-3.5 py-1.5 text-xs sm:text-sm font-bold rounded-lg transition-all ${
+                timeRange === 'all'
+                  ? 'bg-amber-500 text-slate-950 font-extrabold shadow-xs'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white'
+              }`}
+            >
+              All Time
+            </button>
+          </div>
         </div>
       </div>
- 
-      {/* Main Content Area */}
-      <div className="relative min-h-[400px]">
 
-        {/* Summary Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-4">
-        {METRIC_CARDS.map((card) => (
-          <div
-            key={card.key}
-            className="card card-hover rounded-xl p-4 animate-slide-up"
-          >
-            <div
-              className="w-9 h-9 rounded-lg flex items-center justify-center mb-3"
-              style={{ background: card.color + '14' }}
-            >
-              <card.Icon size={18} color={card.color} />
-            </div>
-            <div className="text-2xl font-bold" style={{ color: card.color }}>
-              {renderCardValue(summary?.[card.key])}
-            </div>
-            <p className="text-xs mt-1" style={{ color: 'var(--color-garuda-400)' }}>{card.label}</p>
+      {/* Time Range Active Sub-bar */}
+      <div className="flex items-center justify-between text-xs sm:text-sm px-1 text-slate-500 dark:text-slate-400 font-medium">
+        <div className="flex items-center gap-2">
+          <span>Active Filter Period:</span>
+          <span className="font-bold text-slate-800 dark:text-white bg-slate-100 dark:bg-slate-800 px-2.5 py-0.5 rounded-md border border-slate-200 dark:border-slate-700 font-mono">
+            {getTimeRangeLabel()}
+          </span>
+        </div>
+        {loading && <span className="text-amber-600 dark:text-amber-400 font-bold animate-pulse">Updating metrics...</span>}
+      </div>
+
+      {/* Primary Key Metrics Grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3.5">
+        {/* Cases Card */}
+        <div className="bg-white dark:bg-slate-800 rounded-xl p-4.5 border border-slate-200 dark:border-slate-700 shadow-xs flex flex-col justify-between">
+          <div className="flex justify-between items-center text-slate-400 mb-2">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Cases</span>
+            <IconClipboard size={18} className="text-blue-500" />
           </div>
-        ))}
-      </div>      {/* PS Comparison Chart (table representation) */}
-      <div className="card rounded-xl overflow-hidden">
-        <div className="px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3" style={{ borderBottom: '1px solid var(--color-garuda-700)' }}>
-          <h2 className="text-lg font-semibold" style={{ color: 'var(--color-garuda-100)' }}>
-            Police Station Comparison
-          </h2>
-          <span className="text-xs" style={{ color: 'var(--color-garuda-500)' }}>
-            Showing {filteredPsData.length} of {summary?.psWiseData?.length || 0} stations
+          <p className="text-2xl sm:text-3xl font-extrabold text-slate-800 dark:text-white tracking-tight">
+            {loading ? '—' : formatNumber(summary?.totalCases)}
+          </p>
+        </div>
+
+        {/* Offenders Card */}
+        <div className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 shadow-xs flex flex-col justify-between">
+          <div className="flex justify-between items-center text-slate-400 mb-2">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Offenders</span>
+            <IconOffender size={16} className="text-purple-500" />
+          </div>
+          <p className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+            {loading ? '—' : formatNumber(summary?.totalOffenders)}
+          </p>
+        </div>
+
+        {/* Arrests Card */}
+        <div className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 shadow-xs flex flex-col justify-between">
+          <div className="flex justify-between items-center text-slate-400 mb-2">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Arrests</span>
+            <IconLock size={16} className="text-emerald-500" />
+          </div>
+          <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400 tracking-tight">
+            {loading ? '—' : formatNumber(summary?.totalArrests)}
+          </p>
+        </div>
+
+        {/* Absconders Card */}
+        <div className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 shadow-xs flex flex-col justify-between">
+          <div className="flex justify-between items-center text-slate-400 mb-2">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Absconders</span>
+            <IconRunning size={16} className="text-rose-500" />
+          </div>
+          <p className="text-2xl font-black text-rose-600 dark:text-rose-400 tracking-tight">
+            {loading ? '—' : formatNumber(summary?.totalAbsconders)}
+          </p>
+        </div>
+
+        {/* Contraband Card */}
+        <div className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 shadow-xs flex flex-col justify-between">
+          <div className="flex justify-between items-center text-slate-400 mb-2">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Contraband</span>
+            <IconPackage size={16} className="text-amber-500" />
+          </div>
+          <div>
+            <p className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+              {loading ? '—' : formatNumber(summary?.totalContrabandKg)}
+            </p>
+            <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400">Kilograms (Kg)</span>
+          </div>
+        </div>
+
+        {/* Cash Seized Card */}
+        <div className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 shadow-xs flex flex-col justify-between">
+          <div className="flex justify-between items-center text-slate-400 mb-2">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Cash Seized</span>
+            <IconDollar size={16} className="text-teal-500" />
+          </div>
+          <div>
+            <p className="text-2xl font-black text-teal-600 dark:text-teal-400 tracking-tight font-mono">
+              ₹{loading ? '—' : formatNumber(summary?.totalCashSeized)}
+            </p>
+          </div>
+        </div>
+
+        {/* Vehicles Card */}
+        <div className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 shadow-xs flex flex-col justify-between">
+          <div className="flex justify-between items-center text-slate-400 mb-2">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Vehicles</span>
+            <IconCar size={16} className="text-indigo-500" />
+          </div>
+          <p className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+            {loading ? '—' : formatNumber(summary?.totalVehiclesSeized)}
+          </p>
+        </div>
+      </div>
+
+      {/* Station Volume Analytics Section */}
+      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xs overflow-hidden">
+        {/* Panel Header */}
+        <div className="px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-700">
+          <div>
+            <h2 className="text-base font-bold text-slate-900 dark:text-white">
+              Station Volume & Case Comparison
+            </h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              Ranked analysis across all registered police stations ({getTimeRangeLabel()})
+            </p>
+          </div>
+          <span className="text-xs font-mono font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-900 px-3 py-1 rounded-lg border border-slate-200 dark:border-slate-750">
+            {filteredPsData.length} of {summary?.psWiseData?.length || 0} Stations Listed
           </span>
         </div>
 
-        {/* Interactive Filters Bar */}
-        <div className="px-6 py-4 border-b flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between" style={{ borderColor: 'var(--color-garuda-700)', background: 'rgba(var(--color-garuda-600), 0.1)' }}>
-          <div className="flex flex-wrap gap-3 flex-1 w-full">
-            {/* Search Input */}
-            <div className="w-full sm:w-60">
-              <input
-                type="text"
-                placeholder="Search station name or code..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="input text-xs"
-              />
-            </div>
+        {/* Filter Controls Bar */}
+        <div className="px-6 py-3.5 bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row gap-3 items-center justify-between">
+          <div className="flex flex-wrap gap-2.5 flex-1 w-full">
+            {/* Search */}
+            <input
+              type="text"
+              placeholder="Search station or code..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full sm:w-56 text-xs px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500/50"
+            />
 
-            {/* Division/SDPO Select */}
-            <div className="w-full sm:w-48">
-              <select
-                value={divisionFilter}
-                onChange={(e) => setDivisionFilter(e.target.value)}
-                className="select text-xs w-full"
-              >
-                <option value="ALL">All Divisions</option>
-                {divisionsList.map((div) => (
-                  <option key={div} value={div}>{div}</option>
-                ))}
-              </select>
-            </div>
+            {/* Division Select */}
+            <select
+              value={divisionFilter}
+              onChange={(e) => setDivisionFilter(e.target.value)}
+              className="w-full sm:w-44 text-xs px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium"
+            >
+              <option value="ALL">All Divisions</option>
+              {divisionsList.map((div) => (
+                <option key={div} value={div}>{div}</option>
+              ))}
+            </select>
 
-            {/* Station Type Select */}
-            <div className="w-full sm:w-40">
-              <select
-                value={typeFilter}
-                onChange={(e) => setTypeFilter(e.target.value)}
-                className="select text-xs w-full"
-              >
-                <option value="ALL">All Types</option>
-                <option value="POLICE">Police Stations</option>
-                <option value="EXCISE">Excise Stations</option>
-              </select>
-            </div>
+            {/* Type Select */}
+            <select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              className="w-full sm:w-36 text-xs px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium"
+            >
+              <option value="ALL">All Types</option>
+              <option value="POLICE">Police Stations</option>
+              <option value="EXCISE">Excise Stations</option>
+            </select>
           </div>
 
-          {/* Sort Control */}
-          <div className="w-full sm:w-56 flex items-center gap-2">
-            <span className="text-xs font-semibold whitespace-nowrap" style={{ color: 'var(--color-garuda-400)' }}>Sort By:</span>
+          {/* Sort By */}
+          <div className="w-full sm:w-auto flex items-center gap-2">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 whitespace-nowrap">Order By:</span>
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
-              className="select text-xs w-full"
+              className="text-xs px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold"
             >
-              <option value="cases">Cases</option>
-              <option value="arrests">Arrests</option>
+              <option value="cases">Cases Volume</option>
+              <option value="arrests">Arrests Made</option>
               <option value="absconders">Absconders</option>
-              <option value="contraband">Contraband</option>
+              <option value="contraband">Contraband Seized</option>
               <option value="cash">Cash Seized</option>
             </select>
           </div>
         </div>
 
-        <div className="p-6 space-y-4">
+        {/* Stations Comparison List */}
+        <div className="p-6 space-y-3.5">
           {loading && !summary ? (
-            <div className="py-12 text-center text-sm text-[var(--color-garuda-400)] animate-pulse">
-              Loading comparisons...
+            <div className="py-12 text-center text-xs text-slate-500 animate-pulse font-medium">
+              Loading district station analytics...
             </div>
           ) : filteredPsData.length === 0 ? (
-            <div className="py-12 text-center text-sm" style={{ color: 'var(--color-garuda-400)' }}>
-              No stations match the selected filters.
+            <div className="py-12 text-center text-xs text-slate-500 font-medium">
+              No police stations match the current filter selection.
             </div>
           ) : (
-            filteredPsData.map((ps) => {
+            filteredPsData.map((ps, idx) => {
               const maxCases = Math.max(...filteredPsData.map(p => p.totalCases), 1);
               const percentage = (ps.totalCases / maxCases) * 100;
+              const hasActivity = ps.totalCases > 0 || ps.totalArrests > 0 || ps.totalAbsconders > 0;
 
               return (
-                <div key={ps.psId} className="space-y-1">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-                    <span className="text-sm font-medium" style={{ color: 'var(--color-garuda-100)' }}>
-                      {ps.psName}
-                      <span className="text-xs ml-2 font-mono font-normal" style={{ color: 'var(--color-garuda-500)' }}>
+                <div 
+                  key={ps.psId} 
+                  className={`p-3.5 rounded-xl border transition-all ${
+                    hasActivity 
+                      ? 'bg-slate-50/60 dark:bg-slate-900/40 border-slate-200/90 dark:border-slate-750' 
+                      : 'bg-white dark:bg-slate-800/40 border-slate-100 dark:border-slate-800 opacity-70'
+                  }`}
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-xs font-mono font-bold text-slate-400 dark:text-slate-500 w-6">
+                        #{idx + 1}
+                      </span>
+                      <span className="text-sm font-bold text-slate-900 dark:text-white">
+                        {ps.psName}
+                      </span>
+                      <span className="text-[10px] font-mono font-semibold text-slate-500 dark:text-slate-400 bg-slate-200/60 dark:bg-slate-800 px-2 py-0.5 rounded">
                         {ps.psCode}
                       </span>
-                    </span>
-                    <div className="flex items-center gap-x-4 gap-y-1 text-xs flex-wrap">
-                      <span style={{ color: '#2563eb' }}>{formatNumber(ps.totalCases)} cases</span>
-                      <span style={{ color: '#16a34a' }}>{formatNumber(ps.totalArrests)} arrests</span>
-                      <span style={{ color: '#dc2626' }}>{formatNumber(ps.totalAbsconders)} absconders</span>
+                    </div>
+
+                    <div className="flex items-center gap-4 text-xs font-mono tabular-nums">
+                      <span className={ps.totalCases > 0 ? 'font-bold text-blue-600 dark:text-blue-400' : 'text-slate-400 dark:text-slate-600'}>
+                        {formatNumber(ps.totalCases)} <span className="font-sans text-[11px] text-slate-500 dark:text-slate-400">cases</span>
+                      </span>
+                      <span className="text-slate-300 dark:text-slate-700">•</span>
+                      <span className={ps.totalArrests > 0 ? 'font-bold text-emerald-600 dark:text-emerald-400' : 'text-slate-400 dark:text-slate-600'}>
+                        {formatNumber(ps.totalArrests)} <span className="font-sans text-[11px] text-slate-500 dark:text-slate-400">arrests</span>
+                      </span>
+                      <span className="text-slate-300 dark:text-slate-700">•</span>
+                      <span className={ps.totalAbsconders > 0 ? 'font-bold text-rose-600 dark:text-rose-400' : 'text-slate-400 dark:text-slate-600'}>
+                        {formatNumber(ps.totalAbsconders)} <span className="font-sans text-[11px] text-slate-500 dark:text-slate-400">absconders</span>
+                      </span>
                     </div>
                   </div>
-                  <div
-                    className="h-2 rounded-full overflow-hidden"
-                    style={{ background: 'var(--color-garuda-700)' }}
-                  >
+
+                  {/* Clean Visual Progress Bar */}
+                  <div className="w-full h-2 rounded-full bg-slate-200/80 dark:bg-slate-900 overflow-hidden">
                     <div
-                      className="h-full rounded-full transition-all duration-500"
+                      className="h-full rounded-full bg-slate-900 dark:bg-amber-500 transition-all duration-500"
                       style={{
-                        width: `${percentage}%`,
-                        background: 'linear-gradient(90deg, #3b82f6, #8b5cf6)',
+                        width: `${Math.max(percentage, hasActivity ? 1.5 : 0)}%`,
                       }}
                     />
                   </div>
@@ -314,103 +431,94 @@ export default function DistrictAnalytics() {
         </div>
       </div>
 
-      {/* Detailed Table */}
-      <div className="card rounded-xl overflow-hidden">
-        <div className="px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3" style={{ borderBottom: '1px solid var(--color-garuda-700)' }}>
-          <h2 className="text-lg font-semibold" style={{ color: 'var(--color-garuda-100)' }}>
-            Detailed Breakdown
-          </h2>
-          <span className="text-xs" style={{ color: 'var(--color-garuda-500)' }}>
-            Showing {tableData.length} of {summary?.psWiseData?.length || 0} stations
+      {/* Executive Detailed Breakdown Table */}
+      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xs overflow-hidden">
+        <div className="px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-700">
+          <div>
+            <h2 className="text-base font-bold text-slate-900 dark:text-white">
+              Station Operational Ledger
+            </h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              Complete metric table for {getTimeRangeLabel()}. Click column header to sort.
+            </p>
+          </div>
+          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+            {tableData.length} records matching table criteria
           </span>
         </div>
 
-        {/* Dedicated Filters for Table */}
-        <div className="px-6 py-4 border-b flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between" style={{ borderColor: 'var(--color-garuda-700)', background: 'rgba(var(--color-garuda-600), 0.1)' }}>
-          <div className="flex flex-wrap gap-3 flex-1 w-full">
-            {/* Table Search */}
-            <div className="w-full sm:w-60">
-              <input
-                type="text"
-                placeholder="Search station name or code..."
-                value={tableSearch}
-                onChange={(e) => setTableSearch(e.target.value)}
-                className="input text-xs"
-              />
-            </div>
-
-            {/* Table Division Select */}
-            <div className="w-full sm:w-48">
-              <select
-                value={tableDivision}
-                onChange={(e) => setTableDivision(e.target.value)}
-                className="select text-xs w-full"
-              >
-                <option value="ALL">All Divisions</option>
-                {divisionsList.map((div) => (
-                  <option key={div} value={div}>{div}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Table Station Type Select */}
-            <div className="w-full sm:w-40">
-              <select
-                value={tableType}
-                onChange={(e) => setTableType(e.target.value)}
-                className="select text-xs w-full"
-              >
-                <option value="ALL">All Types</option>
-                <option value="POLICE">Police Stations</option>
-                <option value="EXCISE">Excise Stations</option>
-              </select>
-            </div>
-          </div>
-          <div className="text-xs font-semibold text-[var(--color-garuda-400)]">
-            💡 Click column headers to sort the table
+        {/* Table Filter Controls */}
+        <div className="px-6 py-3.5 bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row gap-3 items-center justify-between">
+          <div className="flex flex-wrap gap-2.5 flex-1 w-full">
+            <input
+              type="text"
+              placeholder="Filter table rows..."
+              value={tableSearch}
+              onChange={(e) => setTableSearch(e.target.value)}
+              className="w-full sm:w-56 text-xs px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+            />
+            <select
+              value={tableDivision}
+              onChange={(e) => setTableDivision(e.target.value)}
+              className="w-full sm:w-44 text-xs px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium"
+            >
+              <option value="ALL">All Divisions</option>
+              {divisionsList.map((div) => (
+                <option key={div} value={div}>{div}</option>
+              ))}
+            </select>
+            <select
+              value={tableType}
+              onChange={(e) => setTableType(e.target.value)}
+              className="w-full sm:w-36 text-xs px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium"
+            >
+              <option value="ALL">All Types</option>
+              <option value="POLICE">Police Stations</option>
+              <option value="EXCISE">Excise Stations</option>
+            </select>
           </div>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-xs text-left">
             <thead>
-              <tr className="table-header select-none">
-                <th className="cursor-pointer hover:bg-black/10 px-4 py-3" onClick={() => handleTableSort('psName')}>
-                  PS Name {tableSortField === 'psName' ? (tableSortAsc ? '▲' : '▼') : ''}
+              <tr className="bg-slate-100/80 dark:bg-slate-900 text-slate-700 dark:text-slate-300 font-bold uppercase tracking-wider border-b border-slate-200 dark:border-slate-700 select-none">
+                <th className="cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-800 px-4 py-3.5" onClick={() => handleTableSort('psName')}>
+                  Police Station {tableSortField === 'psName' ? (tableSortAsc ? '↑' : '↓') : ''}
                 </th>
-                <th className="cursor-pointer hover:bg-black/10 px-4 py-3" onClick={() => handleTableSort('psCode')}>
-                  Code {tableSortField === 'psCode' ? (tableSortAsc ? '▲' : '▼') : ''}
+                <th className="cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-800 px-4 py-3.5" onClick={() => handleTableSort('psCode')}>
+                  Code {tableSortField === 'psCode' ? (tableSortAsc ? '↑' : '↓') : ''}
                 </th>
-                <th className="text-right cursor-pointer hover:bg-black/10 px-4 py-3" onClick={() => handleTableSort('totalCases')}>
-                  Cases {tableSortField === 'totalCases' ? (tableSortAsc ? '▲' : '▼') : ''}
+                <th className="text-right cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-800 px-4 py-3.5" onClick={() => handleTableSort('totalCases')}>
+                  Cases {tableSortField === 'totalCases' ? (tableSortAsc ? '↑' : '↓') : ''}
                 </th>
-                <th className="text-right cursor-pointer hover:bg-black/10 px-4 py-3" onClick={() => handleTableSort('totalOffenders')}>
-                  Offenders {tableSortField === 'totalOffenders' ? (tableSortAsc ? '▲' : '▼') : ''}
+                <th className="text-right cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-800 px-4 py-3.5" onClick={() => handleTableSort('totalOffenders')}>
+                  Offenders {tableSortField === 'totalOffenders' ? (tableSortAsc ? '↑' : '↓') : ''}
                 </th>
-                <th className="text-right cursor-pointer hover:bg-black/10 px-4 py-3" onClick={() => handleTableSort('totalArrests')}>
-                  Arrests {tableSortField === 'totalArrests' ? (tableSortAsc ? '▲' : '▼') : ''}
+                <th className="text-right cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-800 px-4 py-3.5" onClick={() => handleTableSort('totalArrests')}>
+                  Arrests {tableSortField === 'totalArrests' ? (tableSortAsc ? '↑' : '↓') : ''}
                 </th>
-                <th className="text-right cursor-pointer hover:bg-black/10 px-4 py-3" onClick={() => handleTableSort('totalAbsconders')}>
-                  Absconders {tableSortField === 'totalAbsconders' ? (tableSortAsc ? '▲' : '▼') : ''}
+                <th className="text-right cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-800 px-4 py-3.5" onClick={() => handleTableSort('totalAbsconders')}>
+                  Absconders {tableSortField === 'totalAbsconders' ? (tableSortAsc ? '↑' : '↓') : ''}
                 </th>
-                <th className="text-right cursor-pointer hover:bg-black/10 px-4 py-3" onClick={() => handleTableSort('totalContrabandKg')}>
-                  Contraband (Kg) {tableSortField === 'totalContrabandKg' ? (tableSortAsc ? '▲' : '▼') : ''}
+                <th className="text-right cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-800 px-4 py-3.5" onClick={() => handleTableSort('totalContrabandKg')}>
+                  Contraband (Kg) {tableSortField === 'totalContrabandKg' ? (tableSortAsc ? '↑' : '↓') : ''}
                 </th>
-                <th className="text-right cursor-pointer hover:bg-black/10 px-4 py-3" onClick={() => handleTableSort('totalCashSeized')}>
-                  Cash (₹) {tableSortField === 'totalCashSeized' ? (tableSortAsc ? '▲' : '▼') : ''}
+                <th className="text-right cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-800 px-4 py-3.5" onClick={() => handleTableSort('totalCashSeized')}>
+                  Cash (₹) {tableSortField === 'totalCashSeized' ? (tableSortAsc ? '↑' : '↓') : ''}
                 </th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {loading && !summary ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-12 text-center text-sm text-[var(--color-garuda-400)] animate-pulse">
+                  <td colSpan={8} className="px-4 py-12 text-center text-xs font-medium text-slate-500 animate-pulse">
                     Loading breakdown table...
                   </td>
                 </tr>
               ) : tableData.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-12 text-center text-sm" style={{ color: 'var(--color-garuda-400)' }}>
+                  <td colSpan={8} className="px-4 py-12 text-center text-xs font-medium text-slate-500">
                     No stations match the selected filters.
                   </td>
                 </tr>
@@ -418,23 +526,22 @@ export default function DistrictAnalytics() {
                 tableData.map((ps) => (
                   <tr
                     key={ps.psId}
-                    className="table-row"
+                    className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors"
                   >
-                    <td className="px-4 py-3 font-medium" style={{ color: 'var(--color-garuda-100)' }}>{ps.psName}</td>
-                    <td className="px-4 py-3 font-mono text-xs" style={{ color: 'var(--color-garuda-400)' }}>{ps.psCode}</td>
-                    <td className="px-4 py-3 text-right" style={{ color: '#2563eb' }}>{formatNumber(ps.totalCases)}</td>
-                    <td className="px-4 py-3 text-right" style={{ color: 'var(--color-garuda-200)' }}>{formatNumber(ps.totalOffenders)}</td>
-                    <td className="px-4 py-3 text-right" style={{ color: '#16a34a' }}>{formatNumber(ps.totalArrests)}</td>
-                    <td className="px-4 py-3 text-right" style={{ color: '#dc2626' }}>{formatNumber(ps.totalAbsconders)}</td>
-                    <td className="px-4 py-3 text-right" style={{ color: '#d97706' }}>{formatNumber(ps.totalContrabandKg)}</td>
-                    <td className="px-4 py-3 text-right" style={{ color: 'var(--color-garuda-200)' }}>₹{formatNumber(ps.totalCashSeized)}</td>
+                    <td className="px-4 py-3 font-bold text-slate-900 dark:text-white">{ps.psName}</td>
+                    <td className="px-4 py-3 font-mono font-semibold text-slate-500 dark:text-slate-400">{ps.psCode}</td>
+                    <td className="px-4 py-3 text-right font-mono font-bold text-blue-600 dark:text-blue-400">{formatNumber(ps.totalCases)}</td>
+                    <td className="px-4 py-3 text-right font-mono font-bold text-slate-700 dark:text-slate-300">{formatNumber(ps.totalOffenders)}</td>
+                    <td className="px-4 py-3 text-right font-mono font-bold text-emerald-600 dark:text-emerald-400">{formatNumber(ps.totalArrests)}</td>
+                    <td className="px-4 py-3 text-right font-mono font-bold text-rose-600 dark:text-rose-400">{formatNumber(ps.totalAbsconders)}</td>
+                    <td className="px-4 py-3 text-right font-mono font-bold text-amber-600 dark:text-amber-400">{formatNumber(ps.totalContrabandKg)}</td>
+                    <td className="px-4 py-3 text-right font-mono font-bold text-teal-600 dark:text-teal-400">₹{formatNumber(ps.totalCashSeized)}</td>
                   </tr>
                 ))
               )}
             </tbody>
           </table>
         </div>
-      </div>
       </div>
     </div>
   );
