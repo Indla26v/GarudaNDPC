@@ -53,15 +53,15 @@ function useNavItems() {
       items: [
         {
           path: '/surveillance', label: 'Surveillance', icon: IconSurveillance,
-          show: perms.canViewAllTech || perms.canAddTechIntel
+          show: false // Phase 2 — hidden for Phase 1 deployment (was: perms.canViewAllTech || perms.canAddTechIntel)
         },
         {
           path: '/finance', label: 'Financial', icon: IconFinance,
-          show: perms.canViewAllFinance
+          show: false // Phase 2 — hidden for Phase 1 deployment (was: perms.canViewAllFinance)
         },
         {
           path: '/network', label: 'Network Map', icon: IconNetwork,
-          show: perms.canViewAllNetwork || perms.canBuildNetwork
+          show: false // Phase 2 — hidden for Phase 1 deployment (was: perms.canViewAllNetwork || perms.canBuildNetwork)
         },
       ],
     },

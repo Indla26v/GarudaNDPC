@@ -106,7 +106,7 @@ export default function Login() {
                 <input
                   id="login-password"
                   name="password"
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required

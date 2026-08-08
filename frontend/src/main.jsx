@@ -15,9 +15,10 @@ import CaseManagement from './pages/cases/CaseManagement';
 import CaseForm from './pages/cases/CaseForm';
 import CaseDetail from './pages/cases/CaseDetail';
 import FieldStaff from './pages/field/FieldStaff';
-import Surveillance from './pages/surveillance/Surveillance';
-import FinancialAnalysis from './pages/finance/FinancialAnalysis';
-import NetworkMap from './pages/network/NetworkMap';
+// Phase 2 imports — commented out for Phase 1 deployment
+// import Surveillance from './pages/surveillance/Surveillance';
+// import FinancialAnalysis from './pages/finance/FinancialAnalysis';
+// import NetworkMap from './pages/network/NetworkMap';
 import Reports from './pages/reports/Reports';
 import DeletionRequests from './pages/workflows/DeletionRequests';
 import EditRequests from './pages/workflows/EditRequests';
@@ -82,26 +83,10 @@ createRoot(document.getElementById('root')).render(
               {/* South India Data Bank (Interstate Portal) */}
               <Route path="south-india-databank" element={<SouthIndiaDataBank />} />
 
-              {/* Technical Surveillance (Page 5) — Department-restricted: TECH_CELL, ANALYST, STF, INTELLIGENCE */}
-              <Route path="surveillance" element={
-                <RoleGuard permission="TECH_VIEW_ALL">
-                  <Surveillance />
-                </RoleGuard>
-              } />
-
-              {/* Financial Analysis (Page 6) — Department-restricted: FIN_CELL, ANALYST, STF, INTELLIGENCE */}
-              <Route path="finance" element={
-                <RoleGuard permission="FIN_VIEW_ALL">
-                  <FinancialAnalysis />
-                </RoleGuard>
-              } />
-
-              {/* Network & Chain Analysis (Page 7) — Department-restricted: ANALYST, TECH_CELL, STF, INTELLIGENCE */}
-              <Route path="network" element={
-                <RoleGuard permission="NET_VIEW_ALL">
-                  <NetworkMap />
-                </RoleGuard>
-              } />
+              {/* Phase 2 routes — redirected to dashboard for Phase 1 deployment */}
+              <Route path="surveillance" element={<Navigate to="/dashboard" replace />} />
+              <Route path="finance" element={<Navigate to="/dashboard" replace />} />
+              <Route path="network" element={<Navigate to="/dashboard" replace />} />
 
               {/* Reports & Intelligence (Page 8) — Role-restricted: SI and above */}
               <Route path="reports" element={

@@ -27,6 +27,13 @@ const router = Router();
 
 router.use(authenticate);
 
+// Phase 2 — blocked for Phase 1 deployment. Remove this middleware to re-enable.
+router.use((_req, res) => {
+  return res.status(403).json({
+    message: 'This feature is not available in the current deployment phase.'
+  });
+});
+
 // ── Reads — TECH_VIEW_ALL (CYBER_ANALYTICS; SP bypasses) ───────────────
 router.get('/', requirePermission('TECH_VIEW_ALL'), listSurveillanceRecords);
 router.get('/dashboard', requirePermission('TECH_VIEW_ALL'), getSurveillanceDashboard);
