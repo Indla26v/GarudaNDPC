@@ -12,7 +12,17 @@ const parseNotesList = (raw) => {
   if (!raw || !raw.trim()) return [];
   try {
     const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) return parsed;
+    if (Array.isArray(parsed)) {
+      return parsed.map((item, idx) => {
+        if (typeof item === 'object' && item !== null) {
+          return { id: item.id || String(idx), text: item.text || '', timestamp: item.timestamp || null };
+        }
+        return { id: String(idx), text: String(item), timestamp: null };
+      });
+    }
+    if (typeof parsed === 'object' && parsed !== null) {
+      return [{ id: parsed.id || '1', text: parsed.text || '', timestamp: parsed.timestamp || null }];
+    }
   } catch (e) {
     /* ignore fallback */
   }

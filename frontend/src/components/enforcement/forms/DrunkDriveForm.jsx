@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../../api/axios';
+import CustomSelect from '../../CustomSelect';
 
 export default function DrunkDriveForm({ onCancel, onSuccess }) {
   const [formData, setFormData] = useState({
@@ -114,17 +115,16 @@ export default function DrunkDriveForm({ onCancel, onSuccess }) {
 
         <div>
           <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-garuda-200)' }}>Driver Gender</label>
-          <select
-            name="driver_gender"
+          <CustomSelect
             value={formData.driver_gender}
-            onChange={handleChange}
-            className="input"
-          >
-            <option value="">Select...</option>
-            <option value="MALE">Male</option>
-            <option value="FEMALE">Female</option>
-            <option value="OTHER">Other</option>
-          </select>
+            onChange={(e) => handleChange({ target: { name: 'driver_gender', value: e.target.value } })}
+            options={[
+              { value: '', label: 'Select Gender' },
+              { value: 'MALE', label: 'Male' },
+              { value: 'FEMALE', label: 'Female' },
+              { value: 'OTHER', label: 'Other' },
+            ]}
+          />
         </div>
 
         <div>

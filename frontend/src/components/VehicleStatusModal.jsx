@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import api from '../api/axios';
+import CustomSelect from './CustomSelect';
 
 const STATUS_OPTIONS = [
   { value: 'SEIZED', label: 'Seized (Impounded)' },
@@ -93,16 +94,11 @@ export default function VehicleStatusModal({ vehicle, isOpen, onClose, onSuccess
             <label className="block text-xs font-medium mb-1" style={{ color: 'var(--color-garuda-400)' }}>
               Current Status *
             </label>
-            <select
+            <CustomSelect
               value={status}
               onChange={(e) => setStatus(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg text-sm outline-none"
-              style={{ background: 'var(--color-garuda-900)', border: '1px solid var(--color-garuda-600)', color: 'var(--color-garuda-100)' }}
-            >
-              {STATUS_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
-            </select>
+              options={STATUS_OPTIONS}
+            />
           </div>
 
           {requiresCourtOrder && (

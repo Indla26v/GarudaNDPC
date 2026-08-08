@@ -7,6 +7,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api/axios';
+import CustomSelect from '../../components/CustomSelect';
 import { IconCar, IconSearch } from '../../components/Icons';
 import VehicleStatusModal from '../../components/VehicleStatusModal';
 
@@ -150,28 +151,22 @@ export default function VehiclesSeized() {
           </div>
 
           {/* Type Filter */}
-          <select
-            value={vehicleType}
-            onChange={(e) => { setVehicleType(e.target.value); setPage(0); }}
-            className={inp}
-            style={{ ...fieldStyle, width: 'auto', minWidth: '140px', cursor: 'pointer' }}
-          >
-            {VEHICLE_TYPES.map(t => (
-              <option key={t.value} value={t.value}>{t.label}</option>
-            ))}
-          </select>
+          <div className="w-44">
+            <CustomSelect
+              value={vehicleType}
+              onChange={(e) => { setVehicleType(e.target.value); setPage(0); }}
+              options={VEHICLE_TYPES}
+            />
+          </div>
 
           {/* Status Filter */}
-          <select
-            value={status}
-            onChange={(e) => { setStatus(e.target.value); setPage(0); }}
-            className={inp}
-            style={{ ...fieldStyle, width: 'auto', minWidth: '140px', cursor: 'pointer' }}
-          >
-            {STATUS_OPTIONS.map(s => (
-              <option key={s.value} value={s.value}>{s.label}</option>
-            ))}
-          </select>
+          <div className="w-44">
+            <CustomSelect
+              value={status}
+              onChange={(e) => { setStatus(e.target.value); setPage(0); }}
+              options={STATUS_OPTIONS}
+            />
+          </div>
 
           {/* Search Button */}
           <button

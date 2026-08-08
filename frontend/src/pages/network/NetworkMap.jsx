@@ -7,6 +7,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api/axios';
+import CustomSelect from '../../components/CustomSelect';
 import { usePermissions } from '../../hooks/usePermissions';
 import {
   IconNetwork, IconMap, IconChain, IconShield, IconPackage, IconCases,
@@ -1054,29 +1055,33 @@ export default function NetworkMap() {
                 </div>
 
                 {/* Category Filter */}
-                <select
-                  value={categoryFilter}
-                  onChange={(e) => setCategoryFilter(e.target.value)}
-                  className="select text-xs py-1.5 focus:outline-none"
-                >
-                  <option value="ALL">All Roles</option>
-                  <option value="KINGPIN">Kingpin</option>
-                  <option value="LOCAL_SUPPLIER">Local Supplier</option>
-                  <option value="INTERSTATE_SUPPLIER">Interstate Supplier</option>
-                  <option value="TRANSPORTER">Transporter</option>
-                  <option value="PEDDLER">Peddler</option>
-                  <option value="CONSUMER">Consumer</option>
-                </select>
+                <div className="w-44">
+                  <CustomSelect
+                    value={categoryFilter}
+                    onChange={(e) => setCategoryFilter(e.target.value)}
+                    options={[
+                      { value: 'ALL', label: 'All Roles' },
+                      { value: 'KINGPIN', label: 'Kingpin' },
+                      { value: 'LOCAL_SUPPLIER', label: 'Local Supplier' },
+                      { value: 'INTERSTATE_SUPPLIER', label: 'Interstate Supplier' },
+                      { value: 'TRANSPORTER', label: 'Transporter' },
+                      { value: 'PEDDLER', label: 'Peddler' },
+                      { value: 'CONSUMER', label: 'Consumer' },
+                    ]}
+                  />
+                </div>
 
                 {/* Layout Mode Selection */}
-                <select
-                  value={layoutMode}
-                  onChange={(e) => setLayoutMode(e.target.value)}
-                  className="select text-xs py-1.5 focus:outline-none"
-                >
-                  <option value="force">Force-Directed Layout</option>
-                  <option value="hierarchy">Hierarchical Layout</option>
-                </select>
+                <div className="w-48">
+                  <CustomSelect
+                    value={layoutMode}
+                    onChange={(e) => setLayoutMode(e.target.value)}
+                    options={[
+                      { value: 'force', label: 'Force-Directed Layout' },
+                      { value: 'hierarchy', label: 'Hierarchical Layout' },
+                    ]}
+                  />
+                </div>
 
                 {/* Focus Mode Toggle */}
                 <label className="flex items-center gap-2 text-xs cursor-pointer select-none">
@@ -1459,18 +1464,18 @@ export default function NetworkMap() {
 
                 <div>
                   <label className="block mb-1" style={{ color: 'var(--color-garuda-300)' }}>Assigned Role</label>
-                  <select
+                  <CustomSelect
                     value={predictCategory}
                     onChange={(e) => setPredictCategory(e.target.value)}
-                    className="select w-full text-xs py-1.5 focus:outline-none"
-                  >
-                    <option value="KINGPIN">Kingpin</option>
-                    <option value="LOCAL_SUPPLIER">Local Supplier</option>
-                    <option value="INTERSTATE_SUPPLIER">Interstate Supplier</option>
-                    <option value="TRANSPORTER">Transporter</option>
-                    <option value="PEDDLER">Peddler</option>
-                    <option value="CONSUMER">Consumer</option>
-                  </select>
+                    options={[
+                      { value: 'KINGPIN', label: 'Kingpin' },
+                      { value: 'LOCAL_SUPPLIER', label: 'Local Supplier' },
+                      { value: 'INTERSTATE_SUPPLIER', label: 'Interstate Supplier' },
+                      { value: 'TRANSPORTER', label: 'Transporter' },
+                      { value: 'PEDDLER', label: 'Peddler' },
+                      { value: 'CONSUMER', label: 'Consumer' },
+                    ]}
+                  />
                 </div>
 
                 <div>

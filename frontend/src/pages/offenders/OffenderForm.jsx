@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import api from '../../api/axios';
+import CustomSelect from '../../components/CustomSelect';
 import { usePermissions } from '../../hooks/usePermissions';
 import { OffenderCaseHistory, OffenderInterrogationPanel, ImeiPanel } from '../../components/OffenderPhase1Panels';
 
@@ -1145,24 +1146,29 @@ export default function OffenderForm() {
             <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
               {renderField("Serial No", form.slNo, <input id="slNo" name="slNo" className={inp} style={inputStyle} value={form.slNo} onChange={e => set('slNo', e.target.value)} />)}
               {renderField("Police Station *", stations.find(ps => String(ps.id) === String(form.psId))?.name, 
-                <select id="psId" name="psId" className={sel} style={inputStyle} value={form.psId} onChange={e => set('psId', e.target.value)}>
-                  <option value="">Select PS</option>
-                  {stations.map(ps => <option key={ps.id} value={ps.id}>{ps.name}</option>)}
-                </select>
+                <CustomSelect
+                  value={form.psId}
+                  onChange={e => set('psId', e.target.value)}
+                  options={[{ value: '', label: 'Select PS' }, ...stations.map(ps => ({ value: String(ps.id), label: ps.name }))]}
+                />
               )}
               {renderField("Full Name *", form.fullName, <input id="fullName" name="fullName" className={inp} style={inputStyle} value={form.fullName} onChange={e => set('fullName', e.target.value)} />)}
               {renderField("Alias", form.alias, <input id="alias" name="alias" className={inp} style={inputStyle} value={form.alias} onChange={e => set('alias', e.target.value)} />)}
               {renderField("Father/Husband Name", form.fatherHusbandName, <input id="fatherHusbandName" name="fatherHusbandName" className={inp} style={inputStyle} value={form.fatherHusbandName} onChange={e => set('fatherHusbandName', e.target.value)} />)}
               {renderField("Age", form.age, <input id="age" name="age" type="number" className={inp} style={inputStyle} value={form.age} onChange={e => set('age', e.target.value)} />)}
               {renderField("Gender", form.gender, 
-                <select id="gender" name="gender" className={sel} style={inputStyle} value={form.gender} onChange={e => set('gender', e.target.value)}>
-                  <option value="">Select</option>{GENDERS.map(g => <option key={g} value={g}>{g}</option>)}
-                </select>
+                <CustomSelect
+                  value={form.gender}
+                  onChange={e => set('gender', e.target.value)}
+                  options={[{ value: '', label: 'Select Gender' }, ...GENDERS.map(g => ({ value: g, label: g }))]}
+                />
               )}
               {renderField("Category", form.category?.replace('_', ' '), 
-                <select id="category" name="category" className={sel} style={inputStyle} value={form.category} onChange={e => set('category', e.target.value)}>
-                  <option value="">Select</option>{CATEGORIES.map(c => <option key={c} value={c}>{c.replace('_', ' ')}</option>)}
-                </select>
+                <CustomSelect
+                  value={form.category}
+                  onChange={e => set('category', e.target.value)}
+                  options={[{ value: '', label: 'Select Category' }, ...CATEGORIES.map(c => ({ value: c, label: c.replace(/_/g, ' ') }))]}
+                />
               )}
               {renderField("Occupation", form.occupation, <input id="occupation" name="occupation" className={inp} style={inputStyle} value={form.occupation} onChange={e => set('occupation', e.target.value)} />)}
               {renderField("Monthly Income (₹)", form.monthlyIncome ? `₹${form.monthlyIncome}` : '', <input id="monthlyIncome" name="monthlyIncome" type="number" className={inp} style={inputStyle} value={form.monthlyIncome} onChange={e => set('monthlyIncome', e.target.value)} />)}
@@ -1268,17 +1274,25 @@ export default function OffenderForm() {
                   <div key={i} className="flex flex-col md:flex-row gap-3 items-center p-3 rounded-lg" style={{ background: 'var(--color-garuda-700)' }}>
                     <div className="flex items-center gap-2.5 w-full md:w-auto">
                       <span className="flex items-center justify-center text-xs font-bold w-6 h-6 rounded-full" style={{ background: 'var(--color-garuda-800)', color: 'var(--color-garuda-300)' }}>{i + 1}</span>
-                      <select className="px-2 py-2.5 rounded text-xs w-full md:w-auto cursor-pointer font-semibold outline-none" style={inputStyle} value={c.contactType} onChange={e => updateContact(i, 'contactType', e.target.value)}>
-                        {CORE_CONTACT_TYPES.map(t => <option key={t} value={t}>{t.replace('_', ' ')}</option>)}
-                      </select>
+                      <div className="w-40">
+                        <CustomSelect
+                          value={c.contactType}
+                          onChange={e => updateContact(i, 'contactType', e.target.value)}
+                          options={CORE_CONTACT_TYPES.map(t => ({ value: t, label: t.replace(/_/g, ' ') }))}
+                        />
+                      </div>
                     </div>
                     {isEmail ? (
                       <input className="flex-1 px-3 py-2.5 rounded text-sm w-full" style={inputStyle} placeholder="e.g. email@gmail.com" value={c.value || ''} onChange={e => updateContact(i, 'value', e.target.value)} />
                     ) : (
                       <div className="flex-1 flex gap-2 w-full">
-                        <select className="px-2 py-2 rounded text-sm cursor-pointer font-semibold outline-none" style={inputStyle} value={c.countryCode || '+91'} onChange={e => updateContact(i, 'countryCode', e.target.value)}>
-                          {COUNTRY_CODES.map(cc => <option key={cc.code} value={cc.code}>{cc.code}</option>)}
-                        </select>
+                        <div className="w-28">
+                          <CustomSelect
+                            value={c.countryCode || '+91'}
+                            onChange={e => updateContact(i, 'countryCode', e.target.value)}
+                            options={COUNTRY_CODES.map(cc => ({ value: cc.code, label: cc.code }))}
+                          />
+                        </div>
                         <input 
                           className="flex-1 px-3 py-2.5 rounded text-sm w-full" 
                           style={inputStyle} 
@@ -1345,9 +1359,13 @@ export default function OffenderForm() {
                 <div key={i} className="flex flex-col md:flex-row gap-3 items-center p-3.5 rounded-lg border" style={{ background: 'var(--color-garuda-900)', borderColor: 'var(--color-garuda-700)' }}>
                   <div className="flex items-center gap-2.5 w-full md:w-auto">
                     <span className="flex items-center justify-center text-xs font-bold w-6 h-6 rounded-full animate-fade-in" style={{ background: 'var(--color-garuda-700)', color: 'var(--color-garuda-300)' }}>{i + 1}</span>
-                    <select className="px-3 py-2 rounded-lg text-sm font-semibold outline-none cursor-pointer w-full md:w-48" style={inputStyle} value={s.contactType} onChange={e => updateSocialMedia(i, 'contactType', e.target.value)}>
-                      {SOCIAL_CONTACT_TYPES.map(t => <option key={t} value={t}>{t.replace('_', ' ')}</option>)}
-                    </select>
+                    <div className="w-44">
+                      <CustomSelect
+                        value={s.contactType}
+                        onChange={e => updateSocialMedia(i, 'contactType', e.target.value)}
+                        options={SOCIAL_CONTACT_TYPES.map(t => ({ value: t, label: t.replace(/_/g, ' ') }))}
+                      />
+                    </div>
                   </div>
                   <input className="flex-1 px-3 py-2 rounded-lg text-sm w-full outline-none" style={inputStyle} placeholder="Username or Profile Link" value={s.value} onChange={e => updateSocialMedia(i, 'value', e.target.value)} />
                   <input className="w-full md:w-64 px-3 py-2 rounded-lg text-sm outline-none" style={inputStyle} placeholder="Notes" value={s.notes||''} onChange={e => updateSocialMedia(i, 'notes', e.target.value)} />
@@ -1382,33 +1400,39 @@ export default function OffenderForm() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {renderField("Addiction Type", form.addictionType?.replace(/_/g, ' '),
-              <select id="addictionType" name="addictionType" className={sel} style={inputStyle} value={form.addictionType} onChange={e => set('addictionType', e.target.value)}>
-                <option value="">Select</option>
-                {ADDICTION_TYPES.map(t => <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>)}
-              </select>
+              <CustomSelect
+                value={form.addictionType}
+                onChange={e => set('addictionType', e.target.value)}
+                options={[{ value: '', label: 'Select Addiction Type' }, ...ADDICTION_TYPES.map(t => ({ value: t, label: t.replace(/_/g, ' ') }))]}
+              />
             )}
             {renderField("Consumption Frequency", form.consumptionFrequency,
-              <select id="consumptionFrequency" name="consumptionFrequency" className={sel} style={inputStyle} value={form.consumptionFrequency} onChange={e => set('consumptionFrequency', e.target.value)}>
-                <option value="">Select</option>
-                {CONSUMPTION_FREQS.map(f => <option key={f} value={f}>{f}</option>)}
-              </select>
+              <CustomSelect
+                value={form.consumptionFrequency}
+                onChange={e => set('consumptionFrequency', e.target.value)}
+                options={[{ value: '', label: 'Select Frequency' }, ...CONSUMPTION_FREQS.map(f => ({ value: f, label: f }))]}
+              />
             )}
             {renderField("Source of Procurement", form.sourceOfProcurement?.replace(/_/g, ' '),
-              <select id="sourceOfProcurement" name="sourceOfProcurement" className={sel} style={inputStyle} value={form.sourceOfProcurement} onChange={e => set('sourceOfProcurement', e.target.value)}>
-                <option value="">Select</option>
-                {PROCUREMENT_SOURCES.map(s => <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>)}
-              </select>
+              <CustomSelect
+                value={form.sourceOfProcurement}
+                onChange={e => set('sourceOfProcurement', e.target.value)}
+                options={[{ value: '', label: 'Select Source' }, ...PROCUREMENT_SOURCES.map(s => ({ value: s, label: s.replace(/_/g, ' ') }))]}
+              />
             )}
             {renderField("Test Result", form.testResult, 
-              <select id="testResult" name="testResult" className={sel} style={inputStyle} value={form.testResult} onChange={e => set('testResult', e.target.value)}>
-                <option value="">Select</option>
-                {TEST_RESULTS.map(r => <option key={r} value={r}>{r}</option>)}
-              </select>
+              <CustomSelect
+                value={form.testResult}
+                onChange={e => set('testResult', e.target.value)}
+                options={[{ value: '', label: 'Select Test Result' }, ...TEST_RESULTS.map(r => ({ value: r, label: r }))]}
+              />
             )}
             {renderField("Mode of Purchase", form.modeOfPurchase, 
-              <select id="modeOfPurchase" name="modeOfPurchase" className={sel} style={inputStyle} value={form.modeOfPurchase} onChange={e => set('modeOfPurchase', e.target.value)}>
-                <option value="">Select</option>{PURCHASE_MODES.map(m => <option key={m} value={m}>{m}</option>)}
-              </select>
+              <CustomSelect
+                value={form.modeOfPurchase}
+                onChange={e => set('modeOfPurchase', e.target.value)}
+                options={[{ value: '', label: 'Select Mode' }, ...PURCHASE_MODES.map(m => ({ value: m, label: m }))]}
+              />
             )}
             {renderField("Usual Consumption Spot", form.usualConsumptionSpot, <input id="usualConsumptionSpot" name="usualConsumptionSpot" className={inp} style={inputStyle} value={form.usualConsumptionSpot} onChange={e => set('usualConsumptionSpot', e.target.value)} />)}
             {renderField("Section of Law", form.sectionOfLaw, <input id="sectionOfLaw" name="sectionOfLaw" className={inp} style={inputStyle} value={form.sectionOfLaw} onChange={e => set('sectionOfLaw', e.target.value)} placeholder="e.g. Section 8(c) r/w 20(b)(ii)(A)" />)}
@@ -1464,9 +1488,11 @@ export default function OffenderForm() {
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <Field label="Type">
-                      <select className={sel} style={inputStyle} value={fin.finType} onChange={e => updateFinancial(i, 'finType', e.target.value)}>
-                        {FIN_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-                      </select>
+                      <CustomSelect
+                        value={fin.finType}
+                        onChange={e => updateFinancial(i, 'finType', e.target.value)}
+                        options={FIN_TYPES}
+                      />
                     </Field>
                     
                     <Field label={fin.finType === 'BANK_ACCOUNT_NO' ? 'Account Number' : fin.finType === 'UPI_ID' ? 'UPI ID' : 'Value'}>
@@ -1626,9 +1652,11 @@ export default function OffenderForm() {
             <div className="space-y-4">
               {form.supplyChainLinks.map((lk, i) => (
                 <div key={i} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 p-3 rounded-lg" style={{ background: 'var(--color-garuda-700)' }}>
-                  <select className="px-2 py-2.5 rounded text-xs w-full cursor-pointer" style={inputStyle} value={lk.linkType} onChange={e => updateLink(i, 'linkType', e.target.value)}>
-                    {LINK_TYPES.map(t => <option key={t} value={t}>{t.replace('_', ' ')}</option>)}
-                  </select>
+                  <CustomSelect
+                    value={lk.linkType}
+                    onChange={e => updateLink(i, 'linkType', e.target.value)}
+                    options={LINK_TYPES.map(t => ({ value: t, label: t.replace(/_/g, ' ') }))}
+                  />
                   <input className="px-3 py-2.5 rounded text-sm w-full" style={inputStyle} placeholder="Name" value={lk.linkedName||''} onChange={e => updateLink(i, 'linkedName', e.target.value)} />
                   <input 
                     className="px-3 py-2.5 rounded text-sm w-full" 
@@ -1686,19 +1714,21 @@ export default function OffenderForm() {
         </div>
 
         {/* Right Sticky Quick Access Panel */}
-        <div className="hidden lg:block lg:col-span-3 sticky top-24 self-start space-y-4">
-          <div className="pl-4 border-l-2 border-slate-300 dark:border-slate-700 space-y-2">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-4 px-2">Quick Navigation</p>
-            {quickAccessSections.map((s) => (
-              <button
-                key={s.id}
-                type="button"
-                onClick={() => document.getElementById(s.id)?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
-                className="w-full text-left px-2 py-1.5 rounded-lg text-xs font-semibold block transition-all cursor-pointer border-none bg-transparent text-slate-700 dark:text-slate-400 hover:text-orange-600 dark:hover:text-orange-400 hover:bg-slate-100 dark:hover:bg-slate-800"
-              >
-                {s.label}
-              </button>
-            ))}
+        <div className="hidden lg:block lg:col-span-3 sticky top-20 self-start space-y-4 max-h-[calc(100vh-5.5rem)] overflow-y-auto pr-1.5 custom-scrollbar">
+          <div className="p-3.5 rounded-xl border space-y-2" style={{ background: 'var(--color-garuda-800)', borderColor: 'var(--color-garuda-700)' }}>
+            <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1 px-1">Quick Navigation</p>
+            <div className="space-y-1 max-h-[30vh] overflow-y-auto pr-1 custom-scrollbar">
+              {quickAccessSections.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => document.getElementById(s.id)?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+                  className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-semibold block transition-all cursor-pointer border-none bg-transparent text-slate-700 dark:text-slate-300 hover:text-orange-600 dark:hover:text-orange-400 hover:bg-slate-200/60 dark:hover:bg-slate-700/60"
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Quick Notes Section Below Quick Nav */}
@@ -1716,7 +1746,7 @@ export default function OffenderForm() {
                 setQuickNotes(val);
                 setForm(prev => ({ ...prev, notes: val }));
               }}
-              rows={5}
+              rows={4}
               placeholder="Type quick offender notes or remarks to save..."
               className="w-full p-2.5 rounded-lg text-xs outline-none resize-none"
               style={{ background: 'var(--color-garuda-900)', border: '1px solid var(--color-garuda-600)', color: 'var(--color-garuda-100)' }}

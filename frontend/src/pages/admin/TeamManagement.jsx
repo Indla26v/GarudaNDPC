@@ -6,6 +6,7 @@
  */
 import { useState, useEffect } from 'react';
 import api from '../../api/axios';
+import CustomSelect from '../../components/CustomSelect';
 
 const DEPT_LABELS = {
   POLICE: 'Police', CYBER_ANALYTICS: 'Cyber Analytics (STF)', EXCISE: 'Excise Officer',
@@ -149,13 +150,11 @@ export default function TeamManagement() {
               </div>
               <div>
                 <label className="text-xs font-medium block mb-1" style={{ color: 'var(--color-garuda-300)' }}>Department</label>
-                <select
-                  value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })}
-                  className="w-full px-3 py-2 rounded-lg text-sm"
-                  style={{ background: 'var(--color-garuda-700)', color: 'var(--color-garuda-100)', border: '1px solid var(--color-garuda-600)' }}
-                >
-                  {DEPARTMENTS.map(d => <option key={d} value={d}>{DEPT_LABELS[d]}</option>)}
-                </select>
+                <CustomSelect
+                  value={form.department}
+                  onChange={(e) => setForm({ ...form, department: e.target.value })}
+                  options={DEPARTMENTS.map(d => ({ value: d, label: DEPT_LABELS[d] }))}
+                />
               </div>
               <div>
                 <label className="text-xs font-medium block mb-1" style={{ color: 'var(--color-garuda-300)' }}>Description</label>

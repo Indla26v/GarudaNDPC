@@ -6,6 +6,7 @@
 import { useState, useEffect } from 'react';
 import { usePermissions } from '../../hooks/usePermissions';
 import api from '../../api/axios';
+import CustomSelect from '../../components/CustomSelect';
 import {
   IconChart, IconClipboard, IconLock, IconTool, IconScale, IconReports,
   IconWarning, IconRunning, IconBell, IconOffender, IconPackage,
@@ -794,45 +795,38 @@ export default function Reports() {
               <form onSubmit={handleIntelSubmit} className="space-y-4">
                 <div className="space-y-1.5">
                   <label className="text-xs text-slate-700 dark:text-slate-300 font-bold">Police Station *</label>
-                  <select
-                    required
+                  <CustomSelect
                     value={intelPsId}
                     onChange={(e) => setIntelPsId(e.target.value)}
-                    className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white"
-                  >
-                    <option value="">Select Station</option>
-                    {stations.map(ps => (
-                      <option key={ps.id} value={ps.id}>{ps.name}</option>
-                    ))}
-                  </select>
+                    placeholder="Select Station"
+                    options={stations.map(ps => ({ value: String(ps.id), label: ps.name }))}
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs text-slate-700 dark:text-slate-300 font-bold">Source Type *</label>
-                  <select
-                    required
+                  <CustomSelect
                     value={intelSourceType}
                     onChange={(e) => setIntelSourceType(e.target.value)}
-                    className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white"
-                  >
-                    <option value="INFORMER">Informer</option>
-                    <option value="FIELD_OFFICER">Field Officer</option>
-                    <option value="SB">Special Branch (SB)</option>
-                    <option value="EXCISE">Excise</option>
-                    <option value="OTHER">Other</option>
-                  </select>
+                    options={[
+                      { value: 'INFORMER', label: 'Informer' },
+                      { value: 'FIELD_OFFICER', label: 'Field Officer' },
+                      { value: 'SB', label: 'Special Branch (SB)' },
+                      { value: 'EXCISE', label: 'Excise' },
+                      { value: 'OTHER', label: 'Other' },
+                    ]}
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs text-slate-700 dark:text-slate-300 font-bold">Associated Offender (Optional)</label>
-                  <select
+                  <CustomSelect
                     value={intelOffenderId}
                     onChange={(e) => setIntelOffenderId(e.target.value)}
-                    className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white"
-                  >
-                    <option value="">None</option>
-                    {offenders.map(o => (
-                      <option key={o.id} value={o.id}>{o.fullName || o.full_name}</option>
-                    ))}
-                  </select>
+                    placeholder="None"
+                    options={[
+                      { value: '', label: 'None' },
+                      ...offenders.map(o => ({ value: String(o.id), label: o.fullName || o.full_name }))
+                    ]}
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs text-slate-700 dark:text-slate-300 font-bold">Supply Route / Location</label>
@@ -956,53 +950,51 @@ export default function Reports() {
 
               <div className="space-y-1.5">
                 <label className="text-[11px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">Police Station</label>
-                <select
+                <CustomSelect
                   value={customPsId}
                   onChange={(e) => setCustomPsId(e.target.value)}
-                  className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white"
-                >
-                  <option value="ALL">All Stations</option>
-                  {stations.map(ps => (
-                    <option key={ps.id} value={ps.id}>{ps.name}</option>
-                  ))}
-                </select>
+                  options={[
+                    { value: 'ALL', label: 'All Stations' },
+                    ...stations.map(ps => ({ value: String(ps.id), label: ps.name }))
+                  ]}
+                />
               </div>
 
               <div className="space-y-1.5">
                 <label className="text-[11px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">Contraband Type</label>
-                <select
+                <CustomSelect
                   value={customContraband}
                   onChange={(e) => setCustomContraband(e.target.value)}
-                  className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white"
-                >
-                  <option value="ALL">All Contraband</option>
-                  <option value="DRY_GANJA">Dry Ganja</option>
-                  <option value="GANJA_OIL">Ganja Oil</option>
-                  <option value="BROWN_SUGAR">Brown Sugar</option>
-                  <option value="HEROIN">Heroin</option>
-                  <option value="MDMA">MDMA</option>
-                  <option value="SYNTHETIC">Synthetic</option>
-                  <option value="COCAINE">Cocaine</option>
-                  <option value="OPIUM">Opium</option>
-                  <option value="OTHER">Other</option>
-                </select>
+                  options={[
+                    { value: 'ALL', label: 'All Contraband' },
+                    { value: 'DRY_GANJA', label: 'Dry Ganja' },
+                    { value: 'GANJA_OIL', label: 'Ganja Oil' },
+                    { value: 'BROWN_SUGAR', label: 'Brown Sugar' },
+                    { value: 'HEROIN', label: 'Heroin' },
+                    { value: 'MDMA', label: 'MDMA' },
+                    { value: 'SYNTHETIC', label: 'Synthetic' },
+                    { value: 'COCAINE', label: 'Cocaine' },
+                    { value: 'OPIUM', label: 'Opium' },
+                    { value: 'OTHER', label: 'Other' },
+                  ]}
+                />
               </div>
 
               <div className="space-y-1.5">
                 <label className="text-[11px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">Case Stage</label>
-                <select
+                <CustomSelect
                   value={customStage}
                   onChange={(e) => setCustomStage(e.target.value)}
-                  className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white"
-                >
-                  <option value="ALL">All Stages</option>
-                  <option value="FIR">FIR</option>
-                  <option value="CHARGESHEET">Charge Sheet</option>
-                  <option value="TRIAL">Trial</option>
-                  <option value="CONVICTED">Convicted</option>
-                  <option value="ACQUITTED">Acquitted</option>
-                  <option value="CLOSED">Closed</option>
-                </select>
+                  options={[
+                    { value: 'ALL', label: 'All Stages' },
+                    { value: 'FIR', label: 'FIR' },
+                    { value: 'CHARGESHEET', label: 'Charge Sheet' },
+                    { value: 'TRIAL', label: 'Trial' },
+                    { value: 'CONVICTED', label: 'Convicted' },
+                    { value: 'ACQUITTED', label: 'Acquitted' },
+                    { value: 'CLOSED', label: 'Closed' },
+                  ]}
+                />
               </div>
 
               <div className="space-y-2 pt-2 border-t border-slate-200 dark:border-slate-700">
@@ -1141,15 +1133,17 @@ export default function Reports() {
             </div>
             <div className="flex items-center gap-2">
               <span className="text-xs text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">Days:</span>
-              <select
-                value={courtDays}
-                onChange={(e) => setCourtDays(parseInt(e.target.value))}
-                className="text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white"
-              >
-                <option value={7}>Next 7 Days</option>
-                <option value={15}>Next 15 Days</option>
-                <option value={30}>Next 30 Days</option>
-              </select>
+              <div className="w-36">
+                <CustomSelect
+                  value={courtDays}
+                  onChange={(e) => setCourtDays(parseInt(e.target.value))}
+                  options={[
+                    { value: 7, label: 'Next 7 Days' },
+                    { value: 15, label: 'Next 15 Days' },
+                    { value: 30, label: 'Next 30 Days' },
+                  ]}
+                />
+              </div>
             </div>
           </div>
 

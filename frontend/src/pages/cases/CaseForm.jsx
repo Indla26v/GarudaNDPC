@@ -4,6 +4,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../api/axios';
+import CustomSelect from '../../components/CustomSelect';
 
 export const ARREST_STATUS_META = {
   POLICE_CUSTODY: {
@@ -86,11 +87,27 @@ export const parseNotesList = (raw) => {
   if (!raw || !raw.trim()) return [];
   try {
     const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) return parsed;
+    if (Array.isArray(parsed)) {
+      return parsed.map((item, idx) => {
+        if (typeof item === 'object' && item !== null) {
+          return { id: item.id || String(idx), text: item.text || '', timestamp: item.timestamp || null };
+        }
+        return { id: String(idx), text: String(item), timestamp: null };
+      });
+    }
+    if (typeof parsed === 'object' && parsed !== null) {
+      return [{ id: parsed.id || '1', text: parsed.text || '', timestamp: parsed.timestamp || null }];
+    }
   } catch (e) {
     /* ignore fallback */
   }
   return [{ id: 'legacy-1', text: raw, timestamp: null }];
+};
+
+export const formatNotesToText = (raw) => {
+  if (!raw || !raw.trim()) return '';
+  const list = parseNotesList(raw);
+  return list.map(item => item.text).filter(Boolean).join('\n');
 };
 
 export default function CaseForm() {
@@ -185,7 +202,7 @@ export default function CaseForm() {
         streetValue: c.streetValue?.toString() || '',
         sourceLocation: c.sourceLocation || '',
         destinationLocation: c.destinationLocation || '',
-        intelligenceNotes: c.intelligenceNotes || '',
+        intelligenceNotes: formatNotesToText(c.intelligenceNotes),
         department: c.department || 'POLICE',
         isHistorySheet: c.isHistorySheet || false,
         isRowdySheet: c.isRowdySheet || false,
@@ -527,21 +544,30 @@ export default function CaseForm() {
               </div>
               <div>
                 <label htmlFor="psId" className="block text-xs font-medium mb-1" style={{ color: 'var(--color-garuda-400)' }}>Station *</label>
-                <select id="psId" name="psId" value={form.psId} onChange={handleChange} required className={inp} style={fieldStyle}>
-                  <option value="">Select Station</option>
-                  {stations.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}{(s.psCode || s.ps_code) ? ` (${s.psCode || s.ps_code})` : ''}
-                    </option>
-                  ))}
-                </select>
+                <CustomSelect
+                  id="psId"
+                  name="psId"
+                  value={form.psId}
+                  onChange={handleChange}
+                  placeholder="Select Station"
+                  options={stations.map((s) => ({
+                    value: String(s.id),
+                    label: `${s.name}${(s.psCode || s.ps_code) ? ` (${s.psCode || s.ps_code})` : ''}`
+                  }))}
+                />
               </div>
               <div>
                 <label htmlFor="department" className="block text-xs font-medium mb-1" style={{ color: 'var(--color-garuda-400)' }}>Department</label>
-                <select id="department" name="department" value={form.department} onChange={handleChange} className={inp} style={fieldStyle}>
-                  <option value="POLICE">Police</option>
-                  <option value="EXCISE">Excise</option>
-                </select>
+                <CustomSelect
+                  id="department"
+                  name="department"
+                  value={form.department}
+                  onChange={handleChange}
+                  options={[
+                    { value: 'POLICE', label: 'Police' },
+                    { value: 'EXCISE', label: 'Excise' }
+                  ]}
+                />
               </div>
               <div>
                 <label htmlFor="caseDate" className="block text-xs font-medium mb-1" style={{ color: 'var(--color-garuda-400)' }}>Case Date *</label>
@@ -558,14 +584,19 @@ export default function CaseForm() {
               {isEdit && (
                 <div>
                   <label className="block text-xs font-medium mb-1" style={{ color: 'var(--color-garuda-400)' }}>Stage</label>
-                  <select name="stage" value={form.stage} onChange={handleChange} className={inp} style={fieldStyle}>
-                    <option value="FIR">FIR</option>
-                    <option value="CHARGESHEET">Charge Sheet</option>
-                    <option value="TRIAL">Trial</option>
-                    <option value="CONVICTED">Convicted</option>
-                    <option value="ACQUITTED">Acquitted</option>
-                    <option value="CLOSED">Closed</option>
-                  </select>
+                  <CustomSelect
+                    name="stage"
+                    value={form.stage}
+                    onChange={handleChange}
+                    options={[
+                      { value: 'FIR', label: 'FIR' },
+                      { value: 'CHARGESHEET', label: 'Charge Sheet' },
+                      { value: 'TRIAL', label: 'Trial' },
+                      { value: 'CONVICTED', label: 'Convicted' },
+                      { value: 'ACQUITTED', label: 'Acquitted' },
+                      { value: 'CLOSED', label: 'Closed' }
+                    ]}
+                  />
                 </div>
               )}
             </div>
@@ -593,12 +624,13 @@ export default function CaseForm() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-medium mb-1" style={{ color: 'var(--color-garuda-400)' }}>Type</label>
-                <select name="contrabandType" value={form.contrabandType} onChange={handleChange} className={inp} style={fieldStyle}>
-                  <option value="">—</option>
-                  {CONTRABAND_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
-                  ))}
-                </select>
+                <CustomSelect
+                  name="contrabandType"
+                  value={form.contrabandType}
+                  onChange={handleChange}
+                  placeholder="— Select Contraband —"
+                  options={CONTRABAND_OPTIONS}
+                />
               </div>
               <div className="flex gap-2">
                 <div className="flex-1">
@@ -607,11 +639,12 @@ export default function CaseForm() {
                 </div>
                 <div className="w-28">
                   <label className="block text-xs font-medium mb-1" style={{ color: 'var(--color-garuda-400)' }}>Unit</label>
-                  <select name="quantityUnit" value={form.quantityUnit} onChange={handleChange} className={inp} style={fieldStyle}>
-                    {UNIT_OPTIONS.map((o) => (
-                      <option key={o.value} value={o.value}>{o.label}</option>
-                    ))}
-                  </select>
+                  <CustomSelect
+                    name="quantityUnit"
+                    value={form.quantityUnit}
+                    onChange={handleChange}
+                    options={UNIT_OPTIONS}
+                  />
                 </div>
               </div>
               <div>
@@ -715,26 +748,22 @@ export default function CaseForm() {
                 {accused.map((a) => (
                   <li key={a.offenderId} className="flex items-center justify-between gap-3 p-2.5 rounded-lg" style={{ background: 'var(--color-garuda-900)' }}>
                     <span className="text-sm flex-1 min-w-0 truncate" style={{ color: 'var(--color-garuda-100)' }}>{a.offenderName}</span>
-                    <select
-                      value={a.arrestStatus}
-                      onChange={(e) => {
-                        setAccused(accused.map(x =>
-                          x.offenderId === a.offenderId
-                            ? { ...x, arrestStatus: e.target.value }
-                            : x
-                        ));
-                      }}
-                      className="px-2 py-1.5 rounded-md text-xs font-semibold outline-none"
-                      style={{
-                        background: ARREST_STATUS_META[a.arrestStatus]?.bg || 'rgba(34,197,94,0.15)',
-                        color: ARREST_STATUS_META[a.arrestStatus]?.color || '#22c55e',
-                        border: `1px solid ${ARREST_STATUS_META[a.arrestStatus]?.border || 'rgba(34,197,94,0.3)'}`,
-                      }}
-                    >
-                      {Object.entries(ARREST_STATUS_META).map(([key, meta]) => (
-                        <option key={key} value={key}>{meta.desc}</option>
-                      ))}
-                    </select>
+                    <div className="w-64">
+                      <CustomSelect
+                        value={a.arrestStatus}
+                        onChange={(e) => {
+                          setAccused(accused.map(x =>
+                            x.offenderId === a.offenderId
+                              ? { ...x, arrestStatus: e.target.value }
+                              : x
+                          ));
+                        }}
+                        options={Object.entries(ARREST_STATUS_META).map(([key, meta]) => ({
+                          value: key,
+                          label: meta.desc,
+                        }))}
+                      />
+                    </div>
                     <button type="button" onClick={() => removeAccused(a.offenderId)} className="text-xs text-red-400 hover:text-red-300 transition-colors bg-transparent border-none cursor-pointer font-medium whitespace-nowrap">Remove</button>
                   </li>
                 ))}
@@ -823,23 +852,22 @@ export default function CaseForm() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                       <div>
                         <label className="block text-xs font-medium mb-1" style={{ color: 'var(--color-garuda-400)' }}>Vehicle Type *</label>
-                        <select
+                        <CustomSelect
                           value={v.vehicleType}
                           onChange={(e) => {
                             const updated = [...seizedVehicles];
                             updated[idx] = { ...updated[idx], vehicleType: e.target.value };
                             setSeizedVehicles(updated);
                           }}
-                          className={inp}
-                          style={fieldStyle}
-                        >
-                          <option value="TWO_WHEELER">Two Wheeler</option>
-                          <option value="FOUR_WHEELER">Four Wheeler</option>
-                          <option value="AUTO">Auto Rickshaw</option>
-                          <option value="TRUCK">Truck / Lorry</option>
-                          <option value="BUS">Bus</option>
-                          <option value="OTHER">Other</option>
-                        </select>
+                          options={[
+                            { value: 'TWO_WHEELER', label: 'Two Wheeler' },
+                            { value: 'FOUR_WHEELER', label: 'Four Wheeler' },
+                            { value: 'AUTO', label: 'Auto Rickshaw' },
+                            { value: 'TRUCK', label: 'Truck / Lorry' },
+                            { value: 'BUS', label: 'Bus' },
+                            { value: 'OTHER', label: 'Other' },
+                          ]}
+                        />
                       </div>
                       <div>
                         <label className="block text-xs font-medium mb-1" style={{ color: 'var(--color-garuda-400)' }}>Registration No *</label>
@@ -1033,19 +1061,21 @@ export default function CaseForm() {
       </div>
 
       {/* Right Sticky Quick Access Panel */}
-      <div className="hidden lg:block lg:col-span-3 sticky top-24 self-start space-y-4">
-        <div className="pl-4 border-l-2 border-slate-700 space-y-2">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-4 px-2">Quick Navigation</p>
-          {quickAccessSections.map((s) => (
-            <button
-              key={s.id}
-              type="button"
-              onClick={() => document.getElementById(s.id)?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
-              className="w-full text-left px-2 py-1.5 rounded-lg text-xs font-semibold block transition-all cursor-pointer border-none bg-transparent text-slate-400 hover:text-orange-400 hover:bg-slate-800"
-            >
-              {s.label}
-            </button>
-          ))}
+      <div className="hidden lg:block lg:col-span-3 sticky top-20 self-start space-y-4 max-h-[calc(100vh-5.5rem)] overflow-y-auto pr-1.5 custom-scrollbar">
+        <div className="p-3.5 rounded-xl border space-y-2" style={{ background: 'var(--color-garuda-800)', borderColor: 'var(--color-garuda-700)' }}>
+          <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1 px-1">Quick Navigation</p>
+          <div className="space-y-1 max-h-[30vh] overflow-y-auto pr-1 custom-scrollbar">
+            {quickAccessSections.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => document.getElementById(s.id)?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+                className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-semibold block transition-all cursor-pointer border-none bg-transparent text-slate-700 dark:text-slate-300 hover:text-orange-600 dark:hover:text-orange-400 hover:bg-slate-200/60 dark:hover:bg-slate-700/60"
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Quick Notes Section Below Quick Nav */}
@@ -1359,32 +1389,37 @@ function AddAccusedModal({ isOpen, onClose, onSaved, stations, currentPsId }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop overlay */}
-      <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs cursor-default animate-fade-in" onClick={onClose} />
+      <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm cursor-default animate-fade-in" onClick={onClose} />
 
       {/* Modal Dialog */}
       <div
-        className="relative w-full max-w-lg rounded-2xl p-6 border text-left shadow-2xl animate-slide-up overflow-y-auto max-h-[90vh] z-10"
+        className="relative w-full max-w-xl rounded-2xl p-6 text-left shadow-2xl animate-slide-up max-h-[90vh] overflow-y-auto z-10 border transition-all"
         style={{
-          background: 'linear-gradient(135deg, var(--color-garuda-800), var(--color-garuda-900))',
-          borderColor: 'var(--color-garuda-700)',
-          boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)',
+          background: 'var(--color-garuda-800, #1e293b)',
+          borderColor: 'var(--color-garuda-700, #334155)',
+          boxShadow: '0 25px 50px -12px rgba(0,0,0,0.6)',
         }}
       >
-        <div className="flex items-center justify-between mb-4 border-b border-dashed pb-3" style={{ borderColor: 'var(--color-garuda-700)' }}>
-          <h3 className="text-lg font-bold" style={{ color: 'var(--color-garuda-50)' }}>
-            Register & Add New Accused
-          </h3>
+        <div className="flex items-center justify-between mb-5 border-b pb-3.5" style={{ borderColor: 'var(--color-garuda-700, #334155)' }}>
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-500 font-bold text-sm">
+              +
+            </div>
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white" style={{ color: 'var(--color-garuda-50, #f8fafc)' }}>
+              Register & Add New Accused
+            </h3>
+          </div>
           <button
             type="button"
             onClick={onClose}
-            className="text-gray-400 hover:text-white bg-transparent border-none cursor-pointer text-lg font-bold p-1 select-none"
+            className="text-slate-400 hover:text-slate-200 dark:hover:text-white bg-transparent border-none cursor-pointer text-lg font-bold p-1 select-none rounded-lg transition-colors"
           >
             ✕
           </button>
         </div>
 
         {error && (
-          <div className="mb-4 p-3 rounded-lg text-xs" style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)' }}>
+          <div className="mb-4 p-3 rounded-xl text-xs font-semibold" style={{ background: 'rgba(239,68,68,0.12)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)' }}>
             {error}
           </div>
         )}
@@ -1392,71 +1427,126 @@ function AddAccusedModal({ isOpen, onClose, onSaved, stations, currentPsId }) {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--color-garuda-300)' }}>Full Name *</label>
-              <input name="fullName" value={modalForm.fullName} onChange={handleChange} required className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={{ background: 'var(--color-garuda-900)', border: '1px solid var(--color-garuda-600)', color: 'var(--color-garuda-100)' }} />
+              <label className="block text-xs font-bold mb-1.5" style={{ color: 'var(--color-garuda-300, #cbd5e1)' }}>Full Name *</label>
+              <input
+                name="fullName"
+                value={modalForm.fullName}
+                onChange={handleChange}
+                required
+                placeholder="Full Legal Name"
+                className="w-full px-3.5 py-2 text-xs font-bold rounded-xl outline-none transition-all focus:ring-2 focus:ring-amber-500/30"
+                style={{ background: 'var(--color-garuda-900, #0f172a)', border: '1px solid var(--color-garuda-600, #475569)', color: 'var(--color-garuda-100, #f1f5f9)' }}
+              />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--color-garuda-300)' }}>Police Station *</label>
-              <select name="psId" value={modalForm.psId} onChange={handleChange} required className="w-full px-3 py-2 rounded-lg text-sm outline-none cursor-pointer" style={{ background: 'var(--color-garuda-900)', border: '1px solid var(--color-garuda-600)', color: 'var(--color-garuda-100)' }}>
-                <option value="">Select PS</option>
-                {stations.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}{s.ps_code ? ` (${s.ps_code})` : ''}
-                  </option>
-                ))}
-              </select>
+              <label className="block text-xs font-bold mb-1.5" style={{ color: 'var(--color-garuda-300, #cbd5e1)' }}>Police Station *</label>
+              <CustomSelect
+                name="psId"
+                value={modalForm.psId}
+                onChange={handleChange}
+                placeholder="Select PS"
+                options={stations.map((s) => ({
+                  value: String(s.id),
+                  label: `${s.name}${s.ps_code || s.psCode ? ` (${s.ps_code || s.psCode})` : ''}`
+                }))}
+              />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--color-garuda-300)' }}>Alias</label>
-              <input name="alias" value={modalForm.alias} onChange={handleChange} className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={{ background: 'var(--color-garuda-900)', border: '1px solid var(--color-garuda-600)', color: 'var(--color-garuda-100)' }} />
+              <label className="block text-xs font-bold mb-1.5" style={{ color: 'var(--color-garuda-300, #cbd5e1)' }}>Alias</label>
+              <input
+                name="alias"
+                value={modalForm.alias}
+                onChange={handleChange}
+                placeholder="Known Alias / Nickname"
+                className="w-full px-3.5 py-2 text-xs font-bold rounded-xl outline-none transition-all focus:ring-2 focus:ring-amber-500/30"
+                style={{ background: 'var(--color-garuda-900, #0f172a)', border: '1px solid var(--color-garuda-600, #475569)', color: 'var(--color-garuda-100, #f1f5f9)' }}
+              />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--color-garuda-300)' }}>Father/Husband Name</label>
-              <input name="fatherHusbandName" value={modalForm.fatherHusbandName} onChange={handleChange} className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={{ background: 'var(--color-garuda-900)', border: '1px solid var(--color-garuda-600)', color: 'var(--color-garuda-100)' }} />
+              <label className="block text-xs font-bold mb-1.5" style={{ color: 'var(--color-garuda-300, #cbd5e1)' }}>Father/Husband Name</label>
+              <input
+                name="fatherHusbandName"
+                value={modalForm.fatherHusbandName}
+                onChange={handleChange}
+                placeholder="Father or Husband Name"
+                className="w-full px-3.5 py-2 text-xs font-bold rounded-xl outline-none transition-all focus:ring-2 focus:ring-amber-500/30"
+                style={{ background: 'var(--color-garuda-900, #0f172a)', border: '1px solid var(--color-garuda-600, #475569)', color: 'var(--color-garuda-100, #f1f5f9)' }}
+              />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--color-garuda-300)' }}>Age</label>
-              <input type="number" name="age" value={modalForm.age} onChange={handleChange} className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={{ background: 'var(--color-garuda-900)', border: '1px solid var(--color-garuda-600)', color: 'var(--color-garuda-100)' }} />
+              <label className="block text-xs font-bold mb-1.5" style={{ color: 'var(--color-garuda-300, #cbd5e1)' }}>Age</label>
+              <input
+                type="number"
+                name="age"
+                value={modalForm.age}
+                onChange={handleChange}
+                placeholder="Age in years"
+                className="w-full px-3.5 py-2 text-xs font-bold rounded-xl outline-none transition-all focus:ring-2 focus:ring-amber-500/30"
+                style={{ background: 'var(--color-garuda-900, #0f172a)', border: '1px solid var(--color-garuda-600, #475569)', color: 'var(--color-garuda-100, #f1f5f9)' }}
+              />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--color-garuda-300)' }}>Gender</label>
-              <select name="gender" value={modalForm.gender} onChange={handleChange} className="w-full px-3 py-2 rounded-lg text-sm outline-none cursor-pointer" style={{ background: 'var(--color-garuda-900)', border: '1px solid var(--color-garuda-600)', color: 'var(--color-garuda-100)' }}>
-                <option value="">Select</option>
-                <option value="MALE">Male</option>
-                <option value="FEMALE">Female</option>
-                <option value="OTHER">Other</option>
-              </select>
+              <label className="block text-xs font-bold mb-1.5" style={{ color: 'var(--color-garuda-300, #cbd5e1)' }}>Gender</label>
+              <CustomSelect
+                name="gender"
+                value={modalForm.gender}
+                onChange={handleChange}
+                placeholder="Select Gender"
+                options={[
+                  { value: 'MALE', label: 'Male' },
+                  { value: 'FEMALE', label: 'Female' },
+                  { value: 'OTHER', label: 'Other' },
+                ]}
+              />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--color-garuda-300)' }}>Category</label>
-              <select name="category" value={modalForm.category} onChange={handleChange} className="w-full px-3 py-2 rounded-lg text-sm outline-none cursor-pointer" style={{ background: 'var(--color-garuda-900)', border: '1px solid var(--color-garuda-600)', color: 'var(--color-garuda-100)' }}>
-                <option value="">Select</option>
-                <option value="CONSUMER">Consumer</option>
-                <option value="LOCAL_PEDDLER">Local Peddler</option>
-                <option value="LOCAL_SUPPLIER">Local Supplier</option>
-                <option value="LOCAL_KINGPIN">Local Kingpin</option>
-                <option value="TRANSPORTER">Transporter</option>
-                <option value="INTERSTATE_KINGPIN">Interstate Kingpin</option>
-              </select>
+              <label className="block text-xs font-bold mb-1.5" style={{ color: 'var(--color-garuda-300, #cbd5e1)' }}>Category</label>
+              <CustomSelect
+                name="category"
+                value={modalForm.category}
+                onChange={handleChange}
+                placeholder="Select Category"
+                options={[
+                  { value: 'CONSUMER', label: 'Consumer' },
+                  { value: 'LOCAL_PEDDLER', label: 'Local Peddler' },
+                  { value: 'LOCAL_SUPPLIER', label: 'Local Supplier' },
+                  { value: 'LOCAL_KINGPIN', label: 'Local Kingpin' },
+                  { value: 'TRANSPORTER', label: 'Transporter' },
+                  { value: 'INTERSTATE_KINGPIN', label: 'Interstate Kingpin' },
+                ]}
+              />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--color-garuda-300)' }}>Aadhaar Number</label>
-              <input maxLength={12} name="aadhaarNo" value={modalForm.aadhaarNo} onChange={handleChange} className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={{ background: 'var(--color-garuda-900)', border: '1px solid var(--color-garuda-600)', color: 'var(--color-garuda-100)' }} />
+              <label className="block text-xs font-bold mb-1.5" style={{ color: 'var(--color-garuda-300, #cbd5e1)' }}>Aadhaar Number</label>
+              <input
+                maxLength={12}
+                name="aadhaarNo"
+                value={modalForm.aadhaarNo}
+                onChange={handleChange}
+                placeholder="12-digit Aadhaar"
+                className="w-full px-3.5 py-2 text-xs font-bold rounded-xl outline-none transition-all focus:ring-2 focus:ring-amber-500/30"
+                style={{ background: 'var(--color-garuda-900, #0f172a)', border: '1px solid var(--color-garuda-600, #475569)', color: 'var(--color-garuda-100, #f1f5f9)' }}
+              />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--color-garuda-300)' }}>Mobile Number</label>
+              <label className="block text-xs font-bold mb-1.5" style={{ color: 'var(--color-garuda-300, #cbd5e1)' }}>Mobile Number</label>
               <div className="flex gap-2">
-                <select name="countryCode" value={modalForm.countryCode} onChange={handleChange} className="px-2 py-2 rounded-lg text-sm outline-none cursor-pointer" style={{ background: 'var(--color-garuda-900)', border: '1px solid var(--color-garuda-600)', color: 'var(--color-garuda-100)' }}>
-                  {COUNTRY_CODES.map(cc => <option key={cc.code} value={cc.code}>{cc.code}</option>)}
-                </select>
+                <div className="w-24 flex-shrink-0">
+                  <CustomSelect
+                    name="countryCode"
+                    value={modalForm.countryCode || '+91'}
+                    onChange={handleChange}
+                    options={COUNTRY_CODES.map(cc => ({ value: cc.code, label: cc.code }))}
+                  />
+                </div>
                 <input 
                   type="tel" 
                   name="phone" 
@@ -1466,33 +1556,38 @@ function AddAccusedModal({ isOpen, onClose, onSaved, stations, currentPsId }) {
                     setModalForm(prev => ({ ...prev, phone: val }));
                   }} 
                   placeholder="Primary phone number" 
-                  className="flex-1 px-3 py-2 rounded-lg text-sm outline-none" 
-                  style={{ background: 'var(--color-garuda-900)', border: '1px solid var(--color-garuda-600)', color: 'var(--color-garuda-100)' }} 
+                  className="flex-1 px-3.5 py-2 text-xs font-bold rounded-xl outline-none transition-all focus:ring-2 focus:ring-amber-500/30" 
+                  style={{ background: 'var(--color-garuda-900, #0f172a)', border: '1px solid var(--color-garuda-600, #475569)', color: 'var(--color-garuda-100, #f1f5f9)' }} 
                   maxLength={COUNTRY_CODES.find(cc => cc.code === (modalForm.countryCode || '+91'))?.length || 10}
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--color-garuda-300)' }}>Arrest Status</label>
-              <select name="arrestStatus" value={modalForm.arrestStatus} onChange={handleChange} className="w-full px-3 py-2 rounded-lg text-sm outline-none cursor-pointer" style={{ background: 'var(--color-garuda-900)', border: '1px solid var(--color-garuda-600)', color: 'var(--color-garuda-100)' }}>
-                {Object.entries(ARREST_STATUS_META).map(([key, meta]) => (
-                  <option key={key} value={key}>{meta.desc}</option>
-                ))}
-              </select>
+              <label className="block text-xs font-bold mb-1.5" style={{ color: 'var(--color-garuda-300, #cbd5e1)' }}>Arrest Status</label>
+              <CustomSelect
+                name="arrestStatus"
+                value={modalForm.arrestStatus}
+                onChange={handleChange}
+                placeholder="Select Arrest Status"
+                options={Object.entries(ARREST_STATUS_META).map(([key, meta]) => ({
+                  value: key,
+                  label: meta.label || meta.desc
+                }))}
+              />
             </div>
 
             <div className="md:col-span-2">
-              <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--color-garuda-300)' }}>Photograph</label>
-              <div className="flex items-center gap-4 p-3 rounded-lg border" style={{ background: 'var(--color-garuda-900)', borderColor: 'var(--color-garuda-600)' }}>
-                <div className="relative w-16 h-16 rounded-lg overflow-hidden border border-slate-700 bg-slate-900 flex-shrink-0 flex items-center justify-center text-slate-500">
+              <label className="block text-xs font-bold mb-1.5" style={{ color: 'var(--color-garuda-300, #cbd5e1)' }}>Photograph</label>
+              <div className="flex items-center gap-4 p-3.5 rounded-xl border transition-colors" style={{ background: 'var(--color-garuda-900, #0f172a)', borderColor: 'var(--color-garuda-600, #475569)' }}>
+                <div className="relative w-16 h-16 rounded-xl overflow-hidden border border-slate-700 bg-slate-900 flex-shrink-0 flex items-center justify-center text-slate-400 shadow-inner">
                   {modalForm.photoUrl ? (
                     <>
                       <img src={modalForm.photoUrl} alt="Preview" className="w-full h-full object-cover" />
                       <button
                         type="button"
                         onClick={() => setModalForm(prev => ({ ...prev, photoUrl: '' }))}
-                        className="absolute inset-0 bg-black/60 flex items-center justify-center text-[10px] text-red-400 font-bold opacity-0 hover:opacity-100 transition-opacity cursor-pointer border-none"
+                        className="absolute inset-0 bg-black/75 flex items-center justify-center text-[10px] text-red-400 font-bold opacity-0 hover:opacity-100 transition-opacity cursor-pointer border-none"
                       >
                         Remove
                       </button>
@@ -1502,9 +1597,9 @@ function AddAccusedModal({ isOpen, onClose, onSaved, stations, currentPsId }) {
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
                       {uploading ? (
-                        <span className="text-[10px] animate-pulse">...</span>
+                        <span className="text-[10px] animate-pulse font-bold text-amber-500">...</span>
                       ) : (
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                        <svg className="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                           <circle cx="12" cy="13" r="4" />
                         </svg>
@@ -1513,14 +1608,14 @@ function AddAccusedModal({ isOpen, onClose, onSaved, stations, currentPsId }) {
                   )}
                 </div>
 
-                <div className="flex-1 flex gap-2">
+                <div className="flex-1 flex gap-2.5">
                   {cameraActive ? (
                     <>
                       <button
                         type="button"
                         onClick={capturePhoto}
                         disabled={uploading}
-                        className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded font-bold text-xs border-none cursor-pointer"
+                        className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white rounded-xl font-bold text-xs border-none cursor-pointer shadow-sm active:scale-95 transition-all"
                       >
                         Capture
                       </button>
@@ -1528,7 +1623,7 @@ function AddAccusedModal({ isOpen, onClose, onSaved, stations, currentPsId }) {
                         type="button"
                         onClick={stopCamera}
                         disabled={uploading}
-                        className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded font-bold text-xs border-none cursor-pointer"
+                        className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl font-bold text-xs border border-slate-700 cursor-pointer shadow-sm active:scale-95 transition-all"
                       >
                         Cancel
                       </button>
@@ -1540,13 +1635,13 @@ function AddAccusedModal({ isOpen, onClose, onSaved, stations, currentPsId }) {
                           type="button"
                           onClick={startCamera}
                           disabled={uploading}
-                          className="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded font-bold text-xs border-none cursor-pointer"
+                          className="px-4 py-2 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white rounded-xl font-bold text-xs border-none cursor-pointer shadow-sm active:scale-95 transition-all"
                         >
                           Capture
                         </button>
                       )}
                       <label
-                        className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded font-bold text-xs cursor-pointer flex items-center justify-center select-none"
+                        className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl font-bold text-xs cursor-pointer flex items-center justify-center border border-slate-700 shadow-sm active:scale-95 transition-all select-none"
                       >
                         Upload
                         <input
@@ -1564,16 +1659,34 @@ function AddAccusedModal({ isOpen, onClose, onSaved, stations, currentPsId }) {
             </div>
 
             <div className="md:col-span-2">
-              <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--color-garuda-300)' }}>Full Address</label>
-              <textarea name="fullAddress" value={modalForm.fullAddress} onChange={handleChange} rows={2} placeholder="Enter physical address details" className="w-full px-3 py-2 rounded-lg text-sm outline-none resize-none" style={{ background: 'var(--color-garuda-900)', border: '1px solid var(--color-garuda-600)', color: 'var(--color-garuda-100)' }} />
+              <label className="block text-xs font-bold mb-1.5" style={{ color: 'var(--color-garuda-300, #cbd5e1)' }}>Full Address</label>
+              <textarea
+                name="fullAddress"
+                value={modalForm.fullAddress}
+                onChange={handleChange}
+                rows={2}
+                placeholder="Enter physical address details"
+                className="w-full px-3.5 py-2.5 rounded-xl text-xs font-medium outline-none resize-none transition-all focus:ring-2 focus:ring-amber-500/30"
+                style={{ background: 'var(--color-garuda-900, #0f172a)', border: '1px solid var(--color-garuda-600, #475569)', color: 'var(--color-garuda-100, #f1f5f9)' }}
+              />
             </div>
           </div>
 
-          <div className="flex gap-3 justify-end pt-4 border-t border-dashed" style={{ borderColor: 'var(--color-garuda-700)' }}>
-            <button type="button" onClick={onClose} className="px-5 py-2.5 rounded-lg text-sm font-semibold cursor-pointer" style={{ background: 'var(--color-garuda-700)', color: 'var(--color-garuda-300)', border: 'none' }}>
+          <div className="flex gap-3 justify-end pt-4 border-t" style={{ borderColor: 'var(--color-garuda-700, #334155)' }}>
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-5 py-2.5 rounded-xl text-xs font-bold cursor-pointer transition-all border border-slate-700"
+              style={{ background: 'var(--color-garuda-700, #334155)', color: 'var(--color-garuda-300, #cbd5e1)' }}
+            >
               Cancel
             </button>
-            <button type="submit" disabled={saving || uploading} className="px-5 py-2.5 rounded-lg text-sm font-semibold text-white cursor-pointer" style={{ background: 'var(--color-accent-500)', opacity: (saving || uploading) ? 0.6 : 1, border: 'none' }}>
+            <button
+              type="submit"
+              disabled={saving || uploading}
+              className="px-6 py-2.5 rounded-xl text-xs font-bold text-white cursor-pointer shadow-lg hover:shadow-orange-500/20 active:scale-95 transition-all"
+              style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)', border: 'none', opacity: (saving || uploading) ? 0.6 : 1 }}
+            >
               {saving ? 'Registering...' : 'Register & Add'}
             </button>
           </div>

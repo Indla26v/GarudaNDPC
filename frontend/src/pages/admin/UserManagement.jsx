@@ -409,23 +409,19 @@ export default function UserManagement() {
               </div>
               <div>
                 <label className="text-xs font-medium block mb-1" style={{ color: 'var(--color-garuda-300)' }}>Role</label>
-                <select
+                <CustomSelect
                   value={form.role}
                   onChange={(e) => setForm({ ...form, role: e.target.value })}
-                  className="select w-full"
-                >
-                  {ROLES.map(r => <option key={r} value={r}>{ROLE_LABELS[r] || r}</option>)}
-                </select>
+                  options={ROLES.map(r => ({ value: r, label: ROLE_LABELS[r] || r }))}
+                />
               </div>
               <div>
                 <label className="text-xs font-medium block mb-1" style={{ color: 'var(--color-garuda-300)' }}>Department</label>
-                <select
+                <CustomSelect
                   value={form.department}
                   onChange={(e) => setForm({ ...form, department: e.target.value })}
-                  className="select w-full"
-                >
-                  {DEPARTMENTS.map(d => <option key={d} value={d}>{DEPT_LABELS[d] || d}</option>)}
-                </select>
+                  options={DEPARTMENTS.map(d => ({ value: d, label: DEPT_LABELS[d] || d }))}
+                />
               </div>
               <div>
                 <label className="text-xs font-medium block mb-1" style={{ color: 'var(--color-garuda-300)' }}>Badge Number</label>
@@ -440,43 +436,31 @@ export default function UserManagement() {
               {(form.role === 'SP' || form.role === 'ASP') && (
                 <div className="md:col-span-2">
                   <label className="text-xs font-medium block mb-1" style={{ color: 'var(--color-garuda-300)' }}>District</label>
-                  <select
+                  <CustomSelect
                     value={form.district}
                     onChange={(e) => setForm({ ...form, district: e.target.value })}
-                    required
-                    className="select w-full"
-                  >
-                    <option value="">— Select District —</option>
-                    {uniqueDistricts.map(d => <option key={d} value={d}>{d}</option>)}
-                  </select>
+                    options={[{ value: '', label: '— Select District —' }, ...uniqueDistricts.map(d => ({ value: d, label: d }))]}
+                  />
                 </div>
               )}
               {form.role === 'SDPO' && (
                 <div className="md:col-span-2">
                   <label className="text-xs font-medium block mb-1" style={{ color: 'var(--color-garuda-300)' }}>SDPO Station / Subdivision</label>
-                  <select
+                  <CustomSelect
                     value={form.divisionId}
                     onChange={(e) => setForm({ ...form, divisionId: e.target.value })}
-                    required
-                    className="select w-full"
-                  >
-                    <option value="">— Select SDPO Subdivision —</option>
-                    {uniqueSdpos.map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
+                    options={[{ value: '', label: '— Select SDPO Subdivision —' }, ...uniqueSdpos.map(s => ({ value: s, label: s }))]}
+                  />
                 </div>
               )}
               {form.role !== 'SP' && form.role !== 'ASP' && form.role !== 'SDPO' && (
                 <div className="md:col-span-2">
                   <label className="text-xs font-medium block mb-1" style={{ color: 'var(--color-garuda-300)' }}>Police Station</label>
-                  <select
+                  <CustomSelect
                     value={form.policeStationId}
                     onChange={(e) => setForm({ ...form, policeStationId: e.target.value })}
-                    required
-                    className="select w-full"
-                  >
-                    <option value="">— Select Police Station —</option>
-                    {stations.map(s => <option key={s.id} value={s.id}>{s.name} ({s.psCode})</option>)}
-                  </select>
+                    options={[{ value: '', label: '— Select Police Station —' }, ...stations.map(s => ({ value: String(s.id), label: `${s.name} (${s.psCode})` }))]}
+                  />
                 </div>
               )}
               <div className="md:col-span-2 flex justify-end gap-3 mt-2">

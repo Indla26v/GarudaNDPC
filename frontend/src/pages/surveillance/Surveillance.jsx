@@ -7,6 +7,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { usePermissions } from '../../hooks/usePermissions';
 import api from '../../api/axios';
+import CustomSelect from '../../components/CustomSelect';
 import {
   IconFieldStaff, IconSearch, IconMap, IconMegaphone, IconChain, IconSurveillance,
   IconLock, IconEdit, IconWarning, IconPlus, IconClipboard, IconArrowRight, IconRefresh
@@ -978,15 +979,11 @@ export default function Surveillance() {
                 <form onSubmit={handleTowerDumpSubmit} className="space-y-4 p-4 rounded-xl bg-garuda-900/40 border border-garuda-700/60">
                   <div>
                     <label className="block text-xs font-medium mb-1 text-garuda-200">Associate with Case (FIR) *</label>
-                    <select
+                    <CustomSelect
                       value={towerCaseId}
                       onChange={e => setTowerCaseId(e.target.value)}
-                      className="select"
-                      required
-                    >
-                      <option value="">— Select Active Case —</option>
-                      {cases.map(c => <option key={c.id} value={c.id}>{c.firNo} ({c.police_stations?.name || 'Excise'})</option>)}
-                    </select>
+                      options={[{ value: '', label: '— Select Active Case —' }, ...cases.map(c => ({ value: String(c.id), label: `${c.firNo} (${c.police_stations?.name || 'Excise'})` }))]}
+                    />
                   </div>
 
                   <div>
@@ -1214,15 +1211,15 @@ export default function Surveillance() {
 
               <div>
                 <label className="block text-xs font-semibold mb-1 text-garuda-200">Link Type / Usage tag</label>
-                <select
+                <CustomSelect
                   value={mobileForm.contactType}
                   onChange={e => setMobileForm({ ...mobileForm, contactType: e.target.value })}
-                  className="select"
-                >
-                  <option value="MOBILE_PRIMARY">Primary Device</option>
-                  <option value="MOBILE_SECONDARY">Secondary Device</option>
-                  <option value="MOBILE_SIBLING">Relative/Sibling Device</option>
-                </select>
+                  options={[
+                    { value: 'MOBILE_PRIMARY', label: 'Primary Device' },
+                    { value: 'MOBILE_SECONDARY', label: 'Secondary Device' },
+                    { value: 'MOBILE_SIBLING', label: 'Relative/Sibling Device' },
+                  ]}
+                />
               </div>
 
               <div>
@@ -1428,24 +1425,19 @@ export default function Surveillance() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold mb-1 text-garuda-200">Platform *</label>
-                  <select
+                  <CustomSelect
                     value={socialForm.platform}
                     onChange={e => setSocialForm({ ...socialForm, platform: e.target.value })}
-                    className="select"
-                    required
-                  >
-                    {PLATFORMS.map(p => <option key={p} value={p}>{p}</option>)}
-                  </select>
+                    options={PLATFORMS.map(p => ({ value: p, label: p }))}
+                  />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold mb-1 text-garuda-200">Intel Verification Rating</label>
-                  <select
+                  <CustomSelect
                     value={socialForm.rating}
                     onChange={e => setSocialForm({ ...socialForm, rating: e.target.value })}
-                    className="select"
-                  >
-                    {RATINGS.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
-                  </select>
+                    options={RATINGS}
+                  />
                 </div>
               </div>
 
@@ -1529,26 +1521,23 @@ export default function Surveillance() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold mb-1 text-garuda-200">Platform *</label>
-                  <select
+                  <CustomSelect
                     value={messagingForm.platform}
                     onChange={e => setMessagingForm({ ...messagingForm, platform: e.target.value })}
-                    className="select"
-                    required
-                  >
-                    <option value="WhatsApp">WhatsApp</option>
-                    <option value="Telegram">Telegram</option>
-                    <option value="Signal">Signal</option>
-                  </select>
+                    options={[
+                      { value: 'WhatsApp', label: 'WhatsApp' },
+                      { value: 'Telegram', label: 'Telegram' },
+                      { value: 'Signal', label: 'Signal' },
+                    ]}
+                  />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold mb-1 text-garuda-200">Source Type</label>
-                  <select
+                  <CustomSelect
                     value={messagingForm.sourceType}
                     onChange={e => setMessagingForm({ ...messagingForm, sourceType: e.target.value })}
-                    className="select"
-                  >
-                    {INTEL_SOURCES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-                  </select>
+                    options={INTEL_SOURCES}
+                  />
                 </div>
               </div>
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { usePermissions } from '../hooks/usePermissions';
 import api from '../api/axios';
+import CustomSelect from '../components/CustomSelect';
 import southIndiaMap from '../assets/south-india-map-slide1.png';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import VillageVisitForm from '../components/enforcement/forms/VillageVisitForm';
@@ -840,32 +841,30 @@ function GarudaCommandDashboard() {
         </h2>
         <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
           {/* Time Filter (Left of PS Filter) */}
-          <select
-            value={timeFilter}
-            onChange={(e) => setTimeFilter(e.target.value)}
-            className="w-full sm:w-auto px-4 py-2.5 rounded-lg text-sm border font-semibold outline-none focus:ring-2 focus:ring-blue-500/50 cursor-pointer"
-            style={{ background: 'var(--color-garuda-800)', borderColor: 'var(--color-garuda-600)', color: 'var(--color-garuda-100)' }}
-          >
-            <option value="WEEK">This Week (Default)</option>
-            <option value="DAY">Today (Day)</option>
-            <option value="MONTH">This Month</option>
-            <option value="YEAR">This Year</option>
-          </select>
+          <div className="w-full sm:w-48">
+            <CustomSelect
+              value={timeFilter}
+              onChange={(e) => setTimeFilter(e.target.value)}
+              options={[
+                { value: 'WEEK', label: 'This Week (Default)' },
+                { value: 'DAY', label: 'Today (Day)' },
+                { value: 'MONTH', label: 'This Month' },
+                { value: 'YEAR', label: 'This Year' },
+              ]}
+            />
+          </div>
 
           {/* Station Filter */}
-          <select
-            value={selectedStation}
-            onChange={(e) => setSelectedStation(e.target.value)}
-            className="w-full sm:w-auto px-4 py-2.5 rounded-lg text-sm border font-semibold outline-none focus:ring-2 focus:ring-blue-500/50 cursor-pointer"
-            style={{ background: 'var(--color-garuda-800)', borderColor: 'var(--color-garuda-600)', color: 'var(--color-garuda-100)' }}
-          >
-            <option value="ALL">All Stations (District-wide)</option>
-            {stations.map(station => (
-              <option key={station.id} value={station.id}>
-                {station.name}
-              </option>
-            ))}
-          </select>
+          <div className="w-full sm:w-64">
+            <CustomSelect
+              value={selectedStation}
+              onChange={(e) => setSelectedStation(e.target.value)}
+              options={[
+                { value: 'ALL', label: 'All Stations (District-wide)' },
+                ...stations.map(st => ({ value: String(st.id), label: st.name }))
+              ]}
+            />
+          </div>
         </div>
       </div>
 
@@ -910,18 +909,13 @@ function GarudaCommandDashboard() {
             <h3 className="text-base font-bold" style={{ color: 'var(--color-garuda-100)' }}>
               {timeFilter === 'DAY' ? 'Today\'s' : timeFilter === 'MONTH' ? 'Monthly' : timeFilter === 'YEAR' ? 'Yearly' : 'Weekly'} Field Activities
             </h3>
-            <select
-              value={selectedActivity}
-              onChange={(e) => setSelectedActivity(e.target.value)}
-              className="px-3 py-1.5 rounded-lg text-xs font-semibold border outline-none cursor-pointer"
-              style={{ background: 'var(--color-garuda-900)', borderColor: 'var(--color-garuda-600)', color: 'var(--color-garuda-100)' }}
-            >
-              {ACTIVITY_OPTIONS.map(act => (
-                <option key={act.value} value={act.value}>
-                  {act.label}
-                </option>
-              ))}
-            </select>
+            <div className="w-full sm:w-56">
+              <CustomSelect
+                value={selectedActivity}
+                onChange={(e) => setSelectedActivity(e.target.value)}
+                options={ACTIVITY_OPTIONS.map(act => ({ value: act.value, label: act.label }))}
+              />
+            </div>
           </div>
           {isLoading ? (
             <div className="h-72 w-full flex items-center justify-center bg-slate-800/40 rounded-xl border border-slate-700 animate-pulse">
@@ -1127,28 +1121,29 @@ function UserEnforcementLog() {
           <p className="text-sm text-gray-400 mt-1">History of your field operations with geo-tag locations.</p>
         </div>
         
-        <select
-          value={selectedType}
-          onChange={(e) => setSelectedType(e.target.value)}
-          className="select px-4 py-2.5 rounded-lg text-sm border font-semibold outline-none focus:ring-2 focus:ring-emerald-500/50 cursor-pointer"
-          style={{ background: 'var(--color-garuda-800)', borderColor: 'var(--color-garuda-700)', color: 'var(--color-garuda-100)', minWidth: '200px' }}
-        >
-          <option value="ALL">All Modules</option>
-          <option value="Village Visit">Village Visits</option>
-          <option value="Lodge Check">Lodge Checks</option>
-          <option value="Drunk Drive">Drunk & Drive Checks</option>
-          <option value="Courier Check">Courier Office Checks</option>
-          <option value="Railway Check">Railway Station Checks</option>
-          <option value="Bus Stand Check">Bus Stand Checks</option>
-          <option value="Rowdy Sheeter">Rowdy Sheeter Checks</option>
-          <option value="Bound Over">Bound Over Checks</option>
-          <option value="Vehicle Check">Vehicle Checks</option>
-          <option value="MV Act Case">MV Act Violations</option>
-          <option value="Petty Case">Petty Cases</option>
-          <option value="Palle Nidra">Palle Nidra Halts</option>
-          <option value="Drone Flight">Drone Flights</option>
-          <option value="NDPS Verification">Ganja / NDPS Verifications</option>
-        </select>
+        <div className="w-full sm:w-60">
+          <CustomSelect
+            value={selectedType}
+            onChange={(e) => setSelectedType(e.target.value)}
+            options={[
+              { value: 'ALL', label: 'All Modules' },
+              { value: 'Village Visit', label: 'Village Visits' },
+              { value: 'Lodge Check', label: 'Lodge Checks' },
+              { value: 'Drunk Drive', label: 'Drunk & Drive Checks' },
+              { value: 'Courier Check', label: 'Courier Office Checks' },
+              { value: 'Railway Check', label: 'Railway Station Checks' },
+              { value: 'Bus Stand Check', label: 'Bus Stand Checks' },
+              { value: 'Rowdy Sheeter', label: 'Rowdy Sheeter Checks' },
+              { value: 'Bound Over', label: 'Bound Over Checks' },
+              { value: 'Vehicle Check', label: 'Vehicle Checks' },
+              { value: 'MV Act Case', label: 'MV Act Violations' },
+              { value: 'Petty Case', label: 'Petty Cases' },
+              { value: 'Palle Nidra', label: 'Palle Nidra Halts' },
+              { value: 'Drone Flight', label: 'Drone Flights' },
+              { value: 'NDPS Verification', label: 'Ganja / NDPS Verifications' },
+            ]}
+          />
+        </div>
       </div>
       
       {loading ? (

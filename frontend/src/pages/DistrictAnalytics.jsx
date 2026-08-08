@@ -6,6 +6,7 @@
  */
 import { useState, useEffect } from 'react';
 import api from '../api/axios';
+import CustomSelect from '../components/CustomSelect';
 import { useSSE } from '../hooks/useSSE';
 import {
   IconClipboard, IconOffender, IconLock, IconRunning, IconPackage, IconDollar, IconCar,
@@ -322,43 +323,47 @@ export default function DistrictAnalytics() {
             />
 
             {/* Division Select */}
-            <select
-              value={divisionFilter}
-              onChange={(e) => setDivisionFilter(e.target.value)}
-              className="w-full sm:w-44 text-xs px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium"
-            >
-              <option value="ALL">All Divisions</option>
-              {divisionsList.map((div) => (
-                <option key={div} value={div}>{div}</option>
-              ))}
-            </select>
+            <div className="w-full sm:w-48">
+              <CustomSelect
+                value={divisionFilter}
+                onChange={(e) => setDivisionFilter(e.target.value)}
+                options={[
+                  { value: 'ALL', label: 'All Divisions' },
+                  ...divisionsList.map((div) => ({ value: div, label: div }))
+                ]}
+              />
+            </div>
 
             {/* Type Select */}
-            <select
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
-              className="w-full sm:w-36 text-xs px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium"
-            >
-              <option value="ALL">All Types</option>
-              <option value="POLICE">Police Stations</option>
-              <option value="EXCISE">Excise Stations</option>
-            </select>
+            <div className="w-full sm:w-36">
+              <CustomSelect
+                value={typeFilter}
+                onChange={(e) => setTypeFilter(e.target.value)}
+                options={[
+                  { value: 'ALL', label: 'All Types' },
+                  { value: 'POLICE', label: 'Police Stations' },
+                  { value: 'EXCISE', label: 'Excise Stations' },
+                ]}
+              />
+            </div>
           </div>
 
           {/* Sort By */}
           <div className="w-full sm:w-auto flex items-center gap-2">
             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 whitespace-nowrap">Order By:</span>
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              className="text-xs px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold"
-            >
-              <option value="cases">Cases Volume</option>
-              <option value="arrests">Arrests Made</option>
-              <option value="absconders">Absconders</option>
-              <option value="contraband">Contraband Seized</option>
-              <option value="cash">Cash Seized</option>
-            </select>
+            <div className="w-44">
+              <CustomSelect
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                options={[
+                  { value: 'cases', label: 'Cases Volume' },
+                  { value: 'arrests', label: 'Arrests Made' },
+                  { value: 'absconders', label: 'Absconders' },
+                  { value: 'contraband', label: 'Contraband Seized' },
+                  { value: 'cash', label: 'Cash Seized' },
+                ]}
+              />
+            </div>
           </div>
         </div>
 
@@ -457,25 +462,27 @@ export default function DistrictAnalytics() {
               onChange={(e) => setTableSearch(e.target.value)}
               className="w-full sm:w-56 text-xs px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
             />
-            <select
-              value={tableDivision}
-              onChange={(e) => setTableDivision(e.target.value)}
-              className="w-full sm:w-44 text-xs px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium"
-            >
-              <option value="ALL">All Divisions</option>
-              {divisionsList.map((div) => (
-                <option key={div} value={div}>{div}</option>
-              ))}
-            </select>
-            <select
-              value={tableType}
-              onChange={(e) => setTableType(e.target.value)}
-              className="w-full sm:w-36 text-xs px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium"
-            >
-              <option value="ALL">All Types</option>
-              <option value="POLICE">Police Stations</option>
-              <option value="EXCISE">Excise Stations</option>
-            </select>
+            <div className="w-full sm:w-48">
+              <CustomSelect
+                value={tableDivision}
+                onChange={(e) => setTableDivision(e.target.value)}
+                options={[
+                  { value: 'ALL', label: 'All Divisions' },
+                  ...divisionsList.map((div) => ({ value: div, label: div }))
+                ]}
+              />
+            </div>
+            <div className="w-full sm:w-36">
+              <CustomSelect
+                value={tableType}
+                onChange={(e) => setTableType(e.target.value)}
+                options={[
+                  { value: 'ALL', label: 'All Types' },
+                  { value: 'POLICE', label: 'Police Stations' },
+                  { value: 'EXCISE', label: 'Excise Stations' },
+                ]}
+              />
+            </div>
           </div>
         </div>
 

@@ -10,6 +10,7 @@
  */
 import { useState, useEffect, useRef } from 'react';
 import api from '../../api/axios';
+import CustomSelect from '../../components/CustomSelect';
 import { useSSE } from '../../hooks/useSSE';
 import * as XLSX from 'xlsx';
 
@@ -261,17 +262,19 @@ export default function DataImport() {
             </span>
           ) : !previewData ? (
             <>
-              <select
-                value={importType}
-                onChange={(e) => setImportType(e.target.value)}
-                className="select select-sm max-w-[200px]"
-              >
-                <option value="UNIFIED">Unified DPR (All Data)</option>
-                <option value="AP_LO">AP State L&O Police Data</option>
-                <option value="CONSUMER">Consumers Only</option>
-                <option value="OFFENDER">Offenders Only</option>
-                <option value="CASE">Cases Only</option>
-              </select>
+              <div className="w-56">
+                <CustomSelect
+                  value={importType}
+                  onChange={(e) => setImportType(e.target.value)}
+                  options={[
+                    { value: 'UNIFIED', label: 'Unified DPR (All Data)' },
+                    { value: 'AP_LO', label: 'AP State L&O Police Data' },
+                    { value: 'CONSUMER', label: 'Consumers Only' },
+                    { value: 'OFFENDER', label: 'Offenders Only' },
+                    { value: 'CASE', label: 'Cases Only' },
+                  ]}
+                />
+              </div>
               <input
                 type="file"
                 ref={fileInputRef}
@@ -282,9 +285,12 @@ export default function DataImport() {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="btn btn-primary btn-sm"
+                className="px-6 py-2 rounded-full font-extrabold text-xs tracking-wide shadow-md hover:shadow-lg transition-all duration-200 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white flex items-center gap-2 cursor-pointer border-none active:scale-95"
               >
-                Upload & Preview
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+                <span>Upload & Preview</span>
               </button>
             </>
           ) : null}

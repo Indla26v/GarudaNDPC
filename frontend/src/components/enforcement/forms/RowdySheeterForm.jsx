@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../../api/axios';
+import CustomSelect from '../../CustomSelect';
 
 export default function RowdySheeterForm({ onCancel, onSuccess }) {
   const [formData, setFormData] = useState({
@@ -91,16 +92,15 @@ export default function RowdySheeterForm({ onCancel, onSuccess }) {
 
         <div>
           <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-garuda-200)' }}>Activity Status</label>
-          <select
-            name="activity_status"
+          <CustomSelect
             value={formData.activity_status}
-            onChange={handleChange}
-            className="input cursor-pointer"
-          >
-            <option value="Active">Active</option>
-            <option value="Inactive">Inactive</option>
-            <option value="Relocated">Relocated / Moved</option>
-          </select>
+            onChange={(e) => handleChange({ target: { name: 'activity_status', value: e.target.value } })}
+            options={[
+              { value: 'Active', label: 'Active' },
+              { value: 'Inactive', label: 'Inactive' },
+              { value: 'Relocated', label: 'Relocated / Moved' },
+            ]}
+          />
         </div>
 
         <div>

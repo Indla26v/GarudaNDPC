@@ -15,6 +15,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 import api from '../api/axios';
+import CustomSelect from '../components/CustomSelect';
 import { usePermissions } from '../hooks/usePermissions';
 import { useSSE } from '../hooks/useSSE';
 import {
@@ -746,32 +747,36 @@ export default function Dashboard() {
                 {/* Sort Column Selector */}
                 <div className="flex items-center gap-1.5">
                   <span className="text-[11px] font-bold tracking-wide uppercase select-none text-[var(--color-garuda-400)]">Sort:</span>
-                  <select 
-                    className="py-1 px-2.5 text-xs font-bold rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs outline-none cursor-pointer" 
-                    value={sortColumn} 
-                    onChange={(e) => setSortColumn(e.target.value)}
-                  >
-                    <option value="psName">PS Name</option>
-                    <option value="totalCases">Cases</option>
-                    <option value="totalOffenders">Offenders</option>
-                    <option value="totalArrests">Arrests</option>
-                    <option value="totalAbsconders">Absconders</option>
-                    <option value="totalContrabandKg">Contraband</option>
-                    <option value="totalCashSeized">Cash</option>
-                  </select>
+                  <div className="w-32">
+                    <CustomSelect
+                      value={sortColumn}
+                      onChange={(e) => setSortColumn(e.target.value)}
+                      options={[
+                        { value: 'psName', label: 'PS Name' },
+                        { value: 'totalCases', label: 'Cases' },
+                        { value: 'totalOffenders', label: 'Offenders' },
+                        { value: 'totalArrests', label: 'Arrests' },
+                        { value: 'totalAbsconders', label: 'Absconders' },
+                        { value: 'totalContrabandKg', label: 'Contraband' },
+                        { value: 'totalCashSeized', label: 'Cash' },
+                      ]}
+                    />
+                  </div>
                 </div>
 
                 {/* Sort Order Selector */}
                 <div className="flex items-center gap-1.5">
                   <span className="text-[11px] font-bold tracking-wide uppercase select-none text-[var(--color-garuda-400)]">Order:</span>
-                  <select 
-                    className="py-1 px-2.5 text-xs font-bold rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs outline-none cursor-pointer" 
-                    value={sortOrder} 
-                    onChange={(e) => setSortOrder(e.target.value)}
-                  >
-                    <option value="desc">Desc</option>
-                    <option value="asc">Asc</option>
-                  </select>
+                  <div className="w-24">
+                    <CustomSelect
+                      value={sortOrder}
+                      onChange={(e) => setSortOrder(e.target.value)}
+                      options={[
+                        { value: 'desc', label: 'Desc' },
+                        { value: 'asc', label: 'Asc' },
+                      ]}
+                    />
+                  </div>
                 </div>
               </div>
             </div>

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api/axios';
+import CustomSelect from './CustomSelect';
 
 const ARREST_STATUS_META = {
   POLICE_CUSTODY: {
@@ -109,20 +110,16 @@ export function OffenderCaseHistory({ offenderId, isEdit }) {
             
             <div className="flex items-center gap-3 flex-shrink-0">
               {isEdit ? (
-                <select
-                  value={arrestStatus}
-                  onChange={(e) => handleStatusChange(c.id, e.target.value)}
-                  className="px-2 py-1 rounded-md text-xs font-semibold outline-none cursor-pointer"
-                  style={{
-                    background: ARREST_STATUS_META[arrestStatus]?.bg || 'rgba(34,197,94,0.15)',
-                    color: ARREST_STATUS_META[arrestStatus]?.color || '#22c55e',
-                    border: `1px solid ${ARREST_STATUS_META[arrestStatus]?.border || 'rgba(34,197,94,0.3)'}`,
-                  }}
-                >
-                  {Object.entries(ARREST_STATUS_META).map(([key, meta]) => (
-                    <option key={key} value={key}>{meta.desc}</option>
-                  ))}
-                </select>
+                <div className="w-56">
+                  <CustomSelect
+                    value={arrestStatus}
+                    onChange={(e) => handleStatusChange(c.id, e.target.value)}
+                    options={Object.entries(ARREST_STATUS_META).map(([key, meta]) => ({
+                      value: key,
+                      label: meta.desc,
+                    }))}
+                  />
+                </div>
               ) : (
                 <span
                   className="px-2.5 py-1 rounded-md text-xs font-semibold"
@@ -257,17 +254,18 @@ export function ImeiPanel({ offenderId, isEdit }) {
                 <div className="flex justify-between items-start mb-2">
                   <p className="font-mono font-bold" style={{ color: 'var(--color-garuda-50)' }}>{r.imeiNumber}</p>
                   {isEdit ? (
-                    <select
-                      value={r.status}
-                      onChange={(e) => updateStatus(r.id, e.target.value)}
-                      className="px-2 py-1 rounded-lg text-xs outline-none cursor-pointer border"
-                      style={{ background: st.bg, color: st.color, borderColor: st.border }}
-                    >
-                      <option value="ACTIVE">Active</option>
-                      <option value="SWAPPED">Swapped</option>
-                      <option value="SUSPICIOUS">Suspicious</option>
-                      <option value="DEACTIVATED">Deactivated</option>
-                    </select>
+                    <div className="w-36">
+                      <CustomSelect
+                        value={r.status}
+                        onChange={(e) => updateStatus(r.id, e.target.value)}
+                        options={[
+                          { value: 'ACTIVE', label: 'Active' },
+                          { value: 'SWAPPED', label: 'Swapped' },
+                          { value: 'SUSPICIOUS', label: 'Suspicious' },
+                          { value: 'DEACTIVATED', label: 'Deactivated' },
+                        ]}
+                      />
+                    </div>
                   ) : (
                     <span className="px-2 py-0.5 rounded-lg text-[10px] uppercase font-bold border" style={{ background: st.bg, color: st.color, borderColor: st.border }}>
                       {r.status}

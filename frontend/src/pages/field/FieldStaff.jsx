@@ -8,6 +8,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { usePermissions } from '../../hooks/usePermissions';
 import api from '../../api/axios';
+import CustomSelect from '../../components/CustomSelect';
 import VehicleCheckForm from '../../components/enforcement/forms/VehicleCheckForm';
 import {
   IconEdit, IconSearch, IconSurveillance, IconLock, IconShield,
@@ -480,15 +481,11 @@ export default function FieldStaff() {
 
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-garuda-200)' }}>Allotted Police Station *</label>
-                <select
+                <CustomSelect
                   value={quickForm.psId}
                   onChange={e => setQuickForm({ ...quickForm, psId: e.target.value })}
-                  className="select"
-                  required
-                >
-                  <option value="">— Select Station —</option>
-                  {stations.map(s => <option key={s.id} value={s.id}>{s.name} ({s.psCode})</option>)}
-                </select>
+                  options={[{ value: '', label: '— Select Station —' }, ...stations.map(s => ({ value: String(s.id), label: `${s.name} (${s.psCode})` }))]}
+                />
               </div>
 
               <div>
@@ -516,34 +513,34 @@ export default function FieldStaff() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-garuda-200)' }}>Unit</label>
-                  <select
+                  <CustomSelect
                     value={quickForm.quantityUnit}
                     onChange={e => setQuickForm({ ...quickForm, quantityUnit: e.target.value })}
-                    className="select"
-                  >
-                    <option value="KG">KG</option>
-                    <option value="GRAMS">Grams</option>
-                    <option value="TABLETS">Tablets</option>
-                    <option value="ML">ML</option>
-                  </select>
+                    options={[
+                      { value: 'KG', label: 'KG' },
+                      { value: 'GRAMS', label: 'Grams' },
+                      { value: 'TABLETS', label: 'Tablets' },
+                      { value: 'ML', label: 'ML' },
+                    ]}
+                  />
                 </div>
               </div>
 
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-garuda-200)' }}>Contraband Type</label>
-                <select
+                <CustomSelect
                   value={quickForm.contrabandType}
                   onChange={e => setQuickForm({ ...quickForm, contrabandType: e.target.value })}
-                  className="select"
-                >
-                  <option value="DRY_GANJA">Dry Ganja</option>
-                  <option value="GANJA_OIL">Ganja Oil</option>
-                  <option value="BROWN_SUGAR">Brown Sugar</option>
-                  <option value="HEROIN">Heroin</option>
-                  <option value="MDMA">MDMA</option>
-                  <option value="COCAINE">Cocaine</option>
-                  <option value="OTHER">Other</option>
-                </select>
+                  options={[
+                    { value: 'DRY_GANJA', label: 'Dry Ganja' },
+                    { value: 'GANJA_OIL', label: 'Ganja Oil' },
+                    { value: 'BROWN_SUGAR', label: 'Brown Sugar' },
+                    { value: 'HEROIN', label: 'Heroin' },
+                    { value: 'MDMA', label: 'MDMA' },
+                    { value: 'COCAINE', label: 'Cocaine' },
+                    { value: 'OTHER', label: 'Other' },
+                  ]}
+                />
               </div>
 
               <div>
@@ -897,28 +894,24 @@ export default function FieldStaff() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-garuda-200)' }}>Select Accused Offender *</label>
-                <select
+                <CustomSelect
                   value={survForm.offenderId}
                   onChange={e => setSurvForm({ ...survForm, offenderId: e.target.value })}
-                  className="select"
-                  required
-                >
-                  <option value="">— Choose Accused —</option>
-                  {offendersList.map(o => <option key={o.id} value={o.id}>{o.fullName} {o.alias && `(alias: ${o.alias})`} - {o.psName}</option>)}
-                </select>
+                  options={[{ value: '', label: '— Choose Accused —' }, ...offendersList.map(o => ({ value: String(o.id), label: `${o.fullName}${o.alias ? ` (alias: ${o.alias})` : ''} - ${o.psName}` }))]}
+                />
               </div>
 
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-garuda-200)' }}>Surveillance Check-in Status</label>
-                <select
+                <CustomSelect
                   value={survForm.status}
                   onChange={e => setSurvForm({ ...survForm, status: e.target.value })}
-                  className="select"
-                >
-                  <option value="PENDING">Pending Check</option>
-                  <option value="COMPLETED">Successfully Verified (Completed)</option>
-                  <option value="MISSED">Unable to Verify (Missed)</option>
-                </select>
+                  options={[
+                    { value: 'PENDING', label: 'Pending Check' },
+                    { value: 'COMPLETED', label: 'Successfully Verified (Completed)' },
+                    { value: 'MISSED', label: 'Unable to Verify (Missed)' },
+                  ]}
+                />
               </div>
 
               <div>
@@ -1094,16 +1087,16 @@ export default function FieldStaff() {
                 </div>
                 <div>
                   <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--color-garuda-300)' }}>Reliability Rating</label>
-                  <select
+                  <CustomSelect
                     value={regForm.rating}
                     onChange={e => setRegForm({ ...regForm, rating: e.target.value })}
-                    className="select"
-                  >
-                    <option value="A">Class A (Highly Reliable)</option>
-                    <option value="B">Class B (Generally Reliable)</option>
-                    <option value="C">Class C (Fairly Reliable)</option>
-                    <option value="D">Class D (Unreliable / Verify)</option>
-                  </select>
+                    options={[
+                      { value: 'A', label: 'Class A (Highly Reliable)' },
+                      { value: 'B', label: 'Class B (Generally Reliable)' },
+                      { value: 'C', label: 'Class C (Fairly Reliable)' },
+                      { value: 'D', label: 'Class D (Unreliable / Verify)' },
+                    ]}
+                  />
                 </div>
                 <button type="submit" disabled={regSaving} className="btn btn-primary w-full">
                   {regSaving ? 'Registering...' : 'Register Informer'}
@@ -1116,40 +1109,27 @@ export default function FieldStaff() {
               <form onSubmit={handleTipSubmit} className="space-y-4 max-w-lg">
                 <div>
                   <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--color-garuda-300)' }}>Select Informer Contact *</label>
-                  <select
+                  <CustomSelect
                     value={tipForm.informerId}
                     onChange={e => setTipForm({ ...tipForm, informerId: e.target.value })}
-                    className="select"
-                    required
-                  >
-                    <option value="">— Select Informer —</option>
-                    {informers.filter(i => i.status === 'ACTIVE').map(i => (
-                      <option key={i.id} value={i.id}>{i.codeName} (Rating: {i.rating})</option>
-                    ))}
-                  </select>
+                    options={[{ value: '', label: '— Select Informer —' }, ...informers.filter(i => i.status === 'ACTIVE').map(i => ({ value: String(i.id), label: `${i.codeName} (Rating: ${i.rating})` }))]}
+                  />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--color-garuda-300)' }}>Police Station Scope *</label>
-                  <select
+                  <CustomSelect
                     value={tipForm.psId}
                     onChange={e => setTipForm({ ...tipForm, psId: e.target.value })}
-                    className="select"
-                    required
-                  >
-                    <option value="">— Select Station —</option>
-                    {stations.map(s => <option key={s.id} value={s.id}>{s.name} ({s.psCode})</option>)}
-                  </select>
+                    options={[{ value: '', label: '— Select Station —' }, ...stations.map(s => ({ value: String(s.id), label: `${s.name} (${s.psCode})` }))]}
+                  />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--color-garuda-300)' }}>Target Offender (Optional)</label>
-                  <select
+                  <CustomSelect
                     value={tipForm.offenderId}
                     onChange={e => setTipForm({ ...tipForm, offenderId: e.target.value })}
-                    className="select"
-                  >
-                    <option value="">— Select Offender —</option>
-                    {offendersList.map(o => <option key={o.id} value={o.id}>{o.fullName} - {o.psName}</option>)}
-                  </select>
+                    options={[{ value: '', label: '— Select Offender —' }, ...offendersList.map(o => ({ value: String(o.id), label: `${o.fullName} - ${o.psName}` }))]}
+                  />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--color-garuda-300)' }}>Suspected Drug Supply Route</label>

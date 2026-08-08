@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../../api/axios';
+import CustomSelect from '../../CustomSelect';
 
 export default function MvActForm({ onCancel, onSuccess }) {
   const [formData, setFormData] = useState({
@@ -91,23 +92,21 @@ export default function MvActForm({ onCancel, onSuccess }) {
 
         <div>
           <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-garuda-200)' }}>Violation Type *</label>
-          <select
-            name="violation_type"
+          <CustomSelect
             value={formData.violation_type}
-            onChange={handleChange}
-            className="input cursor-pointer"
-            required
-          >
-            <option value="">-- Select Violation --</option>
-            <option value="No Helmet">No Helmet</option>
-            <option value="Triple Riding">Triple Riding</option>
-            <option value="Over Speeding">Over Speeding</option>
-            <option value="Dangerous Driving">Dangerous Driving</option>
-            <option value="No License">No License</option>
-            <option value="Modified Exhaust / Silencer">Modified Exhaust / Silencer</option>
-            <option value="Drunken Driving (Refused Test)">Drunken Driving (Refused Test)</option>
-            <option value="Other Violation">Other Violation</option>
-          </select>
+            onChange={(e) => handleChange({ target: { name: 'violation_type', value: e.target.value } })}
+            options={[
+              { value: '', label: '-- Select Violation --' },
+              { value: 'No Helmet', label: 'No Helmet' },
+              { value: 'Triple Riding', label: 'Triple Riding' },
+              { value: 'Over Speeding', label: 'Over Speeding' },
+              { value: 'Dangerous Driving', label: 'Dangerous Driving' },
+              { value: 'No License', label: 'No License' },
+              { value: 'Modified Exhaust / Silencer', label: 'Modified Exhaust / Silencer' },
+              { value: 'Drunken Driving (Refused Test)', label: 'Drunken Driving (Refused Test)' },
+              { value: 'Other Violation', label: 'Other Violation' },
+            ]}
+          />
         </div>
 
         <div>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../../api/axios';
+import CustomSelect from '../../CustomSelect';
 
 export default function NdpsVerificationForm({ onCancel, onSuccess }) {
   const [step, setStep] = useState(1);
@@ -265,10 +266,14 @@ export default function NdpsVerificationForm({ onCancel, onSuccess }) {
           </div>
           <div>
             <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-garuda-200)' }}>NDPS Drug Test Result *</label>
-            <select name="testResult" value={formData.testResult} onChange={handleFormChange} className="input" required>
-              <option value="NEGATIVE">Negative (Clean)</option>
-              <option value="POSITIVE">Positive (Drugs Found)</option>
-            </select>
+            <CustomSelect
+              value={formData.testResult}
+              onChange={(e) => handleFormChange({ target: { name: 'testResult', value: e.target.value } })}
+              options={[
+                { value: 'NEGATIVE', label: 'Negative (Clean)' },
+                { value: 'POSITIVE', label: 'Positive (Drugs Found)' },
+              ]}
+            />
           </div>
 
           {formData.geo_lat && formData.geo_lng && (
@@ -304,12 +309,16 @@ export default function NdpsVerificationForm({ onCancel, onSuccess }) {
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-garuda-300)' }}>Gender</label>
-                  <select name="subjectGender" value={formData.subjectGender} onChange={handleFormChange} className="input">
-                    <option value="">Select...</option>
-                    <option value="MALE">Male</option>
-                    <option value="FEMALE">Female</option>
-                    <option value="OTHER">Other</option>
-                  </select>
+                  <CustomSelect
+                    value={formData.subjectGender}
+                    onChange={(e) => handleFormChange({ target: { name: 'subjectGender', value: e.target.value } })}
+                    options={[
+                      { value: '', label: 'Select Gender' },
+                      { value: 'MALE', label: 'Male' },
+                      { value: 'FEMALE', label: 'Female' },
+                      { value: 'OTHER', label: 'Other' },
+                    ]}
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-garuda-300)' }}>Father's/Husband's Name</label>
@@ -371,39 +380,55 @@ export default function NdpsVerificationForm({ onCancel, onSuccess }) {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-garuda-300)' }}>Addiction Type</label>
-                    <select name="addictionType" value={formData.addictionType} onChange={handleFormChange} className="input">
-                      <option value="GANJA_ONLY">Ganja Only</option>
-                      <option value="GANJA_ALCOHOL">Ganja + Alcohol</option>
-                      <option value="GANJA_OTHER_DRUGS">Ganja + Other Drugs</option>
-                      <option value="MULTIPLE">Multiple Substances</option>
-                    </select>
+                    <CustomSelect
+                      value={formData.addictionType}
+                      onChange={(e) => handleFormChange({ target: { name: 'addictionType', value: e.target.value } })}
+                      options={[
+                        { value: 'GANJA_ONLY', label: 'Ganja Only' },
+                        { value: 'GANJA_ALCOHOL', label: 'Ganja + Alcohol' },
+                        { value: 'GANJA_OTHER_DRUGS', label: 'Ganja + Other Drugs' },
+                        { value: 'MULTIPLE', label: 'Multiple Substances' },
+                      ]}
+                    />
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-garuda-300)' }}>Consumption Frequency</label>
-                    <select name="consumptionFrequency" value={formData.consumptionFrequency} onChange={handleFormChange} className="input">
-                      <option value="OCCASIONAL">Occasional</option>
-                      <option value="WEEKLY">Weekly</option>
-                      <option value="DAILY">Daily</option>
-                    </select>
+                    <CustomSelect
+                      value={formData.consumptionFrequency}
+                      onChange={(e) => handleFormChange({ target: { name: 'consumptionFrequency', value: e.target.value } })}
+                      options={[
+                        { value: 'OCCASIONAL', label: 'Occasional' },
+                        { value: 'WEEKLY', label: 'Weekly' },
+                        { value: 'DAILY', label: 'Daily' },
+                      ]}
+                    />
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-garuda-300)' }}>Source of Procurement</label>
-                    <select name="sourceOfProcurement" value={formData.sourceOfProcurement} onChange={handleFormChange} className="input">
-                      <option value="LOCAL">Local Dealer</option>
-                      <option value="OUTSIDE_DISTRICT">Outside District</option>
-                      <option value="ONLINE">Online Delivery</option>
-                      <option value="COURIER">Courier Post</option>
-                    </select>
+                    <CustomSelect
+                      value={formData.sourceOfProcurement}
+                      onChange={(e) => handleFormChange({ target: { name: 'sourceOfProcurement', value: e.target.value } })}
+                      options={[
+                        { value: 'LOCAL', label: 'Local Dealer' },
+                        { value: 'OUTSIDE_DISTRICT', label: 'Outside District' },
+                        { value: 'ONLINE', label: 'Online Delivery' },
+                        { value: 'COURIER', label: 'Courier Post' },
+                      ]}
+                    />
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-garuda-300)' }}>Mode of Purchase</label>
-                    <select name="modeOfPurchase" value={formData.modeOfPurchase} onChange={handleFormChange} className="input">
-                      <option value="CASH">Cash payment</option>
-                      <option value="UPI">UPI Transfer</option>
-                      <option value="CREDIT">On Credit</option>
-                      <option value="BARTER">Barter trade</option>
-                      <option value="MIXED">Mixed methods</option>
-                    </select>
+                    <CustomSelect
+                      value={formData.modeOfPurchase}
+                      onChange={(e) => handleFormChange({ target: { name: 'modeOfPurchase', value: e.target.value } })}
+                      options={[
+                        { value: 'CASH', label: 'Cash payment' },
+                        { value: 'UPI', label: 'UPI Transfer' },
+                        { value: 'CREDIT', label: 'On Credit' },
+                        { value: 'BARTER', label: 'Barter trade' },
+                        { value: 'MIXED', label: 'Mixed methods' },
+                      ]}
+                    />
                   </div>
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-garuda-300)' }}>Usual Consumption Spot</label>

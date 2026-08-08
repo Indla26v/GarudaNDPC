@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { usePermissions } from '../../hooks/usePermissions';
 import api from '../../api/axios';
+import CustomSelect from '../../components/CustomSelect';
 import southIndiaMap from '../../assets/south-india-map-slide1.png';
 import { 
   IconSearch, IconWarning, IconPlus, IconClipboard, IconArrowRight, 
@@ -718,15 +719,11 @@ export default function SouthIndiaDataBank() {
 
               {/* State Select */}
               <div className="w-full md:w-48">
-                <select
+                <CustomSelect
                   value={currentBranchStateFilter}
                   onChange={(e) => handleStateFilterChange(e.target.value)}
-                  className="w-full py-2 px-3 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                >
-                  {STATES.map(st => (
-                    <option key={st.code} value={st.code}>{st.name}</option>
-                  ))}
-                </select>
+                  options={STATES.map(st => ({ value: st.code, label: st.name }))}
+                />
               </div>
             </div>
 

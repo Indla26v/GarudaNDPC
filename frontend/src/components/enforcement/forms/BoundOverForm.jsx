@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../../api/axios';
+import CustomSelect from '../../CustomSelect';
 
 export default function BoundOverForm({ onCancel, onSuccess }) {
   const [formData, setFormData] = useState({
@@ -114,15 +115,14 @@ export default function BoundOverForm({ onCancel, onSuccess }) {
 
         <div>
           <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-garuda-200)' }}>Compliance Status</label>
-          <select
-            name="compliance_status"
+          <CustomSelect
             value={formData.compliance_status}
-            onChange={handleChange}
-            className="input cursor-pointer"
-          >
-            <option value="Compliant">Compliant</option>
-            <option value="Violated">Violated</option>
-          </select>
+            onChange={(e) => handleChange({ target: { name: 'compliance_status', value: e.target.value } })}
+            options={[
+              { value: 'Compliant', label: 'Compliant' },
+              { value: 'Violated', label: 'Violated' },
+            ]}
+          />
         </div>
 
         {formData.compliance_status === 'Violated' && (

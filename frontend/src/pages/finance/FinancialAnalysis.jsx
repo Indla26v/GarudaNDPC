@@ -6,6 +6,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { usePermissions } from '../../hooks/usePermissions';
 import api from '../../api/axios';
+import CustomSelect from '../../components/CustomSelect';
 import {
   IconFinance, IconDollar, IconBuilding, IconNetwork, IconFieldStaff, IconPackage,
   IconLock, IconPlus, IconClipboard, IconRefresh, IconArrowRight, IconWarning, IconSearch
@@ -1058,15 +1059,15 @@ export default function FinancialAnalysis() {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 rounded-xl bg-garuda-900/50 border border-garuda-700 text-xs">
               <div>
                 <label className="block text-[10px] font-bold uppercase text-garuda-400 mb-1">Direction</label>
-                <select
+                <CustomSelect
                   value={explorerFilters.direction}
                   onChange={e => setExplorerFilters({ ...explorerFilters, direction: e.target.value })}
-                  className="select text-xs py-1"
-                >
-                  <option value="">All transactions</option>
-                  <option value="INCOMING">Incoming only</option>
-                  <option value="OUTGOING">Outgoing only</option>
-                </select>
+                  options={[
+                    { value: '', label: 'All transactions' },
+                    { value: 'INCOMING', label: 'Incoming only' },
+                    { value: 'OUTGOING', label: 'Outgoing only' },
+                  ]}
+                />
               </div>
               <div>
                 <label className="block text-[10px] font-bold uppercase text-garuda-400 mb-1">Amount Range</label>

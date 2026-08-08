@@ -3,6 +3,7 @@
  */
 import { useState, useEffect } from 'react';
 import api from '../api/axios';
+import CustomSelect from './CustomSelect';
 
 const inputStyle = {
   background: 'var(--color-garuda-900)',
@@ -192,15 +193,19 @@ export default function CaseLifecyclePanel({ caseId, canEdit, onCaseUpdated }) {
         )}
         {canEdit && (
           <form onSubmit={addBail} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <label className="text-xs" style={{ color: 'var(--color-garuda-400)' }}>
-              Bail Status
-              <select className="w-full mt-1 px-2 py-2.5 rounded text-sm cursor-pointer" style={inputStyle} value={bailForm.status || 'PENDING'} onChange={e => setBailForm(f => ({ ...f, status: e.target.value }))}>
-                <option value="PENDING">Pending</option>
-                <option value="GRANTED">Granted</option>
-                <option value="REJECTED">Rejected</option>
-                <option value="CANCELLED">Cancelled</option>
-              </select>
-            </label>
+            <div>
+              <label className="text-xs font-medium block mb-1" style={{ color: 'var(--color-garuda-400)' }}>Bail Status</label>
+              <CustomSelect
+                value={bailForm.status || 'PENDING'}
+                onChange={e => setBailForm(f => ({ ...f, status: e.target.value }))}
+                options={[
+                  { value: 'PENDING', label: 'Pending' },
+                  { value: 'GRANTED', label: 'Granted' },
+                  { value: 'REJECTED', label: 'Rejected' },
+                  { value: 'CANCELLED', label: 'Cancelled' },
+                ]}
+              />
+            </div>
             <label className="text-xs" style={{ color: 'var(--color-garuda-400)' }}>
               Court Name
               <input placeholder="e.g. Sessions Court" className="w-full mt-1 px-2 py-2.5 rounded text-sm" style={inputStyle} value={bailForm.courtName || ''} onChange={e => setBailForm(f => ({ ...f, courtName: e.target.value }))} />
