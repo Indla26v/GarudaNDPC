@@ -117,7 +117,7 @@ export default function Reports() {
   const fetchCourtDiary = async () => {
     setCourtLoading(true);
     try {
-      const res = await api.get(`/reports/court-diary?days=${courtDays}`);
+      const res = await api.get('/reports/court-diary', { params: { days: courtDays } });
       setCourtData(res.data.data?.hearings || []);
     } catch (err) {
       console.error(err);
@@ -288,7 +288,8 @@ export default function Reports() {
   const exportCsv = async () => {
     setExporting(true);
     try {
-      const res = await api.get('/reports/absconder-list?format=csv', {
+      const res = await api.get('/reports/absconder-list', {
+        params: { format: 'csv' },
         responseType: 'blob',
       });
       const blob = new Blob([res.data], { type: 'text/csv;charset=utf-8;' });

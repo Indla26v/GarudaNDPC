@@ -40,7 +40,7 @@ export default function TeamManagement() {
     try {
       const [teamsRes, usersRes] = await Promise.all([
         api.get('/admin/teams'),
-        api.get('/admin/users?size=200'),
+        api.get('/admin/users', { params: { size: 200 } }),
       ]);
       setTeams(teamsRes.data.data || []);
       setAllUsers(usersRes.data.data?.content || []);

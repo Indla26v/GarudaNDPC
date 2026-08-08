@@ -59,7 +59,7 @@ export default function NdpsVerificationForm({ onCancel, onSuccess }) {
     }
     try {
       setIsSearching(true);
-      const res = await api.post('/enforcement/search', { query: searchQuery });
+      const res = await api.get('/enforcement/search', { params: { query: searchQuery } });
       setSearchResults(res.data.data || []);
       setStep(2);
     } catch (err) {

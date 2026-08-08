@@ -1339,24 +1339,10 @@
         {
           "name": "Search Suspects (Field)",
           "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"query\": \"Johnny\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
+            "method": "GET",
+            "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/enforcement/search",
+              "raw": "{{baseUrl}}/api/enforcement/search?query=Johnny",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -1365,7 +1351,13 @@
                 "enforcement",
                 "search"
               ],
-              "query": []
+              "query": [
+                {
+                  "key": "query",
+                  "value": "Johnny",
+                  "description": "Search query string (min 3 chars)"
+                }
+              ]
             },
             "description": "Quick query for field officers to identify a suspect in database."
           },

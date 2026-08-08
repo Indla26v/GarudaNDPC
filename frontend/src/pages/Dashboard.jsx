@@ -168,8 +168,9 @@ export default function Dashboard() {
     }
 
     try {
-      setLoading(true);
-      const res = await api.get(`/dashboard/summary?timeRange=${range}${force ? '&force=true' : ''}`);
+      const params = { timeRange: range };
+      if (force) params.force = 'true';
+      const res = await api.get('/dashboard/summary', { params });
       cachedSummary = res.data.data;
       cachedToken = cacheKey;
       lastFetchTime = Date.now();

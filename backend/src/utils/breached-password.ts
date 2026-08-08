@@ -55,7 +55,7 @@ export async function checkBreachedPassword(
         return {
           breached: true,
           count,
-          message: `This password has appeared in ${count.toLocaleString()} known data breach${count !== 1 ? 'es' : ''}. Please choose a different password.`,
+          message: `This password is too common or unsafe to use. Please choose a different, unique password.`,
         };
       }
     }

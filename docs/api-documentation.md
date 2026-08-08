@@ -109,7 +109,7 @@ This document provides complete specification for all backend API endpoints of t
 | `/api/enforcement/user-logs` | `GET` | Authenticated | Returns field check activity logs for the logged-in officer. |
 | `/api/enforcement` | `POST` | Authenticated | Creates generic field enforcement check. |
 | `/api/enforcement/:id/test-result` | `PUT` | Authenticated | Submits drug testing kit result (positive/negative). |
-| `/api/enforcement/search` | `POST` | Authenticated | Real-time field search for suspects by name, mobile, vehicle, or Aadhaar. |
+| `/api/enforcement/search` | `GET` | Authenticated | Real-time field search for suspects by name, mobile, vehicle, or Aadhaar via `query` parameter (`?query=...`). |
 | `/api/enforcement/village-visit` | `POST` | Authenticated | Submits Village Visit inspection report. |
 | `/api/enforcement/lodge-check` | `POST` | Authenticated | Submits Lodge/Hotel inspection report. |
 | `/api/enforcement/drunk-drive` | `POST` | Authenticated | Submits Drunk Driving check report. |

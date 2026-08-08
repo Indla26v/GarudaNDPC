@@ -37,7 +37,7 @@ router.post('/', createEnforcementCheck);
 router.put('/:id/test-result', submitTestResult);
 
 // New Field Enforcement Module Routes
-router.post('/search', searchOffenders);
+router.get('/search', searchOffenders);
 router.post('/village-visit', submitVillageVisit);
 router.post('/lodge-check', submitLodgeCheck);
 router.post('/drunk-drive', submitDrunkDrive);

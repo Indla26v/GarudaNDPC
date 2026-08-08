@@ -103,11 +103,11 @@ export default function AuditLogs() {
   const fetchLogs = async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ page: page.toString(), size: '30' });
-      if (filters.action) params.append('action', filters.action);
-      if (filters.entityType) params.append('entityType', filters.entityType);
+      const params = { page: page.toString(), size: '30' };
+      if (filters.action) params.action = filters.action;
+      if (filters.entityType) params.entityType = filters.entityType;
 
-      const res = await api.get(`/admin/audit-logs?${params.toString()}`);
+      const res = await api.get('/admin/audit-logs', { params });
       const rawLogs = res.data.data.content || [];
       setLogs(rawLogs);
       setSessions(groupLogsIntoSessions(rawLogs));

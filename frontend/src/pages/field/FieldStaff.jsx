@@ -214,7 +214,7 @@ export default function FieldStaff() {
 
     setSearchLoading(true);
     try {
-      const res = await api.get(`/offenders?query=${encodeURIComponent(searchQuery)}`);
+      const res = await api.get('/offenders', { params: { query: searchQuery } });
       setSearchResults(res.data.data?.content || []);
     } catch (err) {
       console.error(err);
@@ -246,7 +246,7 @@ export default function FieldStaff() {
   const handleRevealAadhaar = async () => {
     if (!selectedOffender) return;
     try {
-      const res = await api.get(`/offenders/${selectedOffender.id}?reveal=true`);
+      const res = await api.get(`/offenders/${selectedOffender.id}`, { params: { reveal: 'true' } });
       const val = res.data.data?.identityDocs?.aadhaarNo || res.data.data?.aadhaarNo;
       setRevealedAadhaarVal(val);
       setAadhaarRevealed(true);
@@ -271,7 +271,7 @@ export default function FieldStaff() {
 
   useEffect(() => {
     if (activeTab === 'surveillance') {
-      api.get('/offenders?size=100')
+      api.get('/offenders', { params: { size: 100 } })
         .then(res => setOffendersList(res.data.data?.content || []))
         .catch(err => console.error(err));
     }
@@ -335,7 +335,7 @@ export default function FieldStaff() {
   useEffect(() => {
     if (activeTab === 'informer') {
       fetchInformers();
-      api.get('/offenders?size=100')
+      api.get('/offenders', { params: { size: 100 } })
         .then(res => setOffendersList(res.data.data?.content || []))
         .catch(err => console.error(err));
     }

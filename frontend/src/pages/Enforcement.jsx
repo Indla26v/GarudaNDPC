@@ -63,7 +63,7 @@ export default function Enforcement() {
     };
     const fetchLogsCount = async () => {
       try {
-        const res = await api.get('/enforcement/user-logs?type=ALL');
+        const res = await api.get('/enforcement/user-logs', { params: { type: 'ALL' } });
         const list = res.data?.data?.logs || [];
         setLogsCount(list.length);
       } catch (err) {
@@ -690,7 +690,7 @@ function GarudaCommandDashboard() {
     const fetchSummary = async () => {
       try {
         setIsLoading(true);
-        const res = await api.get(`/enforcement/summary?psId=${selectedStation}&period=${timeFilter}`);
+        const res = await api.get('/enforcement/summary', { params: { psId: selectedStation, period: timeFilter } });
         setSummary(res.data.data || null);
       } catch (err) {
         console.error('Failed to fetch enforcement summary:', err);
@@ -1096,7 +1096,7 @@ function UserEnforcementLog() {
     const fetchLogs = async () => {
       try {
         setLoading(true);
-        const res = await api.get(`/enforcement/user-logs?type=${selectedType}`);
+        const res = await api.get('/enforcement/user-logs', { params: { type: selectedType } });
         setLogs(res.data?.data?.logs || []);
       } catch (err) {
         console.error('Failed to fetch user logs', err);

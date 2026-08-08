@@ -135,7 +135,7 @@ export default function UserManagement() {
   const fetchData = async () => {
     try {
       const [usersRes, psRes] = await Promise.all([
-        api.get('/admin/users?size=500'), // Ensure we fetch enough or all
+        api.get('/admin/users', { params: { size: 500 } }), // Ensure we fetch enough or all
         api.get('/police-stations'),
       ]);
       setUsers(usersRes.data.data.content || []);

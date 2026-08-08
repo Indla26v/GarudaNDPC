@@ -126,7 +126,7 @@ export default function FinancialAnalysis() {
   const fetchBatches = async () => {
     setLoading(true);
     try {
-      const res = await api.get('/finance/uploads?size=50');
+      const res = await api.get('/finance/uploads', { params: { size: 50 } });
       setBatches(res.data.data?.content || []);
     } catch (err) {
       console.error(err);
@@ -138,18 +138,18 @@ export default function FinancialAnalysis() {
   const fetchTransactions = async () => {
     setLoading(true);
     try {
-      const queryParams = new URLSearchParams({
+      const params = {
         page: String(txPage),
         size: '20',
         reveal: String(revealAccounts),
-      });
+      };
       Object.entries(explorerFilters).forEach(([key, val]) => {
         if (val !== '' && val !== null && val !== false) {
-          queryParams.append(key, String(val));
+          params[key] = String(val);
         }
       });
 
-      const res = await api.get(`/finance/transactions?${queryParams.toString()}`);
+      const res = await api.get('/finance/transactions', { params });
       setTransactions(res.data.data?.content || []);
       setTxTotalElements(res.data.data?.totalElements || 0);
       setTxTotalPages(res.data.data?.totalPages || 0);
@@ -229,7 +229,7 @@ export default function FinancialAnalysis() {
     const delayDebounce = setTimeout(async () => {
       setSearchLoading(true);
       try {
-        const res = await api.get(`/offenders?query=${encodeURIComponent(offenderQuery)}&size=10`);
+        const res = await api.get('/offenders', { params: { query: offenderQuery, size: 10 } });
         setOffenderResults(res.data.data?.content || []);
       } catch (err) {
         console.error(err);

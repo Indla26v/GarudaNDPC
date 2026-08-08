@@ -1319,8 +1319,8 @@ export const submitLodgeCheck = async (req: AuthRequest, res: Response) => {
 // ── Search Offenders for Frontend Verification ───────────────────────
 export const searchOffenders = async (req: AuthRequest, res: Response) => {
   try {
-    const { query } = req.body;
-    if (!query || query.length < 3) {
+    const query = (req.query.query as string | undefined) || req.body?.query;
+    if (!query || String(query).length < 3) {
       return res.status(400).json({ message: 'Search query must be at least 3 characters long' });
     }
 

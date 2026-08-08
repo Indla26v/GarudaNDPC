@@ -145,7 +145,7 @@ export default function Surveillance() {
   const fetchMobiles = async () => {
     setLoading(true);
     try {
-      const res = await api.get(`/surveillance/mobiles?reveal=${revealMobiles}&size=100`);
+      const res = await api.get('/surveillance/mobiles', { params: { reveal: revealMobiles, size: 100 } });
       setMobiles(res.data.data?.content || []);
     } catch (err) {
       console.error(err);
@@ -157,7 +157,7 @@ export default function Surveillance() {
   const fetchImeis = async () => {
     setLoading(true);
     try {
-      const res = await api.get(`/surveillance/imeis?reveal=${revealImeis}`);
+      const res = await api.get('/surveillance/imeis', { params: { reveal: revealImeis } });
       setImeis(res.data.data?.content || []);
     } catch (err) {
       console.error(err);
@@ -194,8 +194,8 @@ export default function Surveillance() {
     setLoading(true);
     try {
       const [corrRes, casesRes] = await Promise.all([
-        api.get(`/surveillance/correlations?reveal=${revealCorr}`),
-        api.get('/cases?size=200'),
+        api.get('/surveillance/correlations', { params: { reveal: revealCorr } }),
+        api.get('/cases', { params: { size: 200 } }),
       ]);
       setCorrelations(corrRes.data.data);
       setCases(casesRes.data.data?.content || []);
@@ -237,7 +237,7 @@ export default function Surveillance() {
     const delayDebounce = setTimeout(async () => {
       setSearchLoading(true);
       try {
-        const res = await api.get(`/offenders?query=${encodeURIComponent(offenderQuery)}&size=10`);
+        const res = await api.get('/offenders', { params: { query: offenderQuery, size: 10 } });
         setOffenderResults(res.data.data?.content || []);
       } catch (err) {
         console.error(err);
@@ -519,7 +519,7 @@ export default function Surveillance() {
     }
     setIntersectionLoading(true);
     try {
-      const res = await api.get(`/surveillance/tower-intersections?caseIds=${intersectCaseIds}`);
+      const res = await api.get('/surveillance/tower-intersections', { params: { caseIds: intersectCaseIds } });
       setIntersectionResult(res.data.data);
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to fetch tower overlaps');

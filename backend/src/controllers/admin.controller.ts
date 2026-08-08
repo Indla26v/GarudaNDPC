@@ -116,7 +116,7 @@ export const createUser = async (req: AuthRequest, res: Response) => {
     const breachCheck = await checkBreachedPassword(password);
     if (breachCheck.breached) {
       return res.status(400).json({
-        message: 'Password has appeared in known data breaches. Choose a different password.',
+        message: 'This password is too common or unsafe to use. Please choose a different password.',
         details: breachCheck.message,
       });
     }

@@ -47,7 +47,7 @@ export default function DistrictAnalytics() {
   const fetchSummary = async (range = timeRange) => {
     setLoading(true);
     try {
-      const res = await api.get(`/dashboard/summary?timeRange=${range}`);
+      const res = await api.get('/dashboard/summary', { params: { timeRange: range } });
       setSummary(res.data.data);
     } catch (err) {
       console.error(err);

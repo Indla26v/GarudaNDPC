@@ -40,7 +40,7 @@ export async function checkPasswordHistory(
       if (match) {
         return {
           reused: true,
-          message: `Password was used recently. You cannot reuse any of your last ${PASSWORD_HISTORY_DEPTH} passwords.`,
+          message: `You cannot reuse any of your last ${PASSWORD_HISTORY_DEPTH} passwords. Please enter a new password.`,
         };
       }
     }
