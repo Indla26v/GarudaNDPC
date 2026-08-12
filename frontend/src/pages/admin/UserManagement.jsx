@@ -335,7 +335,7 @@ export default function UserManagement() {
         </div>
         <button
           onClick={() => { setEditUser(null); setForm({ username: '', password: '', fullName: '', role: 'CONSTABLE', policeStationId: '', department: 'POLICE', badgeNumber: '', district: '', divisionId: '' }); setShowForm(true); }}
-          className="px-4 py-2 text-xs font-extrabold bg-amber-500 hover:bg-amber-600 text-white rounded-xl shadow-xs transition-all flex items-center gap-1.5 whitespace-nowrap self-start sm:self-auto cursor-pointer"
+          className="px-4 py-2 text-xs font-extrabold bg-amber-500 hover:bg-amber-600 text-black rounded-xl shadow-xs transition-all flex items-center gap-1.5 whitespace-nowrap self-start sm:self-auto cursor-pointer"
         >
           + Add Officer
         </button>

@@ -280,10 +280,10 @@ const DEPT_FULL_LABELS = {
         className={`fixed inset-y-0 left-0 z-50 w-64 flex flex-col transform ${mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'
           } md:translate-x-0 md:static md:flex md:flex-col ${sidebarOpen ? 'md:w-64' : 'md:w-16'
           } transition-all duration-300`}
-        style={{ background: '#e8750a', borderRight: '1px solid rgba(255,255,255,0.15)' }}
+        style={{ background: '#FE9A00', borderRight: '1px solid rgba(0,0,0,0.15)' }}
       >
         {/* Brand */}
-        <div className={`flex items-center ${sidebarOpen ? 'justify-between px-4' : 'justify-center px-2'} md:justify-center py-5`} style={{ borderBottom: '1px solid rgba(255,255,255,0.15)' }}>
+        <div className={`flex items-center ${sidebarOpen || mobileSidebarOpen ? 'justify-between px-4' : 'justify-center px-2'} md:justify-center py-5`} style={{ borderBottom: '1px solid rgba(0,0,0,0.15)' }}>
           <img
             src={apLogo}
             alt="AP Police Logo"
@@ -292,7 +292,7 @@ const DEPT_FULL_LABELS = {
           {/* Close button on mobile */}
           <button
             onClick={() => setMobileSidebarOpen(false)}
-            className="p-1.5 rounded-lg text-white hover:bg-white/10 md:hidden cursor-pointer"
+            className="p-1.5 rounded-lg text-black hover:bg-black/10 md:hidden cursor-pointer"
             aria-label="Close sidebar"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
@@ -307,8 +307,8 @@ const DEPT_FULL_LABELS = {
             <div key={section.title} className={si > 0 ? 'mt-5' : ''}>
               {(sidebarOpen || mobileSidebarOpen) && (
                 <p
-                  className="text-[10px] font-semibold uppercase tracking-widest px-3 mb-2"
-                  style={{ color: 'rgba(255,255,255,0.5)' }}
+                  className="text-[10px] font-bold uppercase tracking-widest px-3 mb-2"
+                  style={{ color: 'rgba(0,0,0,0.65)' }}
                 >
                   {section.title}
                 </p>
@@ -324,16 +324,16 @@ const DEPT_FULL_LABELS = {
                       to={item.path}
                       id={`nav-${item.path.replace(/\//g, '-').replace(/^-/, '')}`}
                       onClick={() => setMobileSidebarOpen(false)}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200"
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-bold transition-all duration-200"
                       style={{
-                        background: active ? 'rgba(255,255,255,0.2)' : 'transparent',
-                        color: active ? '#fff' : 'rgba(255,255,255,0.8)',
+                        background: active ? 'rgba(0,0,0,0.14)' : 'transparent',
+                        color: active ? '#000000' : 'rgba(0,0,0,0.85)',
                       }}
-                      onMouseOver={(e) => { if (!active) e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
+                      onMouseOver={(e) => { if (!active) e.currentTarget.style.background = 'rgba(0,0,0,0.07)'; }}
                       onMouseOut={(e) => { if (!active) e.currentTarget.style.background = 'transparent'; }}
                     >
-                      <NavIcon size={18} color={active ? '#fff' : 'rgba(255,255,255,0.75)'} />
-                      {(sidebarOpen || mobileSidebarOpen) && <span>{item.label}</span>}
+                      <NavIcon size={18} color={active ? '#000000' : 'rgba(0,0,0,0.85)'} />
+                      {(sidebarOpen || mobileSidebarOpen) && <span style={{ color: active ? '#000000' : 'rgba(0,0,0,0.85)' }}>{item.label}</span>}
                     </Link>
                   );
                 })}
@@ -343,22 +343,22 @@ const DEPT_FULL_LABELS = {
         </nav>
 
         {/* User Profile in Sidebar */}
-        <div className="relative" style={{ borderTop: '1px solid rgba(255,255,255,0.15)' }}>
+        <div className="relative" style={{ borderTop: '1px solid rgba(0,0,0,0.15)' }}>
           <button
             onClick={() => setDropdownOpen(!dropdownOpen)}
-            className="w-full flex items-center gap-3 p-3 text-white hover:bg-white/10 transition-colors cursor-pointer select-none text-left"
+            className="w-full flex items-center gap-3 p-3 text-black hover:bg-black/10 transition-colors cursor-pointer select-none text-left"
           >
             {/* Avatar Initials */}
-            <div className="w-11 h-11 rounded-full flex items-center justify-center font-bold text-sm bg-white/20 text-white border border-white/10 flex-shrink-0">
+            <div className="w-11 h-11 rounded-full flex items-center justify-center font-bold text-sm bg-black/15 text-black border border-black/20 flex-shrink-0">
               {user?.fullName ? user.fullName.split(' ').filter(Boolean).map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'RK'}
             </div>
             {/* Name/Details */}
             {(sidebarOpen || mobileSidebarOpen) && (
               <div className="flex-1 min-w-0">
-                <p className="font-semibold text-xs truncate m-0 text-white">
+                <p className="font-bold text-xs truncate m-0 text-black">
                   {user?.fullName || 'Rama Krishna'}
                 </p>
-                <p className="text-[10px] text-white/70 truncate mt-0.5 mb-0">
+                <p className="text-[10px] text-black/75 font-semibold truncate mt-0.5 mb-0">
                   {(roleLabel || 'ASP')} | {(deptLabel || 'STF')}
                 </p>
               </div>
@@ -366,7 +366,7 @@ const DEPT_FULL_LABELS = {
             {/* Chevron */}
             {(sidebarOpen || mobileSidebarOpen) && (
               <svg
-                className={`w-3.5 h-3.5 text-white/70 transition-transform duration-200 ${dropdownOpen ? 'rotate-180' : ''}`}
+                className={`w-3.5 h-3.5 text-black/75 transition-transform duration-200 ${dropdownOpen ? 'rotate-180' : ''}`}
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -467,16 +467,16 @@ const DEPT_FULL_LABELS = {
         {/* Toggle & Version Footer */}
         <div
           className="hidden md:flex items-center justify-between px-4 py-3"
-          style={{ borderTop: '1px solid rgba(255,255,255,0.15)' }}
+          style={{ borderTop: '1px solid rgba(0,0,0,0.15)' }}
         >
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="text-sm transition-colors cursor-pointer bg-transparent border-none p-0 text-white/60 hover:text-white"
+            className="text-sm transition-colors cursor-pointer bg-transparent border-none p-0 text-black/75 hover:text-black font-bold"
           >
             {sidebarOpen ? '← Collapse' : '→'}
           </button>
           {sidebarOpen && (
-            <span className="text-white/45 font-extrabold select-none text-[10px] uppercase tracking-widest">
+            <span className="text-black/65 font-extrabold select-none text-[10px] uppercase tracking-widest">
               Version 1.6.33
             </span>
           )}

@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
 import { useSSE } from '../../hooks/useSSE';
@@ -17,8 +17,25 @@ const getAvatarColor = (name) => {
   return colors[sum % colors.length];
 };
 
+const generatePastMonths = () => {
+  const options = [];
+  const now = new Date();
+  for (let i = 0; i < 24; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const year = d.getFullYear();
+    const monthNum = String(d.getMonth() + 1).padStart(2, '0');
+    const value = `${year}-${monthNum}`;
+    const label = d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    options.push({ value, label });
+  }
+  return options;
+};
+
 export default function OffenderList({ isConsumerOnly = false }) {
+  const [searchParams] = useSearchParams();
   const { user } = useAuth();
+  const pastMonthOptions = useMemo(() => generatePastMonths(), []);
+
   const [offenders, setOffenders] = useState([]);
   const [search, setSearch] = useState('');
   const [psFilter, setPsFilter] = useState(() => {
@@ -28,7 +45,34 @@ export default function OffenderList({ isConsumerOnly = false }) {
     }
     return user?.policeStationId ? String(user.policeStationId) : '';
   });
-  const [categoryFilter, setCategoryFilter] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState(() => searchParams.get('category') || '');
+
+  // Time Range Filtering
+  const [periodFilter, setPeriodFilter] = useState(() => searchParams.get('timeRange') || 'all');
+  const [selectedMonth, setSelectedMonth] = useState(() => searchParams.get('month') || pastMonthOptions[0]?.value || '');
+  const [selectedYear, setSelectedYear] = useState(() => searchParams.get('year') || String(new Date().getFullYear()));
+
+  const monthRef = useRef(null);
+  const yearRef = useRef(null);
+  const [showMonthDropdown, setShowMonthDropdown] = useState(false);
+  const [showYearDropdown, setShowYearDropdown] = useState(false);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (monthRef.current && !monthRef.current.contains(e.target)) {
+        setShowMonthDropdown(false);
+      }
+      if (yearRef.current && !yearRef.current.contains(e.target)) {
+        setShowYearDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const selectedMonthObj = pastMonthOptions.find((opt) => opt.value === selectedMonth);
+  const selectedMonthLabel = selectedMonthObj ? selectedMonthObj.label : 'Month';
+
   const [stations, setStations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
@@ -106,7 +150,7 @@ export default function OffenderList({ isConsumerOnly = false }) {
 
   useEffect(() => {
     fetchOffenders();
-  }, [page, psFilter, categoryFilter, isConsumerOnly]);
+  }, [page, psFilter, categoryFilter, isConsumerOnly, periodFilter, selectedMonth, selectedYear]);
 
   const fetchStations = async () => {
     try {
@@ -115,25 +159,42 @@ export default function OffenderList({ isConsumerOnly = false }) {
     } catch { /* ignore */ }
   };
 
-  const handleExport = async () => {
+  const handleExport = async (format = 'xlsx') => {
     try {
-      const params = {};
-      params.psId = psFilter;
+      const params = { format };
+      if (psFilter) params.psId = psFilter;
       if (search.trim()) params.query = search.trim();
       if (isConsumerOnly) {
         params.category = 'CONSUMER';
       } else if (categoryFilter) {
         params.category = categoryFilter;
       }
+      params.timeRange = periodFilter;
+      if (periodFilter === 'monthly' && selectedMonth) params.month = selectedMonth;
+      if (periodFilter === 'yearly' && selectedYear) params.year = selectedYear;
+
       const res = await api.get('/offenders/export', { params, responseType: 'blob' });
-      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const ext = format === 'csv' ? 'csv' : 'xlsx';
+      const mimeType = format === 'csv' ? 'text/csv;charset=utf-8;' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+      const url = window.URL.createObjectURL(new Blob([res.data], { type: mimeType }));
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${isConsumerOnly ? 'consumers' : 'offenders'}-${Date.now()}.csv`;
+      a.download = `${isConsumerOnly ? 'consumers' : 'offenders'}-${Date.now()}.${ext}`;
       a.click();
       window.URL.revokeObjectURL(url);
-    } catch {
-      alert('Export failed');
+    } catch (err) {
+      console.error('Export error:', err);
+      let errorMsg = 'Export failed';
+      if (err.response?.data instanceof Blob) {
+        try {
+          const text = await err.response.data.text();
+          const json = JSON.parse(text);
+          if (json.message) errorMsg = json.message;
+        } catch { /* ignore parsing error */ }
+      } else if (err.response?.data?.message) {
+        errorMsg = err.response.data.message;
+      }
+      alert(errorMsg);
     }
   };
 
@@ -148,6 +209,10 @@ export default function OffenderList({ isConsumerOnly = false }) {
       } else if (categoryFilter) {
         params.category = categoryFilter;
       }
+      params.timeRange = periodFilter;
+      if (periodFilter === 'monthly' && selectedMonth) params.month = selectedMonth;
+      if (periodFilter === 'yearly' && selectedYear) params.year = selectedYear;
+
       const res = await api.get('/offenders', { params });
       const data = res.data.data;
       setOffenders(data?.content || []);
@@ -185,6 +250,139 @@ export default function OffenderList({ isConsumerOnly = false }) {
           </p>
         </div>
         <div className="flex flex-wrap gap-2.5 items-center">
+          {/* Period Filter Toggle Pills */}
+          <div className="bg-slate-100 dark:bg-slate-800/80 p-1 rounded-full border border-slate-200 dark:border-slate-700/60 inline-flex items-center shadow-xs relative mr-1">
+            {/* Month Dropdown Trigger */}
+            <div className="relative" ref={monthRef}>
+              <button
+                type="button"
+                onClick={() => {
+                  setPeriodFilter('monthly');
+                  setShowMonthDropdown((prev) => !prev);
+                  setShowYearDropdown(false);
+                  setPage(0);
+                }}
+                className={`px-3 py-1.5 text-xs font-black rounded-full transition-all cursor-pointer flex items-center gap-1.5 ${
+                  periodFilter === 'monthly'
+                    ? 'bg-amber-500 text-black shadow-xs'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <span>{periodFilter === 'monthly' ? selectedMonthLabel : 'Month'}</span>
+                <svg
+                  className={`w-3 h-3 transition-transform duration-200 ${showMonthDropdown ? 'rotate-180' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {/* Month Dropdown Popover */}
+              {showMonthDropdown && (
+                <div className="absolute top-full left-0 mt-2 w-48 max-h-60 overflow-y-auto bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl z-50 p-1 space-y-0.5 animate-in fade-in zoom-in-95 duration-100">
+                  {pastMonthOptions.map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => {
+                        setSelectedMonth(opt.value);
+                        setPeriodFilter('monthly');
+                        setShowMonthDropdown(false);
+                        setPage(0);
+                      }}
+                      className={`w-full text-left px-3 py-1.5 text-xs font-bold rounded-lg transition-colors flex items-center justify-between cursor-pointer ${
+                        selectedMonth === opt.value && periodFilter === 'monthly'
+                          ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300 font-extrabold'
+                          : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/70'
+                      }`}
+                    >
+                      <span>{opt.label}</span>
+                      {selectedMonth === opt.value && periodFilter === 'monthly' && (
+                        <span className="text-amber-600 dark:text-amber-400 font-black">✓</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Year Dropdown Trigger */}
+            <div className="relative" ref={yearRef}>
+              <button
+                type="button"
+                onClick={() => {
+                  setPeriodFilter('yearly');
+                  setShowYearDropdown((prev) => !prev);
+                  setShowMonthDropdown(false);
+                  setPage(0);
+                }}
+                className={`px-3 py-1.5 text-xs font-black rounded-full transition-all cursor-pointer flex items-center gap-1.5 ${
+                  periodFilter === 'yearly'
+                    ? 'bg-amber-500 text-black shadow-xs'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <span>{periodFilter === 'yearly' ? selectedYear : 'Year'}</span>
+                <svg
+                  className={`w-3 h-3 transition-transform duration-200 ${showYearDropdown ? 'rotate-180' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {/* Year Dropdown Popover */}
+              {showYearDropdown && (
+                <div className="absolute top-full left-0 mt-2 w-32 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl z-50 p-1 space-y-0.5 animate-in fade-in zoom-in-95 duration-100">
+                  {['2026', '2025', '2024'].map((yr) => (
+                    <button
+                      key={yr}
+                      type="button"
+                      onClick={() => {
+                        setSelectedYear(yr);
+                        setPeriodFilter('yearly');
+                        setShowYearDropdown(false);
+                        setPage(0);
+                      }}
+                      className={`w-full text-left px-3 py-1.5 text-xs font-bold rounded-lg transition-colors flex items-center justify-between cursor-pointer ${
+                        selectedYear === yr && periodFilter === 'yearly'
+                          ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300 font-extrabold'
+                          : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/70'
+                      }`}
+                    >
+                      <span>{yr}</span>
+                      {selectedYear === yr && periodFilter === 'yearly' && (
+                        <span className="text-amber-600 dark:text-amber-400 font-black">✓</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* All Time Button */}
+            <button
+              type="button"
+              onClick={() => {
+                setPeriodFilter('all');
+                setShowMonthDropdown(false);
+                setShowYearDropdown(false);
+                setPage(0);
+              }}
+              className={`px-3 py-1.5 text-xs font-black rounded-full transition-all cursor-pointer ${
+                periodFilter === 'all'
+                  ? 'bg-amber-500 text-black shadow-xs'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              All Time
+            </button>
+          </div>
+
           {importing ? (
             <span className="text-xs animate-pulse font-semibold self-center text-slate-500">Importing...</span>
           ) : (
@@ -209,14 +407,14 @@ export default function OffenderList({ isConsumerOnly = false }) {
           )}
           <button
             type="button"
-            onClick={handleExport}
-            className="px-3.5 py-2 text-xs font-bold bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750 rounded-xl shadow-xs transition-all"
+            onClick={() => handleExport('xlsx')}
+            className="px-3.5 py-2 text-xs font-bold bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750 rounded-xl shadow-xs transition-all flex items-center gap-1"
           >
-            Export CSV
+            Export Excel
           </button>
           <button
             onClick={() => navigate('/offenders/new')}
-            className="px-4 py-2 text-xs font-extrabold bg-amber-500 hover:bg-amber-600 text-white rounded-xl shadow-xs transition-all flex items-center gap-1.5"
+            className="px-4 py-2 text-xs font-extrabold bg-amber-500 hover:bg-amber-600 text-black rounded-xl shadow-xs transition-all flex items-center gap-1.5"
           >
             {isConsumerOnly ? '+ Add Consumer' : '+ Add Offender'}
           </button>

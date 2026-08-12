@@ -27,27 +27,28 @@ export const getDashboardSummary = async (req: AuthRequest, res: Response) => {
     const { psFilter, isStationLevel } = getDashboardScope(user);
 
     const timeRange = req.query.timeRange as string || 'monthly';
-    let dateFilter: { gte?: Date } | undefined = undefined;
+    const month = req.query.month as string;
+    const year = req.query.year as string;
+    let dateFilter: { gte?: Date; lte?: Date } | undefined = undefined;
 
-    if (timeRange !== 'all') {
-      if (timeRange === 'weekly') {
-        const d = new Date();
-        d.setDate(d.getDate() - 7);
-        dateFilter = { gte: d };
-      } else if (timeRange === 'monthly') {
-        const d = new Date();
-        d.setMonth(d.getMonth() - 1);
-        dateFilter = { gte: d };
-      } else if (timeRange === 'yearly') {
-        const d = new Date();
-        d.setFullYear(d.getFullYear() - 1);
-        dateFilter = { gte: d };
+    if (timeRange === 'monthly') {
+      const monthStr = month ? String(month) : new Date().toISOString().substring(0, 7);
+      const [y, m] = monthStr.split('-').map(Number);
+      if (y && m) {
+        const start = new Date(y, m - 1, 1, 0, 0, 0, 0);
+        const end = new Date(y, m, 0, 23, 59, 59, 999);
+        dateFilter = { gte: start, lte: end };
       }
+    } else if (timeRange === 'yearly') {
+      const y = year ? Number(year) : new Date().getFullYear();
+      const start = new Date(y, 0, 1, 0, 0, 0, 0);
+      const end = new Date(y, 11, 31, 23, 59, 59, 999);
+      dateFilter = { gte: start, lte: end };
     }
 
-    // Generate cache key based on the user's role, police station id, and time range
+    // Generate cache key based on role, station id, time range, month and year
     const psIdStr = psFilter.ps_id ? psFilter.ps_id.toString() : 'all';
-    const cacheKey = `summary_${isStationLevel ? 'station' : 'district'}_${psIdStr}_${timeRange}`;
+    const cacheKey = `summary_${isStationLevel ? 'station' : 'district'}_${psIdStr}_${timeRange}_${month || ''}_${year || ''}`;
 
     const forceBypass = req.query.force === 'true';
 

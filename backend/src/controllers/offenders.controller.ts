@@ -16,7 +16,7 @@ import { handleControllerError } from '../utils/error-handler';
 
 export const getOffenders = async (req: AuthRequest, res: Response) => {
   try {
-    const { query, psId, category, page = 0, size = 10 } = req.query;
+    const { query, psId, category, page = 0, size = 10, timeRange, month, year } = req.query;
     
     let whereClause: any = { ...getOffenderWhere(req.user!) };
     if (psId) {
@@ -40,6 +40,21 @@ export const getOffenders = async (req: AuthRequest, res: Response) => {
         { offender_contacts: { some: { value: { contains: q, mode: 'insensitive' } } } },
         { case_accused: { some: { cases: { fir_no: { contains: q, mode: 'insensitive' } } } } }
       ];
+    }
+
+    if (timeRange === 'monthly') {
+      const monthStr = month ? String(month) : new Date().toISOString().substring(0, 7);
+      const [y, m] = monthStr.split('-').map(Number);
+      if (y && m) {
+        const start = new Date(y, m - 1, 1, 0, 0, 0, 0);
+        const end = new Date(y, m, 0, 23, 59, 59, 999);
+        whereClause.created_at = { gte: start, lte: end };
+      }
+    } else if (timeRange === 'yearly') {
+      const y = year ? Number(year) : new Date().getFullYear();
+      const start = new Date(y, 0, 1, 0, 0, 0, 0);
+      const end = new Date(y, 11, 31, 23, 59, 59, 999);
+      whereClause.created_at = { gte: start, lte: end };
     }
 
     const skip = Number(page) * Number(size);

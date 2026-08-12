@@ -8,11 +8,11 @@ export function maskAadhaar(aadhaar: string | null | undefined): string | null {
 }
 
 export function canRevealAadhaar(role: string): boolean {
-  return ['ADMIN', 'SP', 'ASP', 'DSP', 'CI'].includes(role);
+  return ['ADMIN', 'SP', 'ASP', 'DSP', 'SDPO', 'CI', 'SI', 'SHO'].includes(role);
 }
 
 export function canExportOffenders(role: string): boolean {
-  return ['ADMIN', 'SP', 'ASP', 'DSP', 'CI', 'SI'].includes(role);
+  return ['ADMIN', 'SP', 'ASP', 'DSP', 'SDPO', 'CI', 'SI', 'SHO'].includes(role);
 }
 
 /**

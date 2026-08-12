@@ -39,6 +39,24 @@ describe('Offenders Controller', () => {
     expect(Array.isArray(res.body.data.content)).toBe(true);
   });
 
+  it('should allow SHO role to export CSV with 200 OK', async () => {
+    const res = await request(app)
+      .get('/api/offenders/export?format=csv')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toContain('text/csv');
+  });
+
+  it('should allow SP role to export Excel with embedded photos with 200 OK', async () => {
+    const res = await request(app)
+      .get('/api/offenders/export?format=xlsx')
+      .set('Authorization', `Bearer ${spToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toContain('spreadsheetml.sheet');
+  });
+
   it('should return 401 if no auth token provided', async () => {
     const res = await request(app).get('/api/offenders');
     expect(res.status).toBe(401);

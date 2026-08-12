@@ -8,6 +8,9 @@ import { paramId } from '../utils/params';
 import { broadcastEvent } from './sse.controller';
 import { isValidText, isValidSectionOfLaw, isValidNumeric } from '../utils/validators';
 import { handleControllerError } from '../utils/error-handler';
+import { generateCasePdf, CasePdfData } from '../utils/pdf-case-summary';
+import { getImageBufferAndExtension } from './export.controller';
+import { maskAadhaar, canRevealAadhaar } from '../utils/pii';
 
 function toPhysicalPaths(relevantFilesStr: string | null | undefined): string | null {
   if (!relevantFilesStr) return null;
@@ -107,7 +110,17 @@ function mapCaseData(data: any) {
 const caseInclude = {
   police_stations: true,
   users: true,
-  case_accused: { include: { offenders: true, police_stations: true } },
+  case_accused: {
+    include: {
+      police_stations: true,
+      offenders: {
+        include: {
+          offender_contacts: true,
+          offender_identity_docs: true,
+        }
+      }
+    }
+  },
   seizures: true,
   seized_vehicles: true,
   charge_sheets: true,
@@ -339,14 +352,15 @@ export const updateCase = async (req: AuthRequest, res: Response) => {
   }
 };
 
+import ExcelJS from 'exceljs';
+
 export const getCases = async (req: AuthRequest, res: Response) => {
   try {
-    const { page = 0, size = 30, stage, search } = req.query;
+    const { page = 0, size = 30, stage, search, timeRange, month, year } = req.query;
     const skip = Number(page) * Number(size);
     const take = Number(size);
     const scope = getCaseWhere(req.user!) as any;
 
-    if (stage) scope.stage = String(stage);
     if (search) {
       scope.OR = [
         { fir_no: { contains: String(search), mode: 'insensitive' } },
@@ -354,13 +368,26 @@ export const getCases = async (req: AuthRequest, res: Response) => {
       ];
     }
 
-    const countScope = getCaseWhere(req.user!) as any;
-    if (search) {
-      countScope.OR = [
-        { fir_no: { contains: String(search), mode: 'insensitive' } },
-        { section_of_law: { contains: String(search), mode: 'insensitive' } },
-      ];
+    if (timeRange === 'monthly') {
+      const monthStr = month ? String(month) : new Date().toISOString().substring(0, 7);
+      const [y, m] = monthStr.split('-').map(Number);
+      if (y && m) {
+        const start = new Date(y, m - 1, 1, 0, 0, 0, 0);
+        const end = new Date(y, m, 0, 23, 59, 59, 999);
+        scope.case_date = { gte: start, lte: end };
+      }
+    } else if (timeRange === 'yearly') {
+      const y = year ? Number(year) : new Date().getFullYear();
+      const start = new Date(y, 0, 1, 0, 0, 0, 0);
+      const end = new Date(y, 11, 31, 23, 59, 59, 999);
+      scope.case_date = { gte: start, lte: end };
     }
+
+    // countScope is used to compute total stageCounts across all stages
+    const countScope = JSON.parse(JSON.stringify(scope));
+
+    // Specifically apply stage filter for the paginated table items
+    if (stage) scope.stage = String(stage);
 
     const [cases, total, stageGroups] = await Promise.all([
       prisma.cases.findMany({
@@ -401,6 +428,133 @@ export const getCases = async (req: AuthRequest, res: Response) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
+  }
+};
+
+export const exportCasesExcel = async (req: AuthRequest, res: Response) => {
+  try {
+    const { stage, search, timeRange, month, year } = req.query;
+    const scope = getCaseWhere(req.user!) as any;
+
+    if (stage) scope.stage = String(stage);
+    if (search) {
+      scope.OR = [
+        { fir_no: { contains: String(search), mode: 'insensitive' } },
+        { section_of_law: { contains: String(search), mode: 'insensitive' } },
+      ];
+    }
+
+    if (timeRange === 'monthly') {
+      const monthStr = month ? String(month) : new Date().toISOString().substring(0, 7);
+      const [y, m] = monthStr.split('-').map(Number);
+      if (y && m) {
+        const start = new Date(y, m - 1, 1, 0, 0, 0, 0);
+        const end = new Date(y, m, 0, 23, 59, 59, 999);
+        scope.case_date = { gte: start, lte: end };
+      }
+    } else if (timeRange === 'yearly') {
+      const y = year ? Number(year) : new Date().getFullYear();
+      const start = new Date(y, 0, 1, 0, 0, 0, 0);
+      const end = new Date(y, 11, 31, 23, 59, 59, 999);
+      scope.case_date = { gte: start, lte: end };
+    }
+
+    const cases = await prisma.cases.findMany({
+      where: scope,
+      include: caseInclude,
+      orderBy: { case_date: 'desc' },
+    });
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Cases Register');
+
+    // Title Row
+    worksheet.mergeCells('A1:L1');
+    const titleCell = worksheet.getCell('A1');
+    titleCell.value = 'GARUDA NDPS — CASE MANAGEMENT REGISTER';
+    titleCell.font = { name: 'Arial', size: 14, bold: true, color: { argb: 'FFFFFFFF' } };
+    titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    worksheet.getRow(1).height = 30;
+
+    // Headers
+    const headers = [
+      'Sl. No',
+      'FIR No.',
+      'Police Station',
+      'Case Date',
+      'Section of Law',
+      'Stage',
+      'Nature of Offence',
+      'Contraband Type',
+      'Quantity (Kg/Units)',
+      'Street Value (₹)',
+      'Accused Persons',
+      'Seizure Summary',
+    ];
+
+    const headerRow = worksheet.addRow(headers);
+    headerRow.height = 24;
+    headerRow.eachCell((cell) => {
+      cell.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8750A' } };
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+    });
+
+    cases.forEach((c, index) => {
+      const formattedDate = c.case_date ? new Date(c.case_date).toLocaleDateString('en-GB') : '-';
+      const accusedNames = c.case_accused?.map((ca: any) => ca.offenders?.full_name).filter(Boolean).join(', ') || '-';
+      const seizureSummary = c.seizures?.map((s: any) => `${s.contraband_kg ? s.contraband_kg + 'kg' : ''} ${s.cash_amount ? '₹' + s.cash_amount : ''}`).filter(Boolean).join('; ') || '-';
+
+      const row = worksheet.addRow([
+        index + 1,
+        c.fir_no || '-',
+        c.police_stations?.name || '-',
+        formattedDate,
+        c.section_of_law || '-',
+        c.stage || '-',
+        c.nature_of_offence || '-',
+        c.contraband_type || '-',
+        c.quantity ? `${c.quantity} ${c.quantity_unit || ''}` : '-',
+        c.street_value ? Number(c.street_value) : 0,
+        accusedNames,
+        seizureSummary,
+      ]);
+
+      row.height = 22;
+      row.eachCell((cell, colNumber) => {
+        cell.alignment = {
+          vertical: 'middle',
+          horizontal: colNumber === 1 || colNumber === 4 || colNumber === 6 ? 'center' : (colNumber === 10 ? 'right' : 'left'),
+        };
+        cell.font = { name: 'Arial', size: 9.5 };
+      });
+    });
+
+    worksheet.columns = [
+      { width: 8 },  // Sl. No
+      { width: 22 }, // FIR No
+      { width: 22 }, // Police Station
+      { width: 14 }, // Case Date
+      { width: 28 }, // Section of Law
+      { width: 16 }, // Stage
+      { width: 20 }, // Nature of Offence
+      { width: 18 }, // Contraband Type
+      { width: 18 }, // Quantity
+      { width: 16 }, // Street Value
+      { width: 30 }, // Accused
+      { width: 28 }, // Seizure
+    ];
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="cases-export-${Date.now()}.xlsx"`);
+
+    await logAudit('EXPORT', 'CASE', null, req, `Exported ${cases.length} cases to Excel`);
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (error) {
+    console.error('Error exporting cases:', error);
+    res.status(500).json({ message: 'Failed to export cases to Excel' });
   }
 };
 
@@ -647,3 +801,115 @@ function toCaseResponse(c: any) {
     })) ?? [],
   };
 }
+
+export const exportCasePdf = async (req: AuthRequest, res: Response) => {
+  try {
+    const id = paramId(req);
+    const scope = getCaseWhere(req.user!);
+    const caseRecord = await prisma.cases.findFirst({
+      where: { id, ...scope },
+      include: caseInclude,
+    });
+
+    if (!caseRecord) {
+      return res.status(404).json({ message: 'Case not found' });
+    }
+
+    const userRole = req.user?.role || '';
+    const userName = (req.user as any)?.name || req.user?.username || 'Officer';
+
+    // Prepare Accused Data list with photo buffers
+    const accusedList = [];
+    if (caseRecord.case_accused && Array.isArray(caseRecord.case_accused)) {
+      for (const ca of caseRecord.case_accused) {
+        const o = ca.offenders;
+        let photoBuffer: Buffer | null = null;
+
+        if (o?.photo_url) {
+          const imgInfo = await getImageBufferAndExtension(o.photo_url);
+          if (imgInfo) {
+            photoBuffer = imgInfo.buffer;
+          }
+        }
+
+        const contacts = o?.offender_contacts || [];
+        const primaryContactObj = contacts.find((c: any) => c.contact_type === 'MOBILE_PRIMARY')
+                                || contacts.find((c: any) => c.contact_type?.startsWith('MOBILE'))
+                                || contacts[0];
+        const primaryContact = primaryContactObj?.value || '—';
+
+        const docs = o?.offender_identity_docs || [];
+        const aadhaar = docs[0]?.aadhaar_no || docs.find((d: any) => d.aadhaar_no)?.aadhaar_no;
+        const formattedAadhaar = aadhaar
+          ? (canRevealAadhaar(userRole) ? aadhaar : (maskAadhaar(aadhaar) || '—'))
+          : '—';
+
+        let arrestDateStr = '—';
+        if (ca.arrest_date) {
+          const d = new Date(ca.arrest_date);
+          if (!isNaN(d.getTime())) {
+            arrestDateStr = d.toLocaleDateString('en-IN');
+          }
+        }
+
+        accusedList.push({
+          fullName: o?.full_name || 'Unknown',
+          alias: o?.alias,
+          category: o?.category,
+          arrestStatus: ca.arrest_status,
+          arrestDate: arrestDateStr,
+          psName: ca.police_stations?.name || caseRecord.police_stations?.name,
+          mobile: primaryContact,
+          aadhaarNo: formattedAadhaar,
+          photoBuffer,
+        });
+      }
+    }
+
+    const cs = caseRecord.charge_sheets;
+    const latestHearing = caseRecord.court_hearings?.[0];
+
+    const pdfData: CasePdfData = {
+      caseInfo: {
+        firNo: caseRecord.fir_no,
+        psName: caseRecord.police_stations?.name || '—',
+        caseDate: caseRecord.case_date ? new Date(caseRecord.case_date).toLocaleDateString('en-IN') : '—',
+        stage: caseRecord.stage,
+        sectionOfLaw: caseRecord.section_of_law || '—',
+        contrabandType: caseRecord.contraband_type,
+        quantity: caseRecord.quantity ? String(caseRecord.quantity) : null,
+        quantityUnit: caseRecord.quantity_unit,
+        streetValue: caseRecord.street_value ? String(caseRecord.street_value) : null,
+        sourceLocation: caseRecord.source_location,
+        destinationLocation: caseRecord.destination_location,
+        intelligenceNotes: caseRecord.intelligence_notes,
+      },
+      accusedList,
+      chargeSheetInfo: cs ? {
+        chargeSheetNo: cs.actual_submission_date ? `Submitted on ${new Date(cs.actual_submission_date).toLocaleDateString('en-IN')}` : 'Filing In Progress',
+        filingDate: cs.actual_submission_date ? new Date(cs.actual_submission_date).toLocaleDateString('en-IN') : null,
+        courtName: latestHearing?.court_name || null,
+        ccStNo: latestHearing?.sc_number || null,
+        nextHearingDate: latestHearing?.hearing_date ? new Date(latestHearing.hearing_date).toLocaleDateString('en-IN') : null,
+        dispositionSentence: cs.notes || cs.missing_documents || null,
+      } : null,
+      generatedAt: new Date().toLocaleString('en-IN'),
+      generatedBy: userName,
+      watermark: `${userName} | ${new Date().toISOString().substring(0, 10)}`,
+    };
+
+    await logAudit('EXPORT', 'CASE', id, req, `Exported PDF Case Report for FIR ${caseRecord.fir_no}`);
+
+    const doc = generateCasePdf(pdfData);
+
+    const safeFir = caseRecord.fir_no.replace(/[/\\?%*:|"<>]/g, '_');
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="Case_Report_${safeFir}.pdf"`);
+
+    doc.pipe(res);
+    doc.end();
+  } catch (error) {
+    console.error('Error generating Case PDF:', error);
+    res.status(500).json({ message: 'Failed to generate Case PDF report' });
+  }
+};

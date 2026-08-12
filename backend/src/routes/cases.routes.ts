@@ -3,7 +3,9 @@ import rateLimit from 'express-rate-limit';
 import {
   createCase,
   getCases,
+  exportCasesExcel,
   getCaseById,
+  exportCasePdf,
   updateCase,
   updateAccused,
   updateSeizure,
@@ -83,8 +85,10 @@ router.post('/upload', uploadLimiter, uploadDocument.single('file'), (req: any, 
 
 router.post('/', requirePermission('ADD_CASE'), createCase);
 router.get('/', getCases);
+router.get('/export', exportCasesExcel);
 router.get('/offender/:offenderId', getCasesByOffender);
 router.get('/:id', getCaseById);
+router.get('/:id/pdf', exportCasePdf);
 router.put('/:id', requirePermission('EDIT_RECORDS'), updateCase);
 router.post('/:id/accused', requirePermission('EDIT_RECORDS'), updateAccused);
 router.post('/:id/seizures', requirePermission('EDIT_RECORDS'), updateSeizure);

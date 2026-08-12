@@ -107,6 +107,29 @@ export default function CaseDetail() {
     }
   }
 
+  const [exportingPdf, setExportingPdf] = useState(false);
+
+  const handleExportPdf = async () => {
+    setExportingPdf(true);
+    try {
+      const res = await api.get(`/cases/${id}/pdf`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
+      const link = document.createElement('a');
+      link.href = url;
+      const safeFir = (caseData?.firNo || 'Case').replace(/[/\\?%*:|"<>]/g, '_');
+      link.setAttribute('download', `Case_Report_${safeFir}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('PDF Export error:', err);
+      alert('Failed to export Case PDF report');
+    } finally {
+      setExportingPdf(false);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
@@ -123,15 +146,27 @@ export default function CaseDetail() {
             )}
           </p>
         </div>
-        {canEdit && (
-          <Link
-            to={`/cases/${(id || '').toString().replace(/\/+$/, '')}/edit`}
-            className="px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap"
-            style={{ background: 'var(--color-garuda-700)', color: 'var(--color-garuda-200)' }}
+        <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            onClick={handleExportPdf}
+            disabled={exportingPdf || loading}
+            className="px-3.5 py-2 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750 shadow-xs transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
           >
-            Edit Case
-          </Link>
-        )}
+            <svg className="w-4 h-4 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+            </svg>
+            <span>{exportingPdf ? 'Exporting PDF...' : 'Export Case PDF'}</span>
+          </button>
+          {canEdit && (
+            <Link
+              to={`/cases/${(id || '').toString().replace(/\/+$/, '')}/edit`}
+              className="px-4 py-2 text-xs font-extrabold bg-amber-500 hover:bg-amber-600 text-black rounded-xl shadow-xs transition-all flex items-center gap-1.5"
+            >
+              Edit Case
+            </Link>
+          )}
+        </div>
       </div>
 
       <div className="flex gap-2 border-b" style={{ borderColor: 'var(--color-garuda-700)' }}>

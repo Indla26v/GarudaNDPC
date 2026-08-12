@@ -11,7 +11,7 @@
  *  - Absconder ticker
  *  - Quick action links
  */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 import api from '../api/axios';
@@ -37,12 +37,12 @@ const getAvatarColor = (name) => {
 };
 
 const KPI_CARDS = [
-  { key: 'totalCases',           label: 'Total Cases',       Icon: IconClipboard, color: '#3b82f6' },
-  { key: 'totalArrests',         label: 'Arrests',           Icon: IconLock,      color: '#22c55e' },
-  { key: 'totalAbsconders',      label: 'Absconders',        Icon: IconRunning,   color: '#ef4444' },
-  { key: 'pendingChargeSheets',  label: 'Pending CS',        Icon: IconHourglass, color: '#f59e0b' },
-  { key: 'pendingCourtCases',    label: 'Pending Courts',    Icon: IconScale,     color: '#8b5cf6' },
-  { key: 'convictionsThisYear',  label: 'Convictions (YTD)', Icon: IconCheckCircle, color: '#06b6d4' },
+  { key: 'totalCases',           label: 'Total Cases',       Icon: IconClipboard, color: '#3b82f6', link: '/cases' },
+  { key: 'totalArrests',         label: 'Arrests',           Icon: IconLock,      color: '#22c55e', link: '/offenders' },
+  { key: 'totalAbsconders',      label: 'Absconders',        Icon: IconRunning,   color: '#ef4444', link: '/offenders?category=ABSCONDER' },
+  { key: 'pendingChargeSheets',  label: 'Pending CS',        Icon: IconHourglass, color: '#f59e0b', link: '/cases?stage=CHARGESHEET' },
+  { key: 'pendingCourtCases',    label: 'Pending Courts',    Icon: IconScale,     color: '#8b5cf6', link: '/cases?stage=TRIAL' },
+  { key: 'convictionsThisYear',  label: 'Convictions (YTD)', Icon: IconCheckCircle, color: '#06b6d4', link: '/cases?stage=CONVICTED' },
 ];
 
 const ALERT_ICON_MAP = {
@@ -126,14 +126,51 @@ let lastFetchTime = 0;
 let cachedToken = null;
 const CACHE_TTL = 30000; // 30 seconds cache
 
+const generatePastMonths = () => {
+  const options = [];
+  const now = new Date();
+  for (let i = 0; i < 24; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const year = d.getFullYear();
+    const monthNum = String(d.getMonth() + 1).padStart(2, '0');
+    const value = `${year}-${monthNum}`;
+    const label = d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    options.push({ value, label });
+  }
+  return options;
+};
+
 export default function Dashboard() {
+  const pastMonthOptions = useMemo(() => generatePastMonths(), []);
   const [timeRange, setTimeRange] = useState('monthly');
+  const [selectedMonth, setSelectedMonth] = useState(pastMonthOptions[0]?.value || '');
+  const [selectedYear, setSelectedYear] = useState(String(new Date().getFullYear()));
   const [sortColumn, setSortColumn] = useState('totalCases');
   const [sortOrder, setSortOrder] = useState('desc');
 
-  // If cache is valid, initialize with cached data and skip loading screen
+  const monthRef = useRef(null);
+  const yearRef = useRef(null);
+  const [showMonthDropdown, setShowMonthDropdown] = useState(false);
+  const [showYearDropdown, setShowYearDropdown] = useState(false);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (monthRef.current && !monthRef.current.contains(e.target)) {
+        setShowMonthDropdown(false);
+      }
+      if (yearRef.current && !yearRef.current.contains(e.target)) {
+        setShowYearDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const selectedMonthObj = pastMonthOptions.find((opt) => opt.value === selectedMonth);
+  const selectedMonthLabel = selectedMonthObj ? selectedMonthObj.label : 'Month';
+
   const isCacheValid = cachedSummary && 
-                       cachedToken === `summary_${timeRange}` &&
+                       cachedToken === `summary_${timeRange}_${selectedMonth}_${selectedYear}` &&
                        (Date.now() - lastFetchTime < CACHE_TTL);
 
   const [summary, setSummary] = useState(isCacheValid ? cachedSummary : null);
@@ -144,19 +181,19 @@ export default function Dashboard() {
   const { lastEvent, isConnected } = useSSE();
 
   useEffect(() => {
-    fetchSummary(false, timeRange);
-  }, []);
+    fetchSummary(true, timeRange, selectedMonth, selectedYear);
+  }, [timeRange, selectedMonth, selectedYear]);
 
   // Refresh data on SSE events (bypasses cache)
   useEffect(() => {
     if (lastEvent && ['case_created', 'offender_created', 'data_updated', 'absconder_alerts', 'chargesheet_overdue_alerts'].includes(lastEvent.type)) {
-      fetchSummary(true, timeRange);
+      fetchSummary(true, timeRange, selectedMonth, selectedYear);
     }
   }, [lastEvent]);
 
-  const fetchSummary = async (force = false, range = timeRange) => {
+  const fetchSummary = async (force = false, range = timeRange, m = selectedMonth, y = selectedYear) => {
     const now = Date.now();
-    const cacheKey = `summary_${range}`;
+    const cacheKey = `summary_${range}_${m}_${y}`;
     const cacheIsValid = cachedSummary && 
                          cachedToken === cacheKey &&
                          (now - lastFetchTime < CACHE_TTL);
@@ -169,6 +206,8 @@ export default function Dashboard() {
 
     try {
       const params = { timeRange: range };
+      if (range === 'monthly' && m) params.month = m;
+      if (range === 'yearly' && y) params.year = y;
       if (force) params.force = 'true';
       const res = await api.get('/dashboard/summary', { params });
       cachedSummary = res.data.data;
@@ -183,9 +222,14 @@ export default function Dashboard() {
     }
   };
 
-  const handleTimeRangeChange = (newRange) => {
-    setTimeRange(newRange);
-    fetchSummary(true, newRange);
+  const getCardLink = (card) => {
+    const [base, queryString] = card.link.split('?');
+    const searchParams = new URLSearchParams(queryString || '');
+    searchParams.set('timeRange', timeRange);
+    if (timeRange === 'monthly' && selectedMonth) searchParams.set('month', selectedMonth);
+    if (timeRange === 'yearly' && selectedYear) searchParams.set('year', selectedYear);
+
+    return `${base}?${searchParams.toString()}`;
   };
 
   const fmt = (val) => {
@@ -233,32 +277,126 @@ export default function Dashboard() {
         </div>
         <div className="flex flex-wrap gap-2 items-center">
           {/* Global Dashboard Period Filter Pill Toggle */}
-          <div className="flex items-center bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-1 rounded-xl shadow-xs mr-2">
+          <div className="bg-slate-100 dark:bg-slate-800/80 p-1 rounded-full border border-slate-200 dark:border-slate-700/60 inline-flex items-center shadow-xs relative mr-2">
+            {/* Month Dropdown Trigger */}
+            <div className="relative" ref={monthRef}>
+              <button
+                type="button"
+                onClick={() => {
+                  setTimeRange('monthly');
+                  setShowMonthDropdown((prev) => !prev);
+                  setShowYearDropdown(false);
+                }}
+                className={`px-3 py-1.5 text-xs font-black rounded-full transition-all cursor-pointer flex items-center gap-1.5 ${
+                  timeRange === 'monthly'
+                    ? 'bg-amber-500 text-black shadow-xs'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <span>{timeRange === 'monthly' ? selectedMonthLabel : 'Month'}</span>
+                <svg
+                  className={`w-3 h-3 transition-transform duration-200 ${showMonthDropdown ? 'rotate-180' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {/* Month Dropdown Popover */}
+              {showMonthDropdown && (
+                <div className="absolute top-full right-0 sm:left-0 mt-2 w-48 max-h-60 overflow-y-auto bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl z-50 p-1 space-y-0.5 animate-in fade-in zoom-in-95 duration-100">
+                  {pastMonthOptions.map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => {
+                        setSelectedMonth(opt.value);
+                        setTimeRange('monthly');
+                        setShowMonthDropdown(false);
+                      }}
+                      className={`w-full text-left px-3 py-1.5 text-xs font-bold rounded-lg transition-colors flex items-center justify-between cursor-pointer ${
+                        selectedMonth === opt.value && timeRange === 'monthly'
+                          ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300 font-extrabold'
+                          : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/70'
+                      }`}
+                    >
+                      <span>{opt.label}</span>
+                      {selectedMonth === opt.value && timeRange === 'monthly' && (
+                        <span className="text-amber-600 dark:text-amber-400 font-black">✓</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Year Dropdown Trigger */}
+            <div className="relative" ref={yearRef}>
+              <button
+                type="button"
+                onClick={() => {
+                  setTimeRange('yearly');
+                  setShowYearDropdown((prev) => !prev);
+                  setShowMonthDropdown(false);
+                }}
+                className={`px-3 py-1.5 text-xs font-black rounded-full transition-all cursor-pointer flex items-center gap-1.5 ${
+                  timeRange === 'yearly'
+                    ? 'bg-amber-500 text-black shadow-xs'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <span>{timeRange === 'yearly' ? selectedYear : 'Year'}</span>
+                <svg
+                  className={`w-3 h-3 transition-transform duration-200 ${showYearDropdown ? 'rotate-180' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {/* Year Dropdown Popover */}
+              {showYearDropdown && (
+                <div className="absolute top-full right-0 sm:left-0 mt-2 w-32 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl z-50 p-1 space-y-0.5 animate-in fade-in zoom-in-95 duration-100">
+                  {['2026', '2025', '2024'].map((yr) => (
+                    <button
+                      key={yr}
+                      type="button"
+                      onClick={() => {
+                        setSelectedYear(yr);
+                        setTimeRange('yearly');
+                        setShowYearDropdown(false);
+                      }}
+                      className={`w-full text-left px-3 py-1.5 text-xs font-bold rounded-lg transition-colors flex items-center justify-between cursor-pointer ${
+                        selectedYear === yr && timeRange === 'yearly'
+                          ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300 font-extrabold'
+                          : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/70'
+                      }`}
+                    >
+                      <span>{yr}</span>
+                      {selectedYear === yr && timeRange === 'yearly' && (
+                        <span className="text-amber-600 dark:text-amber-400 font-black">✓</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* All Time Button */}
             <button
-              onClick={() => handleTimeRangeChange('monthly')}
-              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
-                timeRange === 'monthly'
-                  ? 'bg-amber-500 text-white font-extrabold shadow-xs'
-                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              Month
-            </button>
-            <button
-              onClick={() => handleTimeRangeChange('yearly')}
-              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
-                timeRange === 'yearly'
-                  ? 'bg-amber-500 text-white font-extrabold shadow-xs'
-                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              Year
-            </button>
-            <button
-              onClick={() => handleTimeRangeChange('all')}
-              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
+              type="button"
+              onClick={() => {
+                setTimeRange('all');
+                setShowMonthDropdown(false);
+                setShowYearDropdown(false);
+              }}
+              className={`px-3 py-1.5 text-xs font-black rounded-full transition-all cursor-pointer ${
                 timeRange === 'all'
-                  ? 'bg-amber-500 text-white font-extrabold shadow-xs'
+                  ? 'bg-amber-500 text-black shadow-xs'
                   : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
@@ -269,7 +407,7 @@ export default function Dashboard() {
           {perms.canRegisterCase && (
             <Link 
               to="/cases/new" 
-              className="px-3.5 py-2 text-xs font-extrabold bg-amber-500 hover:bg-amber-600 text-white rounded-xl shadow-xs transition-all flex items-center gap-1.5"
+              className="px-3.5 py-2 text-xs font-extrabold bg-amber-500 hover:bg-amber-600 text-black rounded-xl shadow-xs transition-all flex items-center gap-1.5"
             >
               + New Case
             </Link>
@@ -289,48 +427,79 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* ── KPI Cards ────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-4">
-        {KPI_CARDS.map((card, i) => (
-          <div
-            key={card.key}
-            className="flex flex-col border-0 rounded-xl overflow-hidden hover:translate-y-[-2px] transition-all duration-200 max-w-[145px] sm:max-w-none w-full mx-auto"
-            style={{
-              background: card.color,
-              boxShadow: `0 4px 12px ${card.color}40`,
-              animationDelay: `${i * 60}ms`
-            }}
-          >
-            {/* Header Zone */}
-            <div 
-              className="px-2.5 py-1.5 sm:px-4 sm:py-2.5 flex items-center justify-start bg-black/10"
+      {/* ── KPI Cards (Dynamic Curved Folder UI with Glassy Line) ────────────── */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-4">
+        {KPI_CARDS.map((card, i) => {
+          const charCount = card.label.length;
+          // Calculate dynamic tab width (min 82px, max 158px out of 200px)
+          const tabW = Math.max(82, Math.min(158, Math.round(charCount * 7.5 + 28)));
+          const tabRightTop = tabW - 14;
+          const q1_x1 = tabW - 3;
+          const q1_x = tabW + 5;
+          const line_x = tabW + 12;
+          const q2_x1 = tabW + 18;
+          const q2_x = tabW + 28;
+
+          // Smooth Bézier curve path matching reference folder tab
+          const pathD = `M 0,14 A 14,14 0 0,1 14,0 L ${tabRightTop},0 Q ${q1_x1},0 ${q1_x},7 L ${line_x},15 Q ${q2_x1},22 ${q2_x},22 L 186,22 A 14,14 0 0,1 200,36 L 200,86 A 14,14 0 0,1 186,100 L 14,100 A 14,14 0 0,1 0,86 Z`;
+          const tabPercent = (tabW / 200) * 100;
+
+          return (
+            <Link
+              key={card.key}
+              to={getCardLink(card)}
+              className="relative flex flex-col group hover:translate-y-[-4px] hover:scale-[1.03] transition-all duration-200 w-full max-w-[170px] sm:max-w-none mx-auto h-[90px] sm:h-[98px] cursor-pointer"
+              style={{ animationDelay: `${i * 60}ms` }}
             >
-              <span className="text-[10px] sm:text-[12px] font-bold text-white tracking-wider uppercase select-none">
-                {card.label}
-              </span>
-            </div>
-            
-            {/* Body Zone */}
-            <div className="p-2.5 sm:p-4 flex items-center justify-between gap-2 sm:gap-3">
-              {/* Left Side: Icon in subtle container */}
-              <div 
-                className="w-8 h-8 sm:w-11 sm:h-11 rounded-lg sm:rounded-xl flex items-center justify-center bg-white/20 border border-white/20 flex-shrink-0"
+              {/* Smooth Curved SVG Vector Folder Background */}
+              <svg
+                viewBox="0 0 200 100"
+                preserveAspectRatio="none"
+                className="absolute inset-0 w-full h-full transition-all duration-200"
+                style={{
+                  color: card.color,
+                  filter: `drop-shadow(0 6px 14px ${card.color}40)`,
+                }}
               >
-                <card.Icon size={18} color="#ffffff" />
-              </div>
-              
-              {/* Right Side: Large bold stat number */}
-              <div className="text-right flex-1 min-w-0">
-                <p 
-                  className="font-extrabold truncate text-white text-xl sm:text-2xl lg:text-3xl"
-                  style={{ lineHeight: '1.2' }}
+                {/* Outer Folder Body with Soft Light Curves */}
+                <path d={pathD} fill="currentColor" />
+                {/* Glassy horizontal line inside SVG body */}
+                <line x1="12" y1="35" x2="188" y2="35" stroke="#ffffff" strokeOpacity="0.32" strokeWidth="1" />
+              </svg>
+
+              {/* Content Layer Overlay */}
+              <div className="relative z-10 flex flex-col justify-between h-full p-2.5 sm:p-3">
+                {/* Top-Left Folder Tab Title — Dynamic Width Bounded */}
+                <div 
+                  className="flex items-center justify-start h-[20px] sm:h-[22px] pl-1 pt-0.5"
+                  style={{ maxWidth: `${tabPercent - 6}%` }}
                 >
-                  {renderStatValue(summary?.[card.key])}
-                </p>
+                  <span className="text-[9px] sm:text-[10px] md:text-[10.5px] font-black text-white tracking-wider uppercase select-none truncate drop-shadow-xs">
+                    {card.label}
+                  </span>
+                </div>
+
+                {/* Lower Main Folder Body (Icon + Stat Value) */}
+                <div className="flex items-center justify-between gap-2 flex-1 pt-2">
+                  {/* Left Side: Icon in container */}
+                  <div className="w-8 h-8 sm:w-9.5 sm:h-9.5 rounded-lg sm:rounded-xl flex items-center justify-center bg-white/20 border border-white/25 flex-shrink-0 shadow-xs group-hover:bg-white/30 transition-colors">
+                    <card.Icon size={17} color="#ffffff" />
+                  </div>
+                  
+                  {/* Right Side: Large bold stat number */}
+                  <div className="text-right flex-1 min-w-0">
+                    <p 
+                      className="font-black truncate text-white text-xl sm:text-2xl lg:text-3xl drop-shadow-xs"
+                      style={{ lineHeight: '1' }}
+                    >
+                      {renderStatValue(summary?.[card.key])}
+                    </p>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-        ))}
+            </Link>
+          );
+        })}
       </div>
 
       {/* ── Seizure Stats Row ────────────────────────────────────────── */}

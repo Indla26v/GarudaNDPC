@@ -5,8 +5,8 @@
  * Lists cases with filtering by stage, search query, pagination, and new case registration.
  * Clean, high-contrast executive design.
  */
-import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../../api/axios';
 import { usePermissions } from '../../hooks/usePermissions';
 import { IconSearch } from '../../components/Icons';
@@ -21,22 +21,66 @@ const STAGE_COLORS = {
   CLOSED:      { bg: '#64748b', label: 'Case Closed' },
 };
 
+const generatePastMonths = () => {
+  const options = [];
+  const now = new Date();
+  for (let i = 0; i < 24; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const year = d.getFullYear();
+    const monthNum = String(d.getMonth() + 1).padStart(2, '0');
+    const value = `${year}-${monthNum}`;
+    const label = d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    options.push({ value, label });
+  }
+  return options;
+};
+
 export default function CaseManagement() {
+  const [searchParams] = useSearchParams();
   const [cases, setCases] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [search, setSearch] = useState('');
-  const [stageFilter, setStageFilter] = useState('');
+  const [stageFilter, setStageFilter] = useState(() => searchParams.get('stage') || '');
   const [stageCounts, setStageCounts] = useState({});
+
+  // Time / Period Filtering
+  const pastMonthOptions = useMemo(() => generatePastMonths(), []);
+  const [periodFilter, setPeriodFilter] = useState(() => searchParams.get('timeRange') || 'all'); // 'monthly' | 'yearly' | 'all'
+  const [selectedMonth, setSelectedMonth] = useState(() => searchParams.get('month') || pastMonthOptions[0]?.value || '');
+  const [selectedYear, setSelectedYear] = useState(() => searchParams.get('year') || String(new Date().getFullYear()));
+  const [exporting, setExporting] = useState(false);
+
+  // Dropdown popover state for Month & Year buttons
+  const monthRef = useRef(null);
+  const yearRef = useRef(null);
+  const [showMonthDropdown, setShowMonthDropdown] = useState(false);
+  const [showYearDropdown, setShowYearDropdown] = useState(false);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (monthRef.current && !monthRef.current.contains(e.target)) {
+        setShowMonthDropdown(false);
+      }
+      if (yearRef.current && !yearRef.current.contains(e.target)) {
+        setShowYearDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const selectedMonthObj = pastMonthOptions.find((opt) => opt.value === selectedMonth);
+  const selectedMonthLabel = selectedMonthObj ? selectedMonthObj.label : 'Month';
 
   const perms = usePermissions();
   const navigate = useNavigate();
 
   useEffect(() => {
     fetchCases();
-  }, [page, stageFilter]);
+  }, [page, stageFilter, periodFilter, selectedMonth, selectedYear]);
 
   const fetchCases = async () => {
     setLoading(true);
@@ -47,6 +91,9 @@ export default function CaseManagement() {
         size: 15,
         ...(search ? { search } : {}),
         ...(stageFilter ? { stage: stageFilter } : {}),
+        timeRange: periodFilter,
+        ...(periodFilter === 'monthly' ? { month: selectedMonth } : {}),
+        ...(periodFilter === 'yearly' ? { year: selectedYear } : {}),
       };
 
       const res = await api.get('/cases', { params });
@@ -58,11 +105,10 @@ export default function CaseManagement() {
       setCases(items);
       setTotalPages(pages);
 
-      // Extract stage counts from response metadata if available
-      if (res.data.stageCounts) {
-        setStageCounts(res.data.stageCounts);
+      const stageCountsFromData = payload?.stageCounts || res.data?.stageCounts;
+      if (stageCountsFromData) {
+        setStageCounts(stageCountsFromData);
       } else {
-        // Fallback: compute from current items if missing
         const counts = {};
         items.forEach((c) => {
           counts[c.stage] = (counts[c.stage] || 0) + 1;
@@ -96,6 +142,56 @@ export default function CaseManagement() {
     setPage(0);
   };
 
+  const handleExportCasePdf = async (e, caseId, firNo) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      const res = await api.get(`/cases/${caseId}/pdf`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
+      const link = document.createElement('a');
+      link.href = url;
+      const safeFir = (firNo || 'Case').replace(/[/\\?%*:|"<>]/g, '_');
+      link.setAttribute('download', `Case_Report_${safeFir}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Case PDF export error:', err);
+      alert('Failed to export Case PDF report');
+    }
+  };
+
+  const handleExportExcel = async () => {
+    setExporting(true);
+    try {
+      const params = new URLSearchParams();
+      if (search) params.append('search', search);
+      if (stageFilter) params.append('stage', stageFilter);
+      params.append('timeRange', periodFilter);
+      if (periodFilter === 'monthly' && selectedMonth) params.append('month', selectedMonth);
+      if (periodFilter === 'yearly' && selectedYear) params.append('year', selectedYear);
+
+      const response = await api.get(`/cases/export?${params.toString()}`, {
+        responseType: 'blob',
+      });
+
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `cases-export-${Date.now()}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Export failed:', err);
+      alert('Failed to export cases to Excel');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <div className={`space-y-6 animate-fade-in ${totalPages > 1 ? 'pb-20 sm:pb-6 pr-0 sm:pr-16' : ''}`}>
       {/* Header */}
@@ -108,14 +204,157 @@ export default function CaseManagement() {
             NDPS case lifecycle — FIR registration to court disposition
           </p>
         </div>
-        {perms.canRegisterCase && (
-          <Link
-            to="/cases/new"
-            className="px-4 py-2 text-xs font-extrabold bg-amber-500 hover:bg-amber-600 text-white rounded-xl shadow-xs transition-all flex items-center gap-1.5 whitespace-nowrap self-start sm:self-auto"
+        <div className="flex items-center gap-2 flex-wrap self-start sm:self-auto">
+          {/* Period Filter Toggle Pills — Month & Year itself are Dropdowns */}
+          <div className="bg-slate-100 dark:bg-slate-800/80 p-1 rounded-full border border-slate-200 dark:border-slate-700/60 inline-flex items-center shadow-xs relative">
+            
+            {/* ── Month Dropdown Button Trigger ───────────────────────── */}
+            <div className="relative" ref={monthRef}>
+              <button
+                type="button"
+                onClick={() => {
+                  setPeriodFilter('monthly');
+                  setShowMonthDropdown((prev) => !prev);
+                  setShowYearDropdown(false);
+                }}
+                className={`px-3 py-1.5 text-xs font-black rounded-full transition-all cursor-pointer flex items-center gap-1.5 ${
+                  periodFilter === 'monthly'
+                    ? 'bg-amber-500 text-black shadow-xs'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <span>{periodFilter === 'monthly' ? selectedMonthLabel : 'Month'}</span>
+                <svg
+                  className={`w-3 h-3 transition-transform duration-200 ${showMonthDropdown ? 'rotate-180' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {/* Month Dropdown Popover */}
+              {showMonthDropdown && (
+                <div className="absolute top-full left-0 mt-2 w-48 max-h-60 overflow-y-auto bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl z-50 p-1 space-y-0.5 animate-in fade-in zoom-in-95 duration-100">
+                  {pastMonthOptions.map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => {
+                        setSelectedMonth(opt.value);
+                        setPeriodFilter('monthly');
+                        setShowMonthDropdown(false);
+                        setPage(0);
+                      }}
+                      className={`w-full text-left px-3 py-1.5 text-xs font-bold rounded-lg transition-colors flex items-center justify-between cursor-pointer ${
+                        selectedMonth === opt.value && periodFilter === 'monthly'
+                          ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300 font-extrabold'
+                          : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/70'
+                      }`}
+                    >
+                      <span>{opt.label}</span>
+                      {selectedMonth === opt.value && periodFilter === 'monthly' && (
+                        <span className="text-amber-600 dark:text-amber-400 font-black">✓</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* ── Year Dropdown Button Trigger ────────────────────────── */}
+            <div className="relative" ref={yearRef}>
+              <button
+                type="button"
+                onClick={() => {
+                  setPeriodFilter('yearly');
+                  setShowYearDropdown((prev) => !prev);
+                  setShowMonthDropdown(false);
+                }}
+                className={`px-3 py-1.5 text-xs font-black rounded-full transition-all cursor-pointer flex items-center gap-1.5 ${
+                  periodFilter === 'yearly'
+                    ? 'bg-amber-500 text-black shadow-xs'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <span>{periodFilter === 'yearly' ? selectedYear : 'Year'}</span>
+                <svg
+                  className={`w-3 h-3 transition-transform duration-200 ${showYearDropdown ? 'rotate-180' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {/* Year Dropdown Popover */}
+              {showYearDropdown && (
+                <div className="absolute top-full left-0 mt-2 w-32 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl z-50 p-1 space-y-0.5 animate-in fade-in zoom-in-95 duration-100">
+                  {['2026', '2025', '2024'].map((yr) => (
+                    <button
+                      key={yr}
+                      type="button"
+                      onClick={() => {
+                        setSelectedYear(yr);
+                        setPeriodFilter('yearly');
+                        setShowYearDropdown(false);
+                        setPage(0);
+                      }}
+                      className={`w-full text-left px-3 py-1.5 text-xs font-bold rounded-lg transition-colors flex items-center justify-between cursor-pointer ${
+                        selectedYear === yr && periodFilter === 'yearly'
+                          ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300 font-extrabold'
+                          : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/70'
+                      }`}
+                    >
+                      <span>{yr}</span>
+                      {selectedYear === yr && periodFilter === 'yearly' && (
+                        <span className="text-amber-600 dark:text-amber-400 font-black">✓</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* ── All Time Button ────────────────────────────────────────── */}
+            <button
+              type="button"
+              onClick={() => {
+                setPeriodFilter('all');
+                setShowMonthDropdown(false);
+                setShowYearDropdown(false);
+                setPage(0);
+              }}
+              className={`px-3 py-1.5 text-xs font-black rounded-full transition-all cursor-pointer ${
+                periodFilter === 'all'
+                  ? 'bg-amber-500 text-black shadow-xs'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              All Time
+            </button>
+          </div>
+
+          {/* Export Excel Button */}
+          <button
+            onClick={handleExportExcel}
+            disabled={exporting}
+            className="px-3.5 py-2 text-xs font-extrabold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-xs transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer disabled:opacity-50"
           >
-            + Register New Case
-          </Link>
-        )}
+            {exporting ? 'Exporting...' : '⬇ Export Excel'}
+          </button>
+
+          {perms.canRegisterCase && (
+            <Link
+              to="/cases/new"
+              className="px-4 py-2 text-xs font-extrabold bg-amber-500 hover:bg-amber-600 text-black rounded-xl shadow-xs transition-all flex items-center gap-1.5 whitespace-nowrap"
+            >
+              + Register New Case
+            </Link>
+          )}
+        </div>
       </div>
 
       {/* Filters Bar */}
@@ -242,12 +481,22 @@ export default function CaseManagement() {
                           {c.accused?.length || 0} accused
                         </td>
                         <td className="px-4 py-3.5 text-right">
-                          <Link
-                            to={`/cases/${c.id}`}
-                            className="px-3 py-1 text-xs font-bold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-lg transition-colors inline-block"
-                          >
-                            View
-                          </Link>
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={(e) => handleExportCasePdf(e, c.id, c.firNo)}
+                              title="Export PDF Case Report with Accused Photos"
+                              className="px-2.5 py-1 text-xs font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 border border-rose-200 dark:border-rose-800 rounded-lg transition-colors inline-flex items-center gap-1 cursor-pointer"
+                            >
+                              📄 PDF
+                            </button>
+                            <Link
+                              to={`/cases/${c.id}`}
+                              className="px-3 py-1 text-xs font-bold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-lg transition-colors inline-block"
+                            >
+                              View
+                            </Link>
+                          </div>
                         </td>
                       </tr>
                     );
