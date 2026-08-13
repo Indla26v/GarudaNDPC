@@ -88,6 +88,8 @@ export default function OffenderForm() {
   const isNew = location.pathname.endsWith('/new') || (!id && !isEdit);
   const isView = !isEdit && !isNew && !!id;
 
+  const isSamePS = !perms.isStationLevel || (String(form.psId) === String(perms.policeStationId));
+
   const [aadhaarRevealed, setAadhaarRevealed] = useState(false);
   const [aadhaarMasked, setAadhaarMasked] = useState(true);
   const [stations, setStations] = useState([]);
@@ -984,7 +986,7 @@ export default function OffenderForm() {
       {/* Floating Sticky Action Icons */}
       <div className="flex justify-end sticky top-4 z-40 h-0 overflow-visible pointer-events-none">
         <div className="flex items-center gap-2 pointer-events-auto mr-4 sm:mr-6 lg:mr-0">
-          {isView && perms.hasPermission('OFFENDER_EDIT') && (
+          {isView && perms.hasPermission('OFFENDER_EDIT') && isSamePS && (
             <button
               onClick={() => navigate(`/offenders/${id}/edit`)}
               title="Edit Profile"

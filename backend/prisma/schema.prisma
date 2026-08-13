@@ -68,6 +68,7 @@ model cases {
   is_rowdy_sheet         Boolean                  @default(false)
   relevant_files         String?                  @db.VarChar(1000)
   updated_at             DateTime                 @default(now()) @db.Timestamp(6)
+  approval_status        record_approval_status   @default(APPROVED)
   case_accused           case_accused[]
   users                  users?                   @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
   police_stations        police_stations          @relation(fields: [ps_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -251,6 +252,7 @@ model offenders {
   updated_at                                                          DateTime                 @default(now()) @db.Timestamp(6)
   test_result                                                         test_result?
   status                                                              offender_status          @default(ACTIVE)
+  approval_status                                                     record_approval_status   @default(APPROVED)
   risk_score                                                          risk_score?
   case_accused                                                        case_accused[]
   intelligence_inputs                                                 intelligence_inputs[]
@@ -869,6 +871,12 @@ enum deletion_request_status {
 }
 
 enum edit_request_status {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum record_approval_status {
   PENDING
   APPROVED
   REJECTED

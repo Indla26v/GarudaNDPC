@@ -19,6 +19,13 @@ export const getOffenders = async (req: AuthRequest, res: Response) => {
     const { query, psId, category, page = 0, size = 10, timeRange, month, year } = req.query;
     
     let whereClause: any = { ...getOffenderWhere(req.user!) };
+
+    if (req.query.approvalStatus) {
+      whereClause.approval_status = String(req.query.approvalStatus);
+    } else {
+      whereClause.approval_status = 'APPROVED';
+    }
+
     if (psId) {
       whereClause.ps_id = BigInt(psId as string);
     } else if (psId === '') {
@@ -446,6 +453,7 @@ export const createOffender = async (req: AuthRequest, res: Response) => {
       risk_score: data.riskScore || data.risk_score,
       ps_id: BigInt(data.psId || data.ps_id),
       created_by: userId,
+      approval_status: req.user?.role === 'CONSTABLE' ? 'PENDING' : 'APPROVED',
     };
 
     if (slNo && data.slNo) {
@@ -501,9 +509,21 @@ export const createOffender = async (req: AuthRequest, res: Response) => {
 
 export const updateOffender = async (req: AuthRequest, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
+    if (!id) return res.status(400).json({ message: 'Missing ID parameter' });
     const data = req.body;
     const secParam = (req.query.section as string | undefined)?.trim();
+    const userRole = req.user!.role;
+    const userPsId = req.user!.policeStationId ? BigInt(req.user!.policeStationId) : null;
+
+    const existingOffender = await prisma.offenders.findUnique({ where: { id: BigInt(id) } });
+    if (!existingOffender) {
+      return res.status(404).json({ message: 'Offender not found' });
+    }
+
+    if (['SHO', 'CONSTABLE'].includes(userRole) && existingOffender.ps_id !== userPsId) {
+      return res.status(403).json({ message: 'You do not have permission to edit data from other police stations' });
+    }
 
     const isSec = (sec: string) => !secParam || secParam === sec;
 

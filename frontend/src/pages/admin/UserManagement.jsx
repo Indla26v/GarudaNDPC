@@ -71,7 +71,7 @@ export default function UserManagement() {
   // Form States
   const [showForm, setShowForm] = useState(false);
   const [editUser, setEditUser] = useState(null);
-  const [form, setForm] = useState({ username: '', password: '', fullName: '', role: 'CONSTABLE', policeStationId: '', department: 'POLICE', badgeNumber: '', district: '', divisionId: '' });
+  const [form, setForm] = useState({ username: '', password: '', fullName: '', role: 'CONSTABLE', policeStationId: '', department: 'POLICE', badgeNumber: '', district: '', divisionId: '', isActive: true });
   const [formError, setFormError] = useState('');
   const [formViolations, setFormViolations] = useState([]);
   const [saving, setSaving] = useState(false);
@@ -161,6 +161,7 @@ export default function UserManagement() {
         policeStationId: (form.role !== 'SP' && form.role !== 'ASP' && form.role !== 'SDPO') ? (form.policeStationId || null) : null,
         district: (form.role === 'SP' || form.role === 'ASP') ? (form.district || null) : null,
         divisionId: (form.role === 'SDPO') ? (form.divisionId || null) : null,
+        isActive: form.isActive,
         ...(form.password && { password: form.password }),
       };
       if (editUser) {
@@ -174,7 +175,7 @@ export default function UserManagement() {
       }
       setShowForm(false);
       setEditUser(null);
-      setForm({ username: '', password: '', fullName: '', role: 'CONSTABLE', policeStationId: '', department: 'POLICE', badgeNumber: '', district: '', divisionId: '' });
+      setForm({ username: '', password: '', fullName: '', role: 'CONSTABLE', policeStationId: '', department: 'POLICE', badgeNumber: '', district: '', divisionId: '', isActive: true });
       await fetchData();
     } catch (err) {
       setFormError(err.response?.data?.message || 'Failed to save user');
@@ -198,6 +199,7 @@ export default function UserManagement() {
       policeStationId: user.policeStationId || '',
       district: user.district || '',
       divisionId: user.divisionId || '',
+      isActive: user.isActive !== undefined ? user.isActive : true,
     });
     setShowForm(true);
   };
@@ -209,6 +211,16 @@ export default function UserManagement() {
       await fetchData();
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to deactivate user');
+    }
+  };
+
+  const handleActivate = async (userId) => {
+    if (!window.confirm('Are you sure you want to reactivate this user?')) return;
+    try {
+      await api.post(`/admin/users/${userId}/activate`);
+      await fetchData();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to activate user');
     }
   };
 
@@ -334,7 +346,7 @@ export default function UserManagement() {
           </p>
         </div>
         <button
-          onClick={() => { setEditUser(null); setForm({ username: '', password: '', fullName: '', role: 'CONSTABLE', policeStationId: '', department: 'POLICE', badgeNumber: '', district: '', divisionId: '' }); setShowForm(true); }}
+          onClick={() => { setEditUser(null); setForm({ username: '', password: '', fullName: '', role: 'CONSTABLE', policeStationId: '', department: 'POLICE', badgeNumber: '', district: '', divisionId: '', isActive: true }); setShowForm(true); }}
           className="px-4 py-2 text-xs font-extrabold bg-amber-500 hover:bg-amber-600 text-black rounded-xl shadow-xs transition-all flex items-center gap-1.5 whitespace-nowrap self-start sm:self-auto cursor-pointer"
         >
           + Add Officer
@@ -460,6 +472,19 @@ export default function UserManagement() {
                     value={form.policeStationId}
                     onChange={(e) => setForm({ ...form, policeStationId: e.target.value })}
                     options={[{ value: '', label: '— Select Police Station —' }, ...stations.map(s => ({ value: String(s.id), label: `${s.name} (${s.psCode})` }))]}
+                  />
+                </div>
+              )}
+              {editUser && (
+                <div className="md:col-span-2">
+                  <label className="text-xs font-medium block mb-1" style={{ color: 'var(--color-garuda-300)' }}>Account Status</label>
+                  <CustomSelect
+                    value={form.isActive ? 'active' : 'inactive'}
+                    onChange={(e) => setForm({ ...form, isActive: e.target.value === 'active' })}
+                    options={[
+                      { value: 'active', label: 'Active (Can login)' },
+                      { value: 'inactive', label: 'Inactive (Login disabled)' },
+                    ]}
                   />
                 </div>
               )}
@@ -684,12 +709,19 @@ export default function UserManagement() {
                         >
                           Edit
                         </button>
-                        {u.isActive && (
+                        {u.isActive ? (
                           <button
                             onClick={() => handleDeactivate(u.id)}
                             className="text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400 transition-colors cursor-pointer"
                           >
                             Deactivate
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleActivate(u.id)}
+                            className="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 transition-colors cursor-pointer"
+                          >
+                            Reactivate
                           </button>
                         )}
                       </div>

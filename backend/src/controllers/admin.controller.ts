@@ -251,6 +251,29 @@ export const deactivateUser = async (req: AuthRequest, res: Response) => {
   }
 };
 
+// ── Activate user ────────────────────────────────────────────────────
+export const activateUser = async (req: AuthRequest, res: Response) => {
+  try {
+    const id = req.params.id as string;
+
+    const existing = await prisma.users.findUnique({ where: { id: BigInt(id) } });
+    if (!existing) return res.status(404).json({ message: 'User not found' });
+
+    await prisma.users.update({
+      where: { id: BigInt(id) },
+      data: { is_active: true },
+    });
+
+    await logAudit('UPDATE', 'USER', id, req,
+      `User ${existing.username} activated`);
+
+    res.json(successResponse({ id }, 'User activated successfully'));
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 // ── Get audit logs (Admin only) ──────────────────────────────────────
 export const getAuditLogs = async (req: AuthRequest, res: Response) => {
   try {

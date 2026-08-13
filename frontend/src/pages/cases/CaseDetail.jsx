@@ -96,7 +96,8 @@ export default function CaseDetail() {
   }
 
   const currentStageIdx = caseData ? STAGES.indexOf(caseData.stage) : -1;
-  const canEdit = caseData && (perms.hasPermission?.('CASE_CREATE') || perms.hasMinRole?.('SI'));
+  const isSamePS = !perms.isStationLevel || (String(caseData?.psId) === String(perms.policeStationId));
+  const canEdit = caseData && (perms.hasPermission?.('CASE_CREATE') || perms.hasMinRole?.('SI')) && isSamePS;
 
   let files = [];
   if (caseData?.relevantFiles) {

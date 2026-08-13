@@ -22,6 +22,7 @@ import FieldStaff from './pages/field/FieldStaff';
 import Reports from './pages/reports/Reports';
 import DeletionRequests from './pages/workflows/DeletionRequests';
 import EditRequests from './pages/workflows/EditRequests';
+import CommitApprovals from './pages/approvals/CommitApprovals';
 import UserManagement from './pages/admin/UserManagement';
 import TeamManagement from './pages/admin/TeamManagement';
 import AuditLogs from './pages/admin/AuditLogs';
@@ -100,6 +101,11 @@ createRoot(document.getElementById('root')).render(
               <Route path="edit-requests" element={
                 <RoleGuard minRole="SI">
                   <EditRequests />
+                </RoleGuard>
+              } />
+              <Route path="approvals" element={
+                <RoleGuard minRole="SHO">
+                  <CommitApprovals />
                 </RoleGuard>
               } />
 

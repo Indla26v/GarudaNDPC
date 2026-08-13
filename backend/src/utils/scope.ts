@@ -78,10 +78,8 @@ class StationScopeStrategy implements ScopeStrategy {
     return !!user.policeStationId;
   }
 
-  buildWhere(user: ScopeUser): Record<string, any> {
-    if (user.policeStationId) {
-      return { ps_id: BigInt(user.policeStationId) };
-    }
+  buildWhere(user: ScopeUser, entity: ScopeEntity): Record<string, any> {
+    // Allow viewing all cases/offenders across police stations as per cross-PS requirement
     return {};
   }
 

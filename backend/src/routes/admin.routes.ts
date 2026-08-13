@@ -5,6 +5,7 @@ import {
   createUser,
   updateUser,
   deactivateUser,
+  activateUser,
   getAuditLogs,
   deleteOffenderDirect,
 } from '../controllers/admin.controller';
@@ -30,6 +31,7 @@ router.get('/users', requirePermission('USER_MANAGEMENT'), getUsers);
 router.get('/users/:id', requirePermission('USER_MANAGEMENT'), getUserById);
 router.post('/users', requirePermission('USER_MANAGEMENT'), createUser);
 router.put('/users/:id', requirePermission('USER_MANAGEMENT'), updateUser);
+router.post('/users/:id/activate', requirePermission('USER_MANAGEMENT'), activateUser);
 router.delete('/users/:id', requirePermission('USER_MANAGEMENT'), deactivateUser);
 router.delete('/offenders/:id', requirePermission('USER_MANAGEMENT'), deleteOffenderDirect);
 

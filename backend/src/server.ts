@@ -14,6 +14,7 @@ import deletionRoutes from './routes/deletion.routes';
 import editRequestRoutes from './routes/edit-request.routes';
 import adminRoutes from './routes/admin.routes';
 import sseRoutes from './routes/sse.routes';
+import approvalsRoutes from './routes/approvals.routes';
 import enforcementRoutes from './routes/enforcement.routes';
 import vehiclesRoutes from './routes/vehicles.routes';
 import reportsRoutes from './routes/reports.routes';
@@ -97,6 +98,7 @@ app.use('/api/cases', casesRoutes);
 // ── Workflow routes ───────────────────────────────────────────────────
 app.use('/api/deletion-requests', deletionRoutes);
 app.use('/api/edit-requests', editRequestRoutes);
+app.use('/api/approvals', approvalsRoutes);
 
 // ── Admin routes ──────────────────────────────────────────────────────
 app.use('/api/admin', adminRoutes);

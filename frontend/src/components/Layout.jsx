@@ -46,6 +46,10 @@ function useNavItems() {
           path: '/south-india-databank', label: 'South India Data Bank', icon: IconDatabase,
           show: true
         },
+        {
+          path: '/approvals', label: 'Commit Approvals', icon: IconAuditLog,
+          show: perms.isSHO
+        },
       ],
     },
     {

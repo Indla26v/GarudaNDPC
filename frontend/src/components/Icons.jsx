@@ -325,6 +325,19 @@ export const IconRefresh = ({ size, color = 'currentColor' }) => (
   </Icon>
 );
 
+export const IconCheck = ({ size, color = 'currentColor', className = '' }) => (
+  <Icon size={size} color={color} className={className}>
+    <polyline points="20 6 9 17 4 12" />
+  </Icon>
+);
+
+export const IconClose = ({ size, color = 'currentColor', className = '' }) => (
+  <Icon size={size} color={color} className={className}>
+    <line x1="18" y1="6" x2="6" y2="18" />
+    <line x1="6" y1="6" x2="18" y2="18" />
+  </Icon>
+);
+
 // ─── Icon Mapping (for lookups by key) ───────────────────────────────
 const ICON_MAP = {
   plus: IconPlus,

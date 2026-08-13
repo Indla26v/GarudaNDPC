@@ -185,6 +185,7 @@ export const createCase = async (req: AuthRequest, res: Response) => {
           ...mapCaseData({ ...data, firNo }),
           fir_no: firNo,
           created_by: userId,
+          approval_status: user.role === 'CONSTABLE' ? 'PENDING' : 'APPROVED',
         } as any,
       });
 
@@ -356,10 +357,22 @@ import ExcelJS from 'exceljs';
 
 export const getCases = async (req: AuthRequest, res: Response) => {
   try {
-    const { page = 0, size = 30, stage, search, timeRange, month, year } = req.query;
+    const { page = 0, size = 30, stage, search, timeRange, month, year, approvalStatus, psId } = req.query;
     const skip = Number(page) * Number(size);
     const take = Number(size);
     const scope = getCaseWhere(req.user!) as any;
+
+    if (psId) {
+      scope.ps_id = BigInt(psId as string);
+    } else if (psId === '') {
+      delete scope.ps_id;
+    }
+
+    if (approvalStatus) {
+      scope.approval_status = String(approvalStatus);
+    } else {
+      scope.approval_status = 'APPROVED';
+    }
 
     if (search) {
       scope.OR = [
@@ -384,7 +397,7 @@ export const getCases = async (req: AuthRequest, res: Response) => {
     }
 
     // countScope is used to compute total stageCounts across all stages
-    const countScope = JSON.parse(JSON.stringify(scope));
+    const countScope = { ...scope };
 
     // Specifically apply stage filter for the paginated table items
     if (stage) scope.stage = String(stage);
@@ -433,8 +446,14 @@ export const getCases = async (req: AuthRequest, res: Response) => {
 
 export const exportCasesExcel = async (req: AuthRequest, res: Response) => {
   try {
-    const { stage, search, timeRange, month, year } = req.query;
+    const { stage, search, timeRange, month, year, approvalStatus } = req.query;
     const scope = getCaseWhere(req.user!) as any;
+
+    if (approvalStatus) {
+      scope.approval_status = String(approvalStatus);
+    } else {
+      scope.approval_status = 'APPROVED';
+    }
 
     if (stage) scope.stage = String(stage);
     if (search) {
