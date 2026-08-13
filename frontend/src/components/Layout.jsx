@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Link, useLocation, Outlet } from 'react-router-dom';
 import apLogo from '../assets/Appolice(emblem).png';
 import garudaLogo from '../assets/Garuda_logo.png';
@@ -155,7 +155,9 @@ const DEPT_FULL_LABELS = {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [policeStationName, setPoliceStationName] = useState(null);
   const [showProfileModal, setShowProfileModal] = useState(false);
-  const [profileForm, setProfileForm] = useState({ fullName: '', badgeNumber: '' });
+  const [profileForm, setProfileForm] = useState({ fullName: '', badgeNumber: '', photoUrl: '' });
+  const [photoPreview, setPhotoPreview] = useState('');
+  const fileInputRef = useRef(null);
   const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [profileSaving, setProfileSaving] = useState(false);
@@ -208,16 +210,83 @@ const DEPT_FULL_LABELS = {
   const allPasswordChecksPass = passwordForm.newPassword.length > 0 && passwordChecks.every(c => c.pass);
   const passwordsMatch = passwordForm.newPassword && passwordForm.newPassword === passwordForm.confirmPassword;
 
+  const [showCamera, setShowCamera] = useState(false);
+  const [cameraError, setCameraError] = useState('');
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const streamRef = useRef(null);
+
+  const startCamera = async () => {
+    setShowCamera(true);
+    setCameraError('');
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, facingMode: 'user' } });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+    } catch (err) {
+      setCameraError('Unable to access camera. Please grant camera permissions.');
+    }
+  };
+
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+    setShowCamera(false);
+    setCameraError('');
+  };
+
+  const capturePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      canvas.width = video.videoWidth || 640;
+      canvas.height = video.videoHeight || 480;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+      setPhotoPreview(dataUrl);
+      setProfileForm((prev) => ({ ...prev, photoUrl: dataUrl }));
+      stopCamera();
+    }
+  };
+
+  const handlePhotoSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPhotoPreview(reader.result);
+        setProfileForm((prev) => ({ ...prev, photoUrl: reader.result }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemovePhoto = () => {
+    setPhotoPreview('');
+    setProfileForm((prev) => ({ ...prev, photoUrl: null }));
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   const openProfileModal = () => {
     setProfileForm({
       fullName: user?.fullName || '',
       badgeNumber: user?.badgeNumber || '',
+      photoUrl: user?.photoUrl || '',
     });
+    setPhotoPreview(user?.photoUrl || '');
     setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
     setProfileMsg({ type: '', text: '' });
     setPasswordMsg({ type: '', text: '' });
     setShowNewPassword(false);
     setDropdownOpen(false);
+    setShowCamera(false);
     setShowProfileModal(true);
   };
 
@@ -228,6 +297,7 @@ const DEPT_FULL_LABELS = {
       await api.put('/auth/profile', {
         fullName: profileForm.fullName,
         badgeNumber: profileForm.badgeNumber,
+        photoUrl: photoPreview !== undefined ? photoPreview : (profileForm.photoUrl || null),
       });
       await refreshUser();
       setProfileMsg({ type: 'success', text: 'Profile updated successfully!' });
@@ -352,9 +422,13 @@ const DEPT_FULL_LABELS = {
             onClick={() => setDropdownOpen(!dropdownOpen)}
             className="w-full flex items-center gap-3 p-3 text-black hover:bg-black/10 transition-colors cursor-pointer select-none text-left"
           >
-            {/* Avatar Initials */}
-            <div className="w-11 h-11 rounded-full flex items-center justify-center font-bold text-sm bg-black/15 text-black border border-black/20 flex-shrink-0">
-              {user?.fullName ? user.fullName.split(' ').filter(Boolean).map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'RK'}
+            {/* Avatar Image or Initials */}
+            <div className="w-11 h-11 rounded-full flex items-center justify-center font-bold text-sm bg-black/15 text-black border border-black/20 flex-shrink-0 overflow-hidden">
+              {user?.photoUrl ? (
+                <img src={user.photoUrl} alt="User Avatar" className="w-full h-full object-cover" />
+              ) : (
+                user?.fullName ? user.fullName.split(' ').filter(Boolean).map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'RK'
+              )}
             </div>
             {/* Name/Details */}
             {(sidebarOpen || mobileSidebarOpen) && (
@@ -402,8 +476,12 @@ const DEPT_FULL_LABELS = {
               >
                 {/* User Header Section */}
                 <div className="p-4 flex flex-col items-center text-center">
-                  <div className="w-12 h-12 rounded-full flex items-center justify-center font-bold text-base bg-indigo-100 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-900/40 shadow-xs mb-2 select-none">
-                    {user?.fullName ? user.fullName.split(' ').filter(Boolean).map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'RK'}
+                  <div className="w-12 h-12 rounded-full flex items-center justify-center font-bold text-base bg-indigo-100 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-900/40 shadow-xs mb-2 select-none overflow-hidden">
+                    {user?.photoUrl ? (
+                      <img src={user.photoUrl} alt="User Avatar" className="w-full h-full object-cover" />
+                    ) : (
+                      user?.fullName ? user.fullName.split(' ').filter(Boolean).map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'RK'
+                    )}
                   </div>
                   <h3 className="font-bold text-gray-900 dark:text-white truncate w-full" style={{ fontSize: '15px', margin: 0 }}>
                     {user?.fullName || 'Rama Krishna'}
@@ -531,7 +609,6 @@ const DEPT_FULL_LABELS = {
           </div>
         </header>
 
-        {/* Page Content */}
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 relative" style={{ background: 'var(--color-garuda-900)' }}>
           <GlobalLoader />
           <Outlet />
@@ -540,148 +617,270 @@ const DEPT_FULL_LABELS = {
 
       {/* ---- Update Profile Modal ---- */}
       {showProfileModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-4 animate-fade-in">
           <div className="absolute inset-0" onClick={() => setShowProfileModal(false)}></div>
-          <div
-            className="rounded-xl relative w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl"
-            style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}
-          >
+          <div className="rounded-3xl relative w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 animate-in zoom-in-95 duration-200">
             {/* Modal Header */}
-            <div className="px-6 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid var(--color-garuda-700)' }}>
-              <h2 className="text-lg font-bold" style={{ color: 'var(--color-garuda-100)' }}>Update Profile</h2>
+            <div className="px-6 py-4 flex items-center justify-between border-b border-slate-100 dark:border-slate-800">
+              <h2 className="text-base font-black text-slate-900 dark:text-white uppercase tracking-wider">Update Profile</h2>
               <button
+                type="button"
                 onClick={() => setShowProfileModal(false)}
-                className="p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer bg-transparent border-none"
-                style={{ color: 'var(--color-garuda-400)' }}
+                className="w-8 h-8 rounded-full flex items-center justify-center bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-all cursor-pointer"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
 
+            {/* Profile Avatar & Live Webcam Capture Section */}
+            <div className="flex flex-col items-center justify-center pt-5 pb-1 px-6">
+              {!showCamera ? (
+                <>
+                  <div 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="relative group w-24 h-24 rounded-full border-4 border-amber-500/30 dark:border-amber-500/20 shadow-xl overflow-hidden cursor-pointer transition-all hover:scale-105"
+                  >
+                    {photoPreview || profileForm.photoUrl || user?.photoUrl ? (
+                      <img 
+                        src={photoPreview || profileForm.photoUrl || user?.photoUrl} 
+                        alt="Profile Avatar" 
+                        className="w-full h-full object-cover" 
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center text-slate-950 font-black text-3xl select-none">
+                        {(profileForm.fullName?.[0] || user?.fullName?.[0] || user?.username?.[0] || 'P').toUpperCase()}
+                      </div>
+                    )}
+                    {/* Overlay hover effect with Camera Icon */}
+                    <div className="absolute inset-0 bg-black/45 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center transition-opacity text-white">
+                      <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                        <circle cx="12" cy="13" r="3" />
+                      </svg>
+                      <span className="text-[10px] font-extrabold mt-1 uppercase tracking-wider">Change</span>
+                    </div>
+                  </div>
+                  <input 
+                    type="file" 
+                    ref={fileInputRef} 
+                    accept="image/*" 
+                    onChange={handlePhotoSelect} 
+                    className="hidden" 
+                  />
+
+                  {/* Action Buttons: Upload File | Capture Photo | Remove Photo */}
+                  <div className="flex flex-wrap items-center justify-center gap-2 mt-3">
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="px-3 py-1.5 rounded-full text-xs font-bold text-slate-700 dark:text-slate-200 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200/80 dark:border-slate-700 transition-all cursor-pointer shadow-2xs"
+                    >
+                      📁 Upload
+                    </button>
+                    <button
+                      type="button"
+                      onClick={startCamera}
+                      className="px-3 py-1.5 rounded-full text-xs font-extrabold text-amber-700 dark:text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 transition-all cursor-pointer shadow-2xs flex items-center gap-1.5"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                        <circle cx="12" cy="13" r="3" />
+                      </svg>
+                      Capture
+                    </button>
+                    {(photoPreview || profileForm.photoUrl || user?.photoUrl) && (
+                      <button
+                        type="button"
+                        onClick={handleRemovePhoto}
+                        className="px-3 py-1.5 rounded-full text-xs font-extrabold text-rose-600 dark:text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 transition-all cursor-pointer shadow-2xs flex items-center gap-1"
+                      >
+                        🗑️ Remove
+                      </button>
+                    )}
+                  </div>
+                </>
+              ) : (
+                /* Live Camera Feed Container */
+                <div className="w-full space-y-3 p-3 rounded-2xl bg-slate-900 border border-slate-800 shadow-xl animate-fade-in">
+                  <div className="flex justify-between items-center px-1">
+                    <span className="text-xs font-extrabold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
+                      Live Webcam Feed
+                    </span>
+                    <button
+                      type="button"
+                      onClick={stopCamera}
+                      className="text-xs font-bold text-slate-400 hover:text-white cursor-pointer bg-transparent border-none"
+                    >
+                      ✕ Close
+                    </button>
+                  </div>
+
+                  {cameraError ? (
+                    <div className="p-4 text-xs font-bold text-rose-400 bg-rose-950/40 rounded-xl border border-rose-900/40 text-center">
+                      {cameraError}
+                    </div>
+                  ) : (
+                    <div className="relative rounded-xl overflow-hidden bg-black aspect-video flex items-center justify-center border border-slate-800">
+                      <video 
+                        ref={videoRef} 
+                        autoPlay 
+                        playsInline 
+                        muted 
+                        className="w-full h-full object-cover" 
+                      />
+                    </div>
+                  )}
+
+                  <canvas ref={canvasRef} className="hidden" />
+
+                  {!cameraError && (
+                    <div className="flex items-center gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={capturePhoto}
+                        className="flex-1 py-2.5 rounded-full font-black text-xs uppercase tracking-wider bg-emerald-500 hover:bg-emerald-600 text-white shadow-md shadow-emerald-500/20 transition-all cursor-pointer"
+                      >
+                        📸 Snap Photo
+                      </button>
+                      <button
+                        type="button"
+                        onClick={stopCamera}
+                        className="px-4 py-2.5 rounded-full font-bold text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 transition-all cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
             {/* Read-only Info */}
-            <div className="px-6 py-4 grid grid-cols-2 gap-3" style={{ background: 'var(--color-garuda-900)', borderBottom: '1px solid var(--color-garuda-700)' }}>
+            <div className="mx-6 my-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 grid grid-cols-2 gap-3.5 shadow-2xs">
               <div>
-                <p className="text-[9px] font-bold uppercase tracking-wider mb-0.5" style={{ color: 'var(--color-garuda-500)' }}>Username</p>
-                <p className="text-sm font-semibold" style={{ color: 'var(--color-garuda-200)' }}>{user?.username}</p>
+                <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">Username</p>
+                <p className="text-xs font-mono font-extrabold text-slate-900 dark:text-white mt-0.5">{user?.username}</p>
               </div>
               <div>
-                <p className="text-[9px] font-bold uppercase tracking-wider mb-0.5" style={{ color: 'var(--color-garuda-500)' }}>Role</p>
-                <p className="text-sm font-semibold" style={{ color: 'var(--color-garuda-200)' }}>{ROLE_FULL_LABELS[user?.role] || user?.role}</p>
+                <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">Role</p>
+                <p className="text-xs font-extrabold text-slate-900 dark:text-white mt-0.5">{ROLE_FULL_LABELS[user?.role] || user?.role}</p>
               </div>
               <div>
-                <p className="text-[9px] font-bold uppercase tracking-wider mb-0.5" style={{ color: 'var(--color-garuda-500)' }}>Department</p>
-                <p className="text-sm font-semibold" style={{ color: 'var(--color-garuda-200)' }}>{DEPT_FULL_LABELS[user?.department] || user?.department}</p>
+                <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">Department</p>
+                <p className="text-xs font-extrabold text-slate-900 dark:text-white mt-0.5">{DEPT_FULL_LABELS[user?.department] || user?.department}</p>
               </div>
               <div>
-                <p className="text-[9px] font-bold uppercase tracking-wider mb-0.5" style={{ color: 'var(--color-garuda-500)' }}>Police Station</p>
-                <p className="text-sm font-semibold" style={{ color: 'var(--color-garuda-200)' }}>{policeStationName || 'HQ Command Center'}</p>
+                <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">Police Station</p>
+                <p className="text-xs font-extrabold text-slate-900 dark:text-white mt-0.5">{policeStationName || 'HQ Command Center'}</p>
               </div>
             </div>
 
             {/* Editable Profile Section */}
-            <div className="px-6 py-4 space-y-4" style={{ borderBottom: '1px solid var(--color-garuda-700)' }}>
-              <h3 className="text-sm font-bold uppercase tracking-wider" style={{ color: 'var(--color-garuda-300)' }}>Profile Details</h3>
+            <div className="px-6 py-4 space-y-4 border-b border-slate-100 dark:border-slate-800">
+              <h3 className="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Profile Details</h3>
               {profileMsg.text && (
                 <div
-                  className="px-3 py-2 rounded-lg text-xs font-medium animate-fade-in"
+                  className="px-3.5 py-2.5 rounded-2xl text-xs font-bold animate-fade-in"
                   style={{
-                    background: profileMsg.type === 'success' ? 'rgba(34, 197, 94, 0.08)' : 'rgba(220, 38, 38, 0.08)',
-                    color: profileMsg.type === 'success' ? '#22c55e' : '#f87171',
-                    border: `1px solid ${profileMsg.type === 'success' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(220, 38, 38, 0.2)'}`,
+                    background: profileMsg.type === 'success' ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                    color: profileMsg.type === 'success' ? '#16a34a' : '#dc2626',
+                    border: `1px solid ${profileMsg.type === 'success' ? 'rgba(34, 197, 94, 0.25)' : 'rgba(239, 68, 68, 0.25)'}`,
                   }}
                 >
                   {profileMsg.text}
                 </div>
               )}
               <div>
-                <label className="text-xs font-medium block mb-1" style={{ color: 'var(--color-garuda-300)' }}>Full Name</label>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1.5">Full Name</label>
                 <input
                   type="text"
                   value={profileForm.fullName}
                   onChange={(e) => setProfileForm({ ...profileForm, fullName: e.target.value })}
-                  className="input w-full"
+                  className="w-full px-4 py-2.5 rounded-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-semibold text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-800 focus:border-amber-500 focus:outline-none transition-all shadow-2xs"
                   placeholder="Enter your full name"
                 />
               </div>
               <div>
-                <label className="text-xs font-medium block mb-1" style={{ color: 'var(--color-garuda-300)' }}>Badge Number</label>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1.5">Badge Number</label>
                 <input
                   type="text"
                   value={profileForm.badgeNumber}
                   onChange={(e) => setProfileForm({ ...profileForm, badgeNumber: e.target.value })}
-                  className="input w-full"
+                  className="w-full px-4 py-2.5 rounded-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-semibold text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-800 focus:border-amber-500 focus:outline-none transition-all shadow-2xs"
                   placeholder="Optional"
                 />
               </div>
               <button
+                type="button"
                 onClick={handleProfileSave}
                 disabled={profileSaving || !profileForm.fullName.trim()}
-                className="btn btn-primary w-full disabled:opacity-50"
+                className="w-full py-3 rounded-full font-black text-xs uppercase tracking-wider bg-amber-500 hover:bg-amber-600 text-slate-950 shadow-md shadow-amber-500/20 transition-all cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
               >
                 {profileSaving ? 'Saving...' : 'Save Profile'}
               </button>
             </div>
 
             {/* Change Password Section */}
-            <div className="px-6 py-4 space-y-4">
-              <h3 className="text-sm font-bold uppercase tracking-wider" style={{ color: 'var(--color-garuda-300)' }}>Change Password</h3>
+            <div className="px-6 py-5 space-y-4">
+              <h3 className="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Change Password</h3>
               {passwordMsg.text && (
                 <div
-                  className="px-3 py-2 rounded-lg text-xs font-medium animate-fade-in"
+                  className="px-3.5 py-2.5 rounded-2xl text-xs font-bold animate-fade-in"
                   style={{
-                    background: passwordMsg.type === 'success' ? 'rgba(34, 197, 94, 0.08)' : 'rgba(220, 38, 38, 0.08)',
-                    color: passwordMsg.type === 'success' ? '#22c55e' : '#f87171',
-                    border: `1px solid ${passwordMsg.type === 'success' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(220, 38, 38, 0.2)'}`,
+                    background: passwordMsg.type === 'success' ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                    color: passwordMsg.type === 'success' ? '#16a34a' : '#dc2626',
+                    border: `1px solid ${passwordMsg.type === 'success' ? 'rgba(34, 197, 94, 0.25)' : 'rgba(239, 68, 68, 0.25)'}`,
                   }}
                 >
                   {passwordMsg.text}
                 </div>
               )}
               <div>
-                <label className="text-xs font-medium block mb-1" style={{ color: 'var(--color-garuda-300)' }}>Current Password</label>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1.5">Current Password</label>
                 <input
                   type="password"
                   value={passwordForm.currentPassword}
                   onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
-                  className="input w-full"
+                  className="w-full px-4 py-2.5 rounded-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-semibold text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-800 focus:border-amber-500 focus:outline-none transition-all shadow-2xs"
                   placeholder="Enter current password"
                 />
               </div>
               <div>
-                <label className="text-xs font-medium block mb-1" style={{ color: 'var(--color-garuda-300)' }}>New Password</label>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1.5">New Password</label>
                 <div className="relative">
                   <input
                     type={showNewPassword ? 'text' : 'password'}
                     value={passwordForm.newPassword}
                     onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
-                    className="input w-full pr-10"
+                    className="w-full px-4 py-2.5 pr-10 rounded-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-semibold text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-800 focus:border-amber-500 focus:outline-none transition-all shadow-2xs"
                     placeholder="Enter new password"
                   />
                   <button
                     type="button"
                     onClick={() => setShowNewPassword(!showNewPassword)}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-300 focus:outline-none bg-transparent border-none cursor-pointer"
+                    className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 focus:outline-none bg-transparent border-none cursor-pointer"
                     tabIndex="-1"
                   >
                     {showNewPassword ? (
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                     ) : (
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" /></svg>
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" /></svg>
                     )}
                   </button>
                 </div>
                 {/* Password Policy Indicators */}
                 {passwordForm.newPassword.length > 0 && (
-                  <div className="mt-2 p-3 rounded-lg space-y-1" style={{ background: 'var(--color-garuda-900)', border: '1px solid var(--color-garuda-700)' }}>
-                    <p className="text-[9px] font-bold uppercase tracking-wider mb-1.5" style={{ color: 'var(--color-garuda-500)' }}>Password Policy</p>
+                  <div className="mt-2.5 p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 space-y-1.5">
+                    <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1">Password Policy</p>
                     {passwordChecks.map((check, i) => (
-                      <div key={i} className="flex items-center gap-2 text-xs">
-                        <span style={{ color: check.pass ? '#22c55e' : '#f87171', fontSize: '11px' }}>
+                      <div key={i} className="flex items-center gap-2 text-xs font-semibold">
+                        <span className={check.pass ? 'text-emerald-500 font-extrabold' : 'text-rose-500 font-extrabold'}>
                           {check.pass ? '✓' : '✕'}
                         </span>
-                        <span style={{ color: check.pass ? '#86efac' : 'var(--color-garuda-400)' }}>
+                        <span className={check.pass ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400'}>
                           {check.label}
                         </span>
                       </div>
@@ -690,25 +889,26 @@ const DEPT_FULL_LABELS = {
                 )}
               </div>
               <div>
-                <label className="text-xs font-medium block mb-1" style={{ color: 'var(--color-garuda-300)' }}>Confirm New Password</label>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1.5">Confirm New Password</label>
                 <input
                   type="password"
                   value={passwordForm.confirmPassword}
                   onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
-                  className="input w-full"
+                  className="w-full px-4 py-2.5 rounded-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-semibold text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-800 focus:border-amber-500 focus:outline-none transition-all shadow-2xs"
                   placeholder="Re-enter new password"
                 />
                 {passwordForm.confirmPassword && !passwordsMatch && (
-                  <p className="text-xs mt-1" style={{ color: '#f87171' }}>Passwords do not match</p>
+                  <p className="text-xs font-bold mt-1.5 text-rose-500">Passwords do not match</p>
                 )}
                 {passwordForm.confirmPassword && passwordsMatch && (
-                  <p className="text-xs mt-1" style={{ color: '#22c55e' }}>✓ Passwords match</p>
+                  <p className="text-xs font-bold mt-1.5 text-emerald-500">✓ Passwords match</p>
                 )}
               </div>
               <button
+                type="button"
                 onClick={handlePasswordChange}
                 disabled={passwordSaving || !passwordForm.currentPassword || !allPasswordChecksPass || !passwordsMatch}
-                className="btn btn-primary w-full disabled:opacity-50"
+                className="w-full py-3 rounded-full font-black text-xs uppercase tracking-wider bg-amber-500 hover:bg-amber-600 text-slate-950 shadow-md shadow-amber-500/20 transition-all cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
               >
                 {passwordSaving ? 'Changing...' : 'Change Password'}
               </button>

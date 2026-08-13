@@ -255,6 +255,12 @@ export const updateCase = async (req: AuthRequest, res: Response) => {
     const existing = await prisma.cases.findFirst({ where: { id, ...scope } });
     if (!existing) return res.status(404).json({ message: 'Case not found or access denied' });
 
+    const userRole = req.user!.role;
+    const userPsId = req.user!.policeStationId ? BigInt(req.user!.policeStationId) : null;
+    if (['SHO', 'CONSTABLE'].includes(userRole) && existing.ps_id !== userPsId) {
+      return res.status(403).json({ message: 'You do not have permission to edit data from other police stations' });
+    }
+
     const data = req.body;
     if (data.firNo && !isValidText(data.firNo)) return res.status(400).json({ message: 'FIR Number contains invalid special characters' });
     if (data.sectionOfLaw && !isValidSectionOfLaw(data.sectionOfLaw)) return res.status(400).json({ message: 'Section of Law contains invalid characters' });

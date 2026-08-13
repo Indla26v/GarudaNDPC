@@ -2,8 +2,10 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
+import { usePermissions } from '../../hooks/usePermissions';
 import { useSSE } from '../../hooks/useSSE';
 import CustomSelect from '../../components/CustomSelect';
+import FloatingPagination from '../../components/FloatingPagination';
 
 const getAvatarColor = (name) => {
   const colors = [
@@ -34,6 +36,7 @@ const generatePastMonths = () => {
 export default function OffenderList({ isConsumerOnly = false }) {
   const [searchParams] = useSearchParams();
   const { user } = useAuth();
+  const perms = usePermissions();
   const pastMonthOptions = useMemo(() => generatePastMonths(), []);
 
   const [offenders, setOffenders] = useState([]);
@@ -504,8 +507,8 @@ export default function OffenderList({ isConsumerOnly = false }) {
         />
       </div>
 
-      {/* Table */}
-      <div className="card rounded-xl overflow-hidden border border-slate-100/50 dark:border-slate-800">
+      {/* Table Card */}
+      <div className="card rounded-3xl overflow-hidden border border-slate-200/80 dark:border-slate-800 shadow-xl">
         {/* Desktop View */}
         <div className="hidden sm:block overflow-x-auto">
           <table className="w-full text-sm">
@@ -541,6 +544,7 @@ export default function OffenderList({ isConsumerOnly = false }) {
               ) : (
                 offenders.map((o, i) => {
                   const cat = categoryColors[o.category] || { bg: 'transparent', color: 'var(--color-garuda-300)' };
+                  const isSamePS = !perms.isStationLevel || (!o.psId || String(o.psId) === String(perms.policeStationId));
                   return (
                     <tr
                       key={o.id}
@@ -587,7 +591,8 @@ export default function OffenderList({ isConsumerOnly = false }) {
                           </button>
                           <button
                             onClick={(e) => { e.stopPropagation(); navigate(`/offenders/${o.id}/edit`); }}
-                            className="btn btn-ghost btn-sm"
+                            title={isSamePS ? 'Edit Profile' : 'Cross-PS record — Read-Only Mode'}
+                            className={`btn btn-ghost btn-sm ${!isSamePS ? 'opacity-50' : ''}`}
                           >
                             Edit
                           </button>
@@ -677,83 +682,8 @@ export default function OffenderList({ isConsumerOnly = false }) {
           )}
         </div>
 
-        {/* Pagination Controls */}
-        {totalPages > 1 && !loading && (
-          <div 
-            className="fixed bottom-4 left-1/2 -translate-x-1/2 sm:translate-x-0 sm:left-auto sm:right-4 sm:top-1/2 sm:bottom-auto sm:-translate-y-1/2 z-50 flex flex-row sm:flex-col items-center gap-2 p-2 rounded-2xl shadow-xl border border-slate-200/50 dark:border-slate-800/80 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md"
-            style={{ minWidth: '44px' }}
-          >
-            {/* Page Number indicator at the top */}
-            <div className="text-[10px] font-bold text-slate-500 dark:text-slate-400 text-center select-none pr-2 sm:pr-0 pb-0 sm:pb-1.5 border-r sm:border-r-0 sm:border-b border-slate-200 dark:border-slate-800 mr-1.5 sm:mr-0">
-              {page + 1}/{totalPages}
-            </div>
-            
-            {/* Previous Button (Up Arrow) */}
-            <button
-              onClick={() => setPage((prev) => Math.max(0, prev - 1))}
-              disabled={page === 0 || loading}
-              title="Previous Page"
-              className="btn btn-secondary btn-sm w-8 h-8 flex items-center justify-center rounded-lg"
-              style={{ padding: 0 }}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" />
-              </svg>
-            </button>
-
-            {/* Vertical Page List */}
-            <div className="flex flex-row sm:flex-col gap-1.5">
-              {Array.from({ length: totalPages }).map((_, index) => {
-                if (
-                  totalPages <= 6 ||
-                  index < 2 ||
-                  index === totalPages - 1 ||
-                  (index >= page - 1 && index <= page + 1)
-                ) {
-                  const isCurrent = page === index;
-                  return (
-                    <button
-                      key={index}
-                      onClick={() => setPage(index)}
-                      className={`btn btn-sm w-8 h-8 flex items-center justify-center rounded-lg text-xs font-semibold ${
-                        isCurrent
-                          ? 'btn-primary'
-                          : 'btn-secondary text-slate-500 dark:text-slate-400'
-                      }`}
-                      style={{ padding: 0 }}
-                    >
-                      {index + 1}
-                    </button>
-                  );
-                }
-                if (
-                  (index === 2 && page > 2) ||
-                  (index === totalPages - 2 && page < totalPages - 3)
-                ) {
-                  return (
-                    <span key={`ellipsis-${index}`} className="text-slate-400 dark:text-slate-500 text-center select-none text-[10px] leading-none py-0.5 font-bold">
-                      •••
-                    </span>
-                  );
-                }
-                return null;
-              })}
-            </div>
-
-            {/* Next Button (Down Arrow) */}
-            <button
-              onClick={() => setPage((prev) => Math.min(totalPages - 1, prev + 1))}
-              disabled={page === totalPages - 1 || loading}
-              title="Next Page"
-              className="btn btn-secondary btn-sm w-8 h-8 flex items-center justify-center rounded-lg"
-              style={{ padding: 0 }}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-              </svg>
-            </button>
-          </div>
-        )}
+        {/* Floating Vertical Pill Pagination */}
+        <FloatingPagination page={page} totalPages={totalPages} setPage={setPage} loading={loading} />
       </div>
     </div>
   );

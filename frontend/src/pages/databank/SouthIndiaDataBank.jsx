@@ -523,56 +523,43 @@ export default function SouthIndiaDataBank() {
       label: 'L&O Police NDPS Data',
       desc: 'Law & Order Police records',
       count: loOffenders.length,
-      activeClass: 'bg-[#f15a24] border-[#f15a24] text-white shadow-md',
-      inactiveClass: 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 border-l-[#f15a24] hover:bg-emerald-50 dark:hover:bg-emerald-950/20 text-slate-700 dark:text-slate-300 shadow-sm',
-      labelClassSelected: 'text-white',
-      labelClassInactive: 'text-[#f15a24]',
-      badgeClassSelected: 'bg-[#d3400a] text-white',
-      badgeClassInactive: 'bg-[#d1fae5] text-[#065f46]',
-      descClassSelected: 'text-white/80',
-      descClassInactive: 'text-slate-500 dark:text-slate-400',
-      stateDotClass: 'bg-[#ffbb80]'
+      iconColor: 'bg-orange-500',
+      activeClass: 'bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 text-white shadow-lg shadow-orange-500/25 border-orange-400/40',
+      inactiveClass: 'bg-slate-50 dark:bg-slate-800/60 border-slate-200/80 dark:border-slate-700/60 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 shadow-xs',
+      dotColor: 'bg-white',
+      tagColor: 'bg-orange-600/40 text-white'
     },
     {
       id: 'GRP',
       label: 'GRP NDPS Data',
       desc: 'Railway police transit logs',
       count: grpOffenders.length,
-      activeClass: 'bg-[#3f51b5] border-[#3f51b5] text-white shadow-md',
-      inactiveClass: 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 border-l-[#3f51b5] hover:bg-emerald-50 dark:hover:bg-emerald-950/20 text-slate-700 dark:text-slate-300 shadow-sm',
-      labelClassSelected: 'text-white',
-      labelClassInactive: 'text-[#3f51b5]',
-      badgeClassSelected: 'bg-[#283593] text-white',
-      badgeClassInactive: 'bg-[#d1fae5] text-[#065f46]',
-      descClassSelected: 'text-white/80',
-      descClassInactive: 'text-slate-500 dark:text-slate-400',
-      stateDotClass: 'bg-[#c5cae9]'
+      iconColor: 'bg-blue-500',
+      activeClass: 'bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white shadow-lg shadow-blue-500/25 border-blue-400/40',
+      inactiveClass: 'bg-slate-50 dark:bg-slate-800/60 border-slate-200/80 dark:border-slate-700/60 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 shadow-xs',
+      dotColor: 'bg-white',
+      tagColor: 'bg-blue-600/40 text-white'
     },
     {
       id: 'PE',
       label: 'P&E NDPS Data',
       desc: 'Prohibition & Excise alerts',
       count: peOffenders.length,
-      activeClass: 'bg-[#047857] border-[#047857] text-white shadow-md',
-      inactiveClass: 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 border-l-[#047857] hover:bg-emerald-50 dark:hover:bg-emerald-950/20 text-slate-700 dark:text-slate-300 shadow-sm',
-      labelClassSelected: 'text-white',
-      labelClassInactive: 'text-[#047857]',
-      badgeClassSelected: 'bg-[#064e3b] text-white',
-      badgeClassInactive: 'bg-[#d1fae5] text-[#065f46]',
-      descClassSelected: 'text-white/80',
-      descClassInactive: 'text-slate-500 dark:text-slate-400',
-      stateDotClass: 'bg-[#a7f3d0]'
+      iconColor: 'bg-emerald-500',
+      activeClass: 'bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white shadow-lg shadow-emerald-500/25 border-emerald-400/40',
+      inactiveClass: 'bg-slate-50 dark:bg-slate-800/60 border-slate-200/80 dark:border-slate-700/60 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 shadow-xs',
+      dotColor: 'bg-white',
+      tagColor: 'bg-emerald-600/40 text-white'
     }
   ];
 
   const renderBranchSelector = (isMobile = false) => (
-    <div 
-      className="p-5 rounded-2xl border text-slate-900 shadow-lg space-y-4"
-      style={{ backgroundColor: '#8bc53f', borderColor: '#74a634' }}
-    >
-      <h3 className="text-xs font-black uppercase tracking-wider text-emerald-950 mb-1">
-        {isMobile ? 'Branch Database (Mobile)' : 'Branch Database'}
-      </h3>
+    <div className="p-5 rounded-3xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl space-y-4">
+      <div className="pb-1 border-b border-slate-100 dark:border-slate-800">
+        <h3 className="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+          {isMobile ? 'Branch Database (Mobile)' : 'Branch Database'}
+        </h3>
+      </div>
 
       <div className="flex flex-col gap-3">
         {sidebarBranches.map(branch => {
@@ -584,39 +571,38 @@ export default function SouthIndiaDataBank() {
                 setActiveBranch(branch.id);
                 if (isMobile) setMobileMenuOpen(false);
               }}
-              className={`w-full text-left p-4 rounded-xl border border-l-4 transition-all flex items-start cursor-pointer ${
+              className={`w-full text-left p-4 rounded-2xl border transition-all duration-200 flex items-start gap-3 cursor-pointer relative overflow-hidden ${
                 isSelected ? branch.activeClass : branch.inactiveClass
               }`}
             >
-              <div className="flex-1 min-w-0">
-                <div className="font-bold text-sm">
-                  <span className={`truncate ${isSelected ? branch.labelClassSelected : branch.labelClassInactive}`}>
-                    {branch.label}
-                  </span>
+              <div className={`w-3 h-3 rounded-full mt-1 flex-shrink-0 ${isSelected ? branch.dotColor : branch.iconColor}`} />
+              <div className="flex-1 min-w-0 pr-12">
+                <div className="font-extrabold text-sm tracking-tight text-current">
+                  {branch.label}
                 </div>
-                <div className={`text-[11px] mt-1 line-clamp-1 ${
-                  isSelected ? branch.descClassSelected : branch.descClassInactive
-                }`}>
+                <div className={`text-xs mt-1 ${isSelected ? 'text-white/85' : 'text-slate-500 dark:text-slate-400'}`}>
                   {branch.desc}
                 </div>
-                {isSelected && (
-                  <div className="mt-2 text-[10px] font-bold text-white/90 flex items-center gap-1">
-                    <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${branch.stateDotClass}`}></span>
-                    State: {STATES.find(s=>s.code === (branch.id === 'LO' ? loState : branch.id === 'GRP' ? grpState : peState))?.name}
-                  </div>
-                )}
+              </div>
+              {/* Record Count Badge at Bottom Right Corner */}
+              <div className="absolute bottom-3 right-3">
+                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono font-black border shadow-xs ${
+                  isSelected 
+                    ? 'bg-black/20 text-white border-white/20' 
+                    : 'bg-slate-200/80 dark:bg-slate-700/80 text-slate-700 dark:text-slate-300 border-slate-300/60 dark:border-slate-600/60'
+                }`}>
+                  {branch.count} rec
+                </span>
               </div>
             </button>
           );
         })}
       </div>
 
-      {/* Info Helper Block */}
-      <div 
-        className="p-4 rounded-xl border text-[#1b3d1b] text-[11px] leading-relaxed"
-        style={{ backgroundColor: '#e9f5db', borderColor: '#cce2b4' }}
-      >
-        <p className="font-bold text-[#0f3d0f] uppercase text-[9px] tracking-wide mb-1">
+      {/* Department Scope Info Card */}
+      <div className="p-4 rounded-2xl bg-amber-500/10 dark:bg-amber-500/10 border border-amber-500/20 text-slate-700 dark:text-slate-300 text-xs leading-relaxed shadow-xs">
+        <p className="font-extrabold text-amber-700 dark:text-amber-400 uppercase text-[10px] tracking-wider mb-1 flex items-center gap-1.5">
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
           Department Scope
         </p>
         State selection filters remain preserved for each branch as you switch between Law & Order, GRP, and Excise databases.

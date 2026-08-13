@@ -492,6 +492,7 @@ model users {
   role                 user_role
   department           department_type        @default(POLICE)
   badge_number         String?                @db.VarChar(50)
+  photo_url            String?
   police_station_id    BigInt?
   division_id          String?                @db.VarChar(100)
   district             String?                @db.VarChar(100)

@@ -51,8 +51,8 @@ export const PERMISSIONS = {
 
   // Page 2: Offender Database — all operational staff
   OFFENDER_VIEW:        { minRole: 'CONSTABLE' },
-  OFFENDER_CREATE:      { minRole: 'SHO' },
-  OFFENDER_EDIT:        { minRole: 'SHO' },
+  OFFENDER_CREATE:      { minRole: 'CONSTABLE' },
+  OFFENDER_EDIT:        { minRole: 'CONSTABLE' },
 
   // Page 3: Case Management — operational departments
   CASE_VIEW:            { minRole: 'CONSTABLE' },
@@ -60,8 +60,8 @@ export const PERMISSIONS = {
   CASE_EDIT:            { minRole: 'SHO' },
   CASE_APPROVE:         { minRole: 'SHO' },
   // Legacy route keys (Phase 0 alignment)
-  ADD_CASE:             { minRole: 'SHO' },
-  EDIT_RECORDS:         { minRole: 'SHO' },
+  ADD_CASE:             { minRole: 'CONSTABLE' },
+  EDIT_RECORDS:         { minRole: 'CONSTABLE' },
 
   // Page 4: Field Staff — field personnel (department-restricted)
   FIELD_ENTRY:          { minRole: 'CONSTABLE', departments: ['POLICE', 'CYBER_ANALYTICS'] },

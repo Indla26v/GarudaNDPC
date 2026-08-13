@@ -77,58 +77,48 @@ export default function Enforcement() {
   }, [isCommandLevel]);
 
   const sidebarItems = [
-    ...(isCommandLevel ? [{
+    {
       id: 'dashboard',
       label: 'Command Dashboard',
       desc: 'District-wide metrics',
-      count: stationsCount,
-      activeClass: 'bg-[#7c3aed] border-[#7c3aed] text-white shadow-md',
-      inactiveClass: 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 border-l-[#7c3aed] hover:bg-emerald-50 dark:hover:bg-emerald-950/20 text-slate-700 dark:text-slate-300 shadow-sm',
-      labelClassSelected: 'text-white',
-      labelClassInactive: 'text-[#7c3aed]',
-      badgeClassSelected: 'bg-[#5b21b6] text-white',
-      badgeClassInactive: 'bg-[#d1fae5] text-[#065f46]',
-      descClassSelected: 'text-white/80',
-      descClassInactive: 'text-slate-500 dark:text-slate-400'
-    }] : []),
+      count: 53,
+      dotColor: 'bg-purple-500',
+      activeClass: 'bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 text-white shadow-lg shadow-purple-500/25 border-purple-400/40',
+      inactiveClass: 'bg-slate-50 dark:bg-slate-800/60 border-slate-200/80 dark:border-slate-700/60 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 shadow-xs',
+      badgeClassSelected: 'bg-white/20 text-white',
+      badgeClassInactive: 'bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-500/20',
+    },
     {
       id: 'field_hub',
       label: 'Field Operations',
       desc: 'Log field activities',
       count: 14,
-      activeClass: 'bg-[#0284c7] border-[#0284c7] text-white shadow-md',
-      inactiveClass: 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 border-l-[#0284c7] hover:bg-emerald-50 dark:hover:bg-emerald-950/20 text-slate-700 dark:text-slate-300 shadow-sm',
-      labelClassSelected: 'text-white',
-      labelClassInactive: 'text-[#0284c7]',
-      badgeClassSelected: 'bg-[#075985] text-white',
-      badgeClassInactive: 'bg-[#d1fae5] text-[#065f46]',
-      descClassSelected: 'text-white/80',
-      descClassInactive: 'text-slate-500 dark:text-slate-400'
+      dotColor: 'bg-blue-500',
+      activeClass: 'bg-gradient-to-r from-blue-600 via-sky-600 to-blue-700 text-white shadow-lg shadow-blue-500/25 border-blue-400/40',
+      inactiveClass: 'bg-slate-50 dark:bg-slate-800/60 border-slate-200/80 dark:border-slate-700/60 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 shadow-xs',
+      badgeClassSelected: 'bg-white/20 text-white',
+      badgeClassInactive: 'bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-500/20',
     },
     ...(isCommandLevel ? [{
       id: 'enforcement_log',
       label: 'Enforcement Log',
       desc: 'Geo-tagged history',
       count: logsCount,
-      activeClass: 'bg-[#047857] border-[#047857] text-white shadow-md',
-      inactiveClass: 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 border-l-[#047857] hover:bg-emerald-50 dark:hover:bg-emerald-950/20 text-slate-700 dark:text-slate-300 shadow-sm',
-      labelClassSelected: 'text-white',
-      labelClassInactive: 'text-[#047857]',
-      badgeClassSelected: 'bg-[#064e3b] text-white',
-      badgeClassInactive: 'bg-[#d1fae5] text-[#065f46]',
-      descClassSelected: 'text-white/80',
-      descClassInactive: 'text-slate-500 dark:text-slate-400'
+      dotColor: 'bg-emerald-500',
+      activeClass: 'bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white shadow-lg shadow-emerald-500/25 border-emerald-400/40',
+      inactiveClass: 'bg-slate-50 dark:bg-slate-800/60 border-slate-200/80 dark:border-slate-700/60 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 shadow-xs',
+      badgeClassSelected: 'bg-white/20 text-white',
+      badgeClassInactive: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20',
     }] : [])
   ];
 
   const renderSidebarMenu = (isMobile = false) => (
-    <div 
-      className="p-5 rounded-2xl border text-slate-900 shadow-lg space-y-4"
-      style={{ backgroundColor: '#8bc53f', borderColor: '#74a634' }}
-    >
-      <h3 className="text-xs font-black uppercase tracking-wider text-emerald-950 mb-1">
-        {isMobile ? 'Navigation (Mobile)' : 'Navigation'}
-      </h3>
+    <div className="p-5 rounded-3xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl space-y-4">
+      <div className="pb-1 border-b border-slate-100 dark:border-slate-800">
+        <h3 className="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+          {isMobile ? 'Navigation (Mobile)' : 'Navigation'}
+        </h3>
+      </div>
 
       <div className="flex flex-col gap-3">
         {sidebarItems.map(item => {
@@ -140,38 +130,36 @@ export default function Enforcement() {
                 setActiveView(item.id);
                 if (isMobile) setMobileMenuOpen(false);
               }}
-              className={`w-full text-left p-4 rounded-xl border border-l-4 transition-all flex items-start cursor-pointer ${
+              className={`w-full text-left p-4 rounded-2xl border transition-all duration-200 flex items-start gap-3 cursor-pointer relative overflow-hidden ${
                 isSelected ? item.activeClass : item.inactiveClass
               }`}
             >
-              <div className="flex-1 min-w-0">
-                <div className="font-bold text-sm flex items-center justify-between">
-                  <span className={`truncate ${isSelected ? item.labelClassSelected : item.labelClassInactive}`}>
-                    {item.label}
-                  </span>
-                  <span className={`w-5 h-5 flex items-center justify-center rounded-full text-[10px] font-extrabold ${
-                    isSelected ? item.badgeClassSelected : item.badgeClassInactive
-                  }`}>
-                    {item.count}
-                  </span>
+              <div className={`w-3 h-3 rounded-full mt-1 flex-shrink-0 ${isSelected ? 'bg-white' : item.dotColor}`} />
+              <div className="flex-1 min-w-0 pr-10">
+                <div className="font-extrabold text-sm tracking-tight text-current">
+                  {item.label}
                 </div>
-                <div className={`text-[11px] mt-1 line-clamp-1 ${
-                  isSelected ? item.descClassSelected : item.descClassInactive
-                }`}>
+                <div className={`text-xs mt-1 ${isSelected ? 'text-white/85' : 'text-slate-500 dark:text-slate-400'}`}>
                   {item.desc}
                 </div>
+              </div>
+              {/* Number Badge at Bottom Right Corner */}
+              <div className="absolute bottom-3 right-3">
+                <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-mono font-black border shadow-xs ${
+                  isSelected ? 'bg-black/20 text-white border-white/20' : item.badgeClassInactive
+                }`}>
+                  {item.count}
+                </span>
               </div>
             </button>
           );
         })}
       </div>
 
-      {/* Info Helper Block */}
-      <div 
-        className="p-4 rounded-xl border text-[#1b3d1b] text-[11px] leading-relaxed"
-        style={{ backgroundColor: '#e9f5db', borderColor: '#cce2b4' }}
-      >
-        <p className="font-bold text-[#0f3d0f] uppercase text-[9px] tracking-wide mb-1">
+      {/* Enforcement Scope Info Card */}
+      <div className="p-4 rounded-2xl bg-amber-500/10 dark:bg-amber-500/10 border border-amber-500/20 text-slate-700 dark:text-slate-300 text-xs leading-relaxed shadow-xs">
+        <p className="font-extrabold text-amber-700 dark:text-amber-400 uppercase text-[10px] tracking-wider mb-1 flex items-center gap-1.5">
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
           Enforcement Scope
         </p>
         Prevention and tracking details are preserved across all views. Access to pages is dynamically adjusted based on your department role.
@@ -219,10 +207,9 @@ export default function Enforcement() {
               }`}
             >
               <div 
-                className="p-4 rounded-2xl border text-slate-900 shadow-md flex items-center justify-between gap-3"
-                style={{ backgroundColor: '#8bc53f', borderColor: '#74a634' }}
+                className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-md flex items-center justify-between gap-3"
               >
-                <h2 className="text-sm font-black tracking-tight text-emerald-950 leading-tight">
+                <h2 className="text-sm font-black tracking-tight text-slate-900 dark:text-white leading-tight">
                   Preventive Enforcement
                 </h2>
               </div>
@@ -235,7 +222,7 @@ export default function Enforcement() {
           {/* Floating Action Button for Mobile Menu */}
           <button 
             onClick={() => setMobileMenuOpen(true)}
-            className="xl:hidden fixed bottom-6 right-6 z-40 bg-[#8bc53f] hover:bg-[#74a634] text-emerald-950 p-4 rounded-full shadow-2xl border border-[#74a634] flex items-center justify-center cursor-pointer transition-all hover:scale-110 active:scale-95"
+            className="xl:hidden fixed bottom-6 right-6 z-40 bg-amber-500 hover:bg-amber-400 text-slate-950 p-4 rounded-full shadow-2xl border border-amber-400 flex items-center justify-center cursor-pointer transition-all hover:scale-110 active:scale-95"
             title="Quick Menu"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">

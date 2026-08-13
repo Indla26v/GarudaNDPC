@@ -448,17 +448,17 @@ export default function Dashboard() {
             <Link
               key={card.key}
               to={getCardLink(card)}
-              className="relative flex flex-col group hover:translate-y-[-4px] hover:scale-[1.03] transition-all duration-200 w-full max-w-[170px] sm:max-w-none mx-auto h-[90px] sm:h-[98px] cursor-pointer"
+              className="relative flex flex-col group hover:-translate-y-1.5 hover:scale-[1.03] transition-all duration-300 w-full max-w-[170px] sm:max-w-none mx-auto h-[90px] sm:h-[98px] cursor-pointer"
               style={{ animationDelay: `${i * 60}ms` }}
             >
-              {/* Smooth Curved SVG Vector Folder Background */}
+              {/* Smooth Curved SVG Vector Folder Background with Deep Elevated Shadows */}
               <svg
                 viewBox="0 0 200 100"
                 preserveAspectRatio="none"
-                className="absolute inset-0 w-full h-full transition-all duration-200"
+                className="absolute inset-0 w-full h-full transition-all duration-300"
                 style={{
                   color: card.color,
-                  filter: `drop-shadow(0 6px 14px ${card.color}40)`,
+                  filter: `drop-shadow(0 12px 22px ${card.color}70) drop-shadow(0 6px 12px rgba(0, 0, 0, 0.18))`,
                 }}
               >
                 {/* Outer Folder Body with Soft Light Curves */}

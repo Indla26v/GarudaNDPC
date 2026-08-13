@@ -183,10 +183,14 @@ body {
   background: var(--color-garuda-500);
 }
 
-/* ---- Focus Styles ---- */
-:focus-visible {
-  outline: 2px solid var(--color-accent-400);
-  outline-offset: 2px;
+/* ---- Focus Styles (No Harsh Outline Rings) ---- */
+:focus,
+:focus-visible,
+button:focus,
+button:focus-visible,
+a:focus,
+a:focus-visible {
+  outline: none !important;
 }
 
 /* ---- Selection ---- */
@@ -205,17 +209,19 @@ body {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 8px 16px;
-  border-radius: var(--radius-md);
+  padding: 8px 18px;
+  border-radius: 9999px !important;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   line-height: 1.4;
   letter-spacing: 0.01em;
   border: 1px solid transparent;
+  outline: none !important;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   white-space: nowrap;
   text-decoration: none;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
 }
 
 .btn:disabled {
@@ -228,20 +234,21 @@ body {
 .btn-primary {
   background: var(--color-accent-500);
   color: #000000;
-  font-weight: 700;
+  font-weight: 800;
   border-color: var(--color-accent-600);
-  box-shadow: 0 1px 2px rgba(234, 88, 12, 0.15);
+  box-shadow: 0 4px 14px rgba(234, 88, 12, 0.25);
+  border-radius: 9999px !important;
 }
 
 .btn-primary:hover {
   background: var(--color-accent-600);
-  box-shadow: 0 2px 8px rgba(234, 88, 12, 0.2);
+  box-shadow: 0 6px 20px rgba(234, 88, 12, 0.35);
   transform: translateY(-1px);
 }
 
 .btn-primary:active {
   transform: translateY(0);
-  box-shadow: 0 1px 2px rgba(234, 88, 12, 0.15);
+  box-shadow: 0 2px 6px rgba(234, 88, 12, 0.2);
 }
 
 /* ─ Secondary: Subtle, light ─ */
@@ -249,6 +256,7 @@ body {
   background: var(--color-garuda-800);
   color: var(--color-garuda-200);
   border-color: var(--color-garuda-700);
+  border-radius: 9999px !important;
 }
 
 .btn-secondary:hover {
@@ -262,6 +270,7 @@ body {
   background: transparent;
   color: var(--color-garuda-300);
   border-color: transparent;
+  border-radius: 9999px !important;
 }
 
 .btn-ghost:hover {
@@ -274,11 +283,12 @@ body {
   background: var(--color-danger-500);
   color: #ffffff;
   border-color: var(--color-danger-400);
+  border-radius: 9999px !important;
 }
 
 .btn-danger:hover {
   background: var(--color-danger-400);
-  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.2);
+  box-shadow: 0 4px 14px rgba(220, 38, 38, 0.25);
   transform: translateY(-1px);
 }
 
@@ -287,26 +297,27 @@ body {
   background: var(--color-success-500);
   color: #ffffff;
   border-color: var(--color-success-400);
+  border-radius: 9999px !important;
 }
 
 .btn-success:hover {
   background: var(--color-success-400);
-  box-shadow: 0 2px 8px rgba(22, 163, 74, 0.2);
+  box-shadow: 0 4px 14px rgba(22, 163, 74, 0.25);
   transform: translateY(-1px);
 }
 
 /* ─ Small variant ─ */
 .btn-sm {
-  padding: 5px 12px;
+  padding: 6px 14px;
   font-size: 12px;
-  border-radius: var(--radius-sm);
+  border-radius: 9999px !important;
 }
 
 /* ─ Large variant ─ */
 .btn-lg {
-  padding: 10px 22px;
+  padding: 11px 24px;
   font-size: 15px;
-  border-radius: var(--radius-lg);
+  border-radius: 9999px !important;
 }
 
 
@@ -316,8 +327,8 @@ body {
 
 .input {
   width: 100%;
-  padding: 8px 14px;
-  border-radius: var(--radius-md);
+  padding: 9px 16px;
+  border-radius: 1rem;
   font-size: 13px;
   line-height: 1.5;
   border: 1px solid var(--color-garuda-700);
@@ -329,7 +340,7 @@ body {
 
 .input:focus {
   border-color: var(--color-accent-400);
-  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.1);
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.12);
 }
 
 .input::placeholder {
@@ -337,8 +348,8 @@ body {
 }
 
 .select {
-  padding: 8px 36px 8px 14px;
-  border-radius: 0.75rem;
+  padding: 9px 36px 9px 16px;
+  border-radius: 1rem;
   font-size: 13px;
   font-weight: 600;
   border: 1px solid var(--color-garuda-700);
@@ -353,7 +364,7 @@ body {
   appearance: none;
   -webkit-appearance: none;
   transition: all 0.2s ease;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
 .select:focus {
@@ -383,56 +394,68 @@ body.dark .select option {
 
 
 /* ============================================================
-   Card System
+   Card System — Elegant Rounded Corners & Card Shadows
    ============================================================ */
 
 .card {
   background: var(--color-garuda-800);
   border: 1px solid var(--color-garuda-700);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-card);
+  border-radius: 1.5rem !important;
+  box-shadow: 0 12px 32px -4px rgba(0, 0, 0, 0.06), 0 4px 12px -2px rgba(0, 0, 0, 0.03) !important;
 }
 
 .card-hover {
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .card-hover:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-elevated);
+  transform: translateY(-3px);
+  box-shadow: 0 20px 40px -6px rgba(0, 0, 0, 0.1), 0 8px 16px -4px rgba(0, 0, 0, 0.04) !important;
 }
 
 
 /* ============================================================
-   Table Styles
+   Table & Grid System — Modern Upgrade
    ============================================================ */
 
 .table-header {
   background: var(--color-garuda-600);
 }
 
-.table-header th {
+.table-header th,
+table thead th {
   text-align: left;
-  padding: 10px 16px;
-  font-weight: 600;
-  font-size: 12px;
+  padding: 12px 18px;
+  font-weight: 800;
+  font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--color-garuda-300);
-}
-
-.table-row {
+  letter-spacing: 0.06em;
+  color: var(--color-garuda-400);
   border-bottom: 1px solid var(--color-garuda-700);
-  transition: background 0.15s;
+  user-select: none;
 }
 
-.table-row:hover {
-  background: var(--color-garuda-600);
+.table-row,
+table tbody tr {
+  border-bottom: 1px solid var(--color-garuda-700);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.table-row td {
-  padding: 10px 16px;
+.table-row:hover,
+table tbody tr:hover {
+  background: rgba(245, 158, 11, 0.04) !important;
+}
+
+body.dark .table-row:hover,
+body.dark table tbody tr:hover {
+  background: rgba(245, 158, 11, 0.08) !important;
+}
+
+.table-row td,
+table tbody td {
+  padding: 13px 18px;
   font-size: 13px;
+  vertical-align: middle;
 }
 
 

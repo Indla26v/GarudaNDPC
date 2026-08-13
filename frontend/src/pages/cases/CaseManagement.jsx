@@ -11,6 +11,7 @@ import api from '../../api/axios';
 import { usePermissions } from '../../hooks/usePermissions';
 import { IconSearch } from '../../components/Icons';
 import CustomSelect from '../../components/CustomSelect';
+import FloatingPagination from '../../components/FloatingPagination';
 
 const STAGE_COLORS = {
   FIR:         { bg: '#3b82f6', label: 'FIR Registered' },
@@ -467,7 +468,7 @@ export default function CaseManagement() {
                         </td>
                         <td className="px-4 py-3.5">
                           <span
-                            className="inline-block text-[10px] font-bold px-2.5 py-0.5 rounded-md uppercase tracking-wider border"
+                            className="inline-block text-[10px] font-extrabold px-3 py-1 rounded-full uppercase tracking-wider border shadow-2xs"
                             style={{
                               background: `${stage.bg}14`,
                               color: stage.bg,
@@ -481,18 +482,18 @@ export default function CaseManagement() {
                           {c.accused?.length || 0} accused
                         </td>
                         <td className="px-4 py-3.5 text-right">
-                          <div className="flex items-center justify-end gap-1.5">
+                          <div className="flex items-center justify-end gap-2">
                             <button
                               type="button"
                               onClick={(e) => handleExportCasePdf(e, c.id, c.firNo)}
                               title="Export PDF Case Report with Accused Photos"
-                              className="px-2.5 py-1 text-xs font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 border border-rose-200 dark:border-rose-800 rounded-lg transition-colors inline-flex items-center gap-1 cursor-pointer"
+                              className="px-3 py-1.5 rounded-full text-xs font-extrabold text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 border border-rose-200 dark:border-rose-800 transition-all inline-flex items-center gap-1 cursor-pointer shadow-2xs"
                             >
-                              📄 PDF
+                              PDF
                             </button>
                             <Link
                               to={`/cases/${c.id}`}
-                              className="px-3 py-1 text-xs font-bold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-lg transition-colors inline-block"
+                              className="px-3.5 py-1.5 rounded-full text-xs font-extrabold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition-all inline-block shadow-2xs"
                             >
                               View
                             </Link>
@@ -559,76 +560,8 @@ export default function CaseManagement() {
             )}
           </div>
 
-          {/* Pagination Controls */}
-          {totalPages > 1 && !loading && (
-            <div 
-              className="fixed bottom-4 left-1/2 -translate-x-1/2 sm:translate-x-0 sm:left-auto sm:right-4 sm:top-1/2 sm:bottom-auto sm:-translate-y-1/2 z-50 flex flex-row sm:flex-col items-center gap-2 p-2 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md"
-              style={{ minWidth: '44px' }}
-            >
-              <div className="text-[10px] font-mono font-bold text-slate-500 dark:text-slate-400 text-center select-none pr-2 sm:pr-0 pb-0 sm:pb-1.5 border-r sm:border-r-0 sm:border-b border-slate-200 dark:border-slate-800 mr-1.5 sm:mr-0">
-                {page + 1}/{totalPages}
-              </div>
-              
-              <button
-                onClick={() => setPage((prev) => Math.max(0, prev - 1))}
-                disabled={page === 0 || loading}
-                title="Previous Page"
-                className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" />
-                </svg>
-              </button>
-
-              <div className="flex flex-row sm:flex-col gap-1.5">
-                {Array.from({ length: totalPages }).map((_, index) => {
-                  if (
-                    totalPages <= 6 ||
-                    index < 2 ||
-                    index === totalPages - 1 ||
-                    (index >= page - 1 && index <= page + 1)
-                  ) {
-                    const isCurrent = page === index;
-                    return (
-                      <button
-                        key={index}
-                        onClick={() => setPage(index)}
-                        className={`w-8 h-8 flex items-center justify-center rounded-lg text-xs font-bold transition-all ${
-                          isCurrent
-                            ? 'bg-amber-500 text-slate-950 font-black shadow-xs'
-                            : 'bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
-                        }`}
-                      >
-                        {index + 1}
-                      </button>
-                    );
-                  }
-                  if (
-                    (index === 2 && page > 2) ||
-                    (index === totalPages - 2 && page < totalPages - 3)
-                  ) {
-                    return (
-                      <span key={`ellipsis-${index}`} className="text-slate-400 dark:text-slate-500 text-center select-none text-[10px] leading-none py-0.5 font-bold">
-                        •••
-                      </span>
-                    );
-                  }
-                  return null;
-                })}
-              </div>
-
-              <button
-                onClick={() => setPage((prev) => Math.min(totalPages - 1, prev + 1))}
-                disabled={page === totalPages - 1 || loading}
-                title="Next Page"
-                className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-                </svg>
-              </button>
-            </div>
-          )}
+          {/* Floating Vertical Pill Pagination */}
+          <FloatingPagination page={page} totalPages={totalPages} setPage={setPage} loading={loading} />
         </div>
       )}
     </div>

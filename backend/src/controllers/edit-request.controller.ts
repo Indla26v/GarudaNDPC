@@ -40,7 +40,6 @@ function formatEditRequest(r: any) {
 
 async function applyEntityChanges(entityType: string, entityId: bigint, changesJson: string) {
   // ── SECURITY FIX #11: Mitigate insecure deserialization
-  // Ensure we only parse JSON, and strictly allowlist fields to prevent prototype pollution or arbitrary field injection.
   let changes: any;
   try {
     changes = JSON.parse(changesJson);
@@ -72,16 +71,58 @@ async function applyEntityChanges(entityType: string, entityId: bigint, changesJ
       await prisma.cases.update({ where: { id: entityId }, data: data as any });
     }
   } else if (entityType === 'OFFENDER') {
-    const data: Record<string, unknown> = {};
-    if (typeof changes.fullName === 'string') data.full_name = changes.fullName;
-    else if (typeof changes.full_name === 'string') data.full_name = changes.full_name;
+    const dataObj: Record<string, unknown> = {};
+    if (changes.fullName !== undefined) dataObj.full_name = changes.fullName;
+    else if (changes.full_name !== undefined) dataObj.full_name = changes.full_name;
     
-    if (typeof changes.alias === 'string') data.alias = changes.alias;
-    if (typeof changes.category === 'string') data.category = changes.category;
-    if (typeof changes.status === 'string') data.status = changes.status;
+    if (changes.alias !== undefined) dataObj.alias = changes.alias;
+    if (changes.fatherHusbandName !== undefined) dataObj.father_husband_name = changes.fatherHusbandName;
+    else if (changes.father_husband_name !== undefined) dataObj.father_husband_name = changes.father_husband_name;
 
-    if (Object.keys(data).length > 0) {
-      await prisma.offenders.update({ where: { id: entityId }, data: data as any });
+    if (changes.age !== undefined && changes.age !== null && changes.age !== '') dataObj.age = Number(changes.age);
+    if (changes.gender !== undefined) dataObj.gender = changes.gender;
+    if (changes.category !== undefined) dataObj.category = changes.category;
+    if (changes.status !== undefined) dataObj.status = changes.status;
+    if (changes.fullAddress !== undefined) dataObj.full_address = changes.fullAddress;
+    if (changes.landmark !== undefined || changes.landmarkArea !== undefined) dataObj.landmark_area = changes.landmark || changes.landmarkArea;
+    if (changes.district !== undefined) dataObj.district = changes.district;
+    if (changes.state !== undefined) dataObj.state = changes.state;
+    if (changes.occupation !== undefined) dataObj.occupation = changes.occupation;
+    if (changes.monthlyIncome !== undefined && changes.monthlyIncome !== null && changes.monthlyIncome !== '') dataObj.monthly_income = Number(changes.monthlyIncome);
+    if (changes.photoUrl !== undefined) dataObj.photo_url = changes.photoUrl;
+
+    if (Object.keys(dataObj).length > 0) {
+      await prisma.offenders.update({ where: { id: entityId }, data: dataObj as any });
+    }
+
+    if (changes.contacts && Array.isArray(changes.contacts)) {
+      await prisma.offender_contacts.deleteMany({ where: { offender_id: entityId } });
+      if (changes.contacts.length > 0) {
+        await prisma.offender_contacts.createMany({
+          data: changes.contacts.map((c: any) => ({
+            offender_id: entityId,
+            contact_type: c.contactType || c.contact_type,
+            value: c.value,
+            notes: c.notes
+          }))
+        });
+      }
+    }
+
+    if (changes.financials && Array.isArray(changes.financials)) {
+      await prisma.offender_financials.deleteMany({ where: { offender_id: entityId } });
+      const filteredFin = changes.financials.filter((f: any) => (f.value ?? '').trim() !== '');
+      if (filteredFin.length > 0) {
+        await prisma.offender_financials.createMany({
+          data: filteredFin.map((f: any) => ({
+            offender_id: entityId,
+            fin_type: f.finType || f.fin_type,
+            value: f.value,
+            bank_name: f.bankName || f.bank_name || null,
+            notes: f.notes || null
+          }))
+        });
+      }
     }
   }
 }
@@ -97,12 +138,14 @@ export const getEditRequests = async (req: AuthRequest, res: Response) => {
     if (status) where.status = String(status);
     if (entityType) where.entity_type = String(entityType);
 
-    if (userRole === 'DSP' && psId) {
-      where.requested_user = { police_station_id: BigInt(psId) };
-    } else if (['CI', 'SI', 'CONSTABLE'].includes(userRole)) {
+    if (['SHO', 'SDPO', 'ASP', 'DSP'].includes(userRole)) {
+      if (psId) {
+        where.requested_user = { police_station_id: BigInt(psId) };
+      }
+    } else if (userRole === 'CONSTABLE') {
       where.requested_by = BigInt(userId);
     } else if (userRole === 'SP') {
-      return res.status(403).json({ message: 'SP does not handle edit requests' });
+      // SP sees all edit requests
     }
 
     const skip = Number(page) * Number(size);
@@ -194,8 +237,8 @@ export const approveEditRequest = async (req: AuthRequest, res: Response) => {
     const approverRole = req.user!.role;
     const approverPsId = req.user!.policeStationId;
 
-    if (!['SDPO', 'SP', 'SHO'].includes(approverRole)) {
-      return res.status(403).json({ message: 'Only SDPO, SHO, or SP can approve' });
+    if (!['SDPO', 'SP', 'SHO', 'ASP', 'DSP'].includes(approverRole)) {
+      return res.status(403).json({ message: 'Only SHO, SDPO, ASP, or SP can approve edit requests' });
     }
 
     const request = await prisma.edit_requests.findUnique({
@@ -208,9 +251,9 @@ export const approveEditRequest = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ message: `Cannot approve request in ${request.status} state` });
     }
 
-    if (approverRole === 'DSP' && approverPsId) {
-      if (request.requested_user?.police_station_id?.toString() !== approverPsId?.toString()) {
-        return res.status(403).json({ message: 'DSP can only approve requests for their police station' });
+    if (['SHO', 'SDPO', 'DSP'].includes(approverRole) && approverPsId) {
+      if (request.requested_user?.police_station_id && String(request.requested_user.police_station_id) !== String(approverPsId)) {
+        return res.status(403).json({ message: 'You can only approve edit requests for your assigned police station' });
       }
     }
 
@@ -229,9 +272,8 @@ export const approveEditRequest = async (req: AuthRequest, res: Response) => {
 
     await logAudit('EDIT_APPROVED', 'EDIT_REQUEST', BigInt(id as string), req, `Approved ${request.entity_type} ${request.entity_id}`);
 
-    res.json(successResponse({ id }, 'Edit request approved and applied'));
+    res.json(successResponse({ id }, 'Edit request approved and changes committed to database'));
   } catch (error: any) {
-    // ── SECURITY FIX #20: Do not leak internal error messages
     console.error('approveEditRequest error:', error);
     res.status(500).json({ message: 'Failed to process edit request' });
   }
@@ -245,8 +287,8 @@ export const rejectEditRequest = async (req: AuthRequest, res: Response) => {
     const userPsId = req.user!.policeStationId;
     const { rejectionReason } = req.body;
 
-    if (!['SDPO', 'SP', 'SHO'].includes(userRole)) {
-      return res.status(403).json({ message: 'Only SDPO, SHO, or SP can reject' });
+    if (!['SDPO', 'SP', 'SHO', 'ASP', 'DSP'].includes(userRole)) {
+      return res.status(403).json({ message: 'Only SHO, SDPO, ASP, or SP can reject edit requests' });
     }
 
     const request = await prisma.edit_requests.findUnique({
@@ -256,9 +298,9 @@ export const rejectEditRequest = async (req: AuthRequest, res: Response) => {
 
     if (!request) return res.status(404).json({ message: 'Edit request not found' });
 
-    if (userRole === 'DSP' && userPsId) {
-      if (request.requested_user?.police_station_id?.toString() !== userPsId?.toString()) {
-        return res.status(403).json({ message: 'DSP can only reject requests for their police station' });
+    if (['SHO', 'SDPO', 'DSP'].includes(userRole) && userPsId) {
+      if (request.requested_user?.police_station_id && String(request.requested_user.police_station_id) !== String(userPsId)) {
+        return res.status(403).json({ message: 'You can only reject edit requests for your assigned police station' });
       }
     }
 
@@ -268,7 +310,7 @@ export const rejectEditRequest = async (req: AuthRequest, res: Response) => {
         status: 'REJECTED',
         approved_by: BigInt(userId),
         approved_at: new Date(),
-        rejection_reason: rejectionReason || 'Rejected',
+        rejection_reason: rejectionReason || 'Rejected by SHO',
       },
     });
 

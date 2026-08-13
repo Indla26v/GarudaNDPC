@@ -5,6 +5,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../api/axios';
 import CustomSelect from '../../components/CustomSelect';
+import { usePermissions } from '../../hooks/usePermissions';
 
 export const ARREST_STATUS_META = {
   POLICE_CUSTODY: {
@@ -114,6 +115,7 @@ export default function CaseForm() {
   const { id: rawId } = useParams();
   const id = rawId ? String(rawId).replace(/\/+$/, '') : undefined;
   const navigate = useNavigate();
+  const perms = usePermissions();
   const isEdit = !!id;
 
   const [form, setForm] = useState({
@@ -151,6 +153,9 @@ export default function CaseForm() {
   const [sectionErrors, setSectionErrors] = useState({});
   const [notesHistory, setNotesHistory] = useState([]);
   const [newNote, setNewNote] = useState('');
+
+  const isSamePS = !perms.isStationLevel || (!form.psId || String(form.psId) === String(perms.policeStationId));
+  const isCrossPSEditRestricted = isEdit && !!form.psId && !isSamePS;
 
   const quickAccessSections = [
     { id: 'section-details', label: 'Case Details' },
@@ -323,6 +328,10 @@ export default function CaseForm() {
 
   const handleSubmit = async (e, shouldRedirect = true, sectionName = '') => {
     if (e && e.preventDefault) e.preventDefault();
+    if (isCrossPSEditRestricted) {
+      setError('Access Denied: You do not have permission to edit cases from other police stations');
+      return;
+    }
     setSaving(true);
     setError('');
     setSectionErrors({});
@@ -497,6 +506,29 @@ export default function CaseForm() {
           {isEdit ? 'Update case details' : 'Register a new NDPS case — FIR auto-generated if left blank'}
         </p>
       </div>
+
+      {isCrossPSEditRestricted && (
+        <div className="p-4 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-300 flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 shadow-md">
+          <div className="flex items-center gap-3.5">
+            <div className="p-2 rounded-xl bg-amber-500/20 text-amber-400 font-black text-xl flex items-center justify-center shrink-0 select-none">
+              ⚠️
+            </div>
+            <div>
+              <h4 className="font-bold text-sm text-amber-200">Access Restricted — Read-Only Mode</h4>
+              <p className="text-xs text-amber-300/90 mt-0.5 font-medium">
+                This case belongs to another police station ({stations.find(s => String(s.id) === String(form.psId))?.name || 'Other PS'}). You have <strong>Read-Only access</strong> and cannot edit cases outside your assigned police station.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => navigate(`/cases/${id}`)}
+            className="px-3.5 py-2 text-xs font-bold bg-amber-500 text-black rounded-lg hover:bg-amber-400 transition-colors shrink-0 cursor-pointer"
+          >
+            View Case Details
+          </button>
+        </div>
+      )}
 
       {error && (
         <div className="p-3 rounded-lg text-sm" style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)' }}>
@@ -1053,9 +1085,19 @@ export default function CaseForm() {
             <button type="button" onClick={() => navigate('/cases')} className="px-5 py-2.5 rounded-lg text-sm" style={{ background: 'var(--color-garuda-700)', color: 'var(--color-garuda-300)' }}>
               Cancel
             </button>
-            <button type="submit" disabled={saving} className="px-5 py-2.5 rounded-lg text-sm text-white" style={{ background: 'var(--color-accent-500)', opacity: saving ? 0.6 : 1 }}>
-              {saving ? 'Saving...' : isEdit ? 'Update Case' : 'Register Case'}
-            </button>
+            {isCrossPSEditRestricted ? (
+              <button
+                type="button"
+                onClick={() => navigate(`/cases/${id}`)}
+                className="px-5 py-2.5 rounded-lg text-sm font-bold bg-amber-500 text-black hover:bg-amber-400 cursor-pointer"
+              >
+                View Case Details
+              </button>
+            ) : (
+              <button type="submit" disabled={saving} className="px-5 py-2.5 rounded-lg text-sm text-white" style={{ background: 'var(--color-accent-500)', opacity: saving ? 0.6 : 1 }}>
+                {saving ? 'Saving...' : isEdit ? 'Update Case' : 'Register Case'}
+              </button>
+            )}
           </div>
         </form>
       </div>

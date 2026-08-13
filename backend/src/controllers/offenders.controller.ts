@@ -672,7 +672,29 @@ export const updateOffender = async (req: AuthRequest, res: Response) => {
     const existing = await prisma.offenders.findFirst({ where: { id: BigInt(id as string), ...scope } });
     if (!existing) return res.status(404).json({ message: 'Offender not found or access denied' });
 
-    // Transaction for safe nested updates
+    // Constables cannot commit directly to DB — route edits to SHO for approval
+    if (userRole === 'CONSTABLE') {
+      const newReq = await prisma.edit_requests.create({
+        data: {
+          entity_type: 'OFFENDER',
+          entity_id: BigInt(id as string),
+          changes_json: JSON.stringify(data),
+          reason: data.reason || 'Constable profile update submitted for SHO approval',
+          status: 'PENDING',
+          requested_by: BigInt(req.user!.userId),
+        },
+      });
+
+      await logAudit('EDIT_REQUESTED', 'EDIT_REQUEST', newReq.id, req, `Edit request submitted by Constable for offender #${id}`);
+      broadcastEvent('data_updated', { entity: 'edit-request', id: newReq.id.toString() });
+
+      return res.status(200).json(successResponse({
+        id: newReq.id.toString(),
+        isPendingApproval: true
+      }, 'Edit request submitted to Station SHO for approval. Changes will be committed upon SHO approval.'));
+    }
+
+    // Transaction for safe nested updates for SHO/Admin
     await prisma.$transaction(async (tx) => {
        const updateDataObj: any = {};
        

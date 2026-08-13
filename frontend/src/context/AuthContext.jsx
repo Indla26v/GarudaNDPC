@@ -31,13 +31,15 @@ export function AuthProvider({ children }) {
     try {
       const res = await api.get('/auth/me');
       const serverUser = res.data.data;
-      // Sync user data from server (role/department may have changed)
+      // Sync user data from server (role/department/photo may have changed)
       const userData = {
         username: serverUser.username,
-        fullName: serverUser.full_name,
+        fullName: serverUser.fullName || serverUser.full_name,
         role: serverUser.role,
         department: serverUser.department || null,
-        policeStationId: serverUser.police_station_id || null,
+        policeStationId: serverUser.policeStationId || serverUser.police_station_id || null,
+        badgeNumber: serverUser.badgeNumber || serverUser.badge_number || null,
+        photoUrl: serverUser.photoUrl || serverUser.photo_url || null,
       };
       localStorage.setItem('garuda_user', JSON.stringify(userData));
       setUser(userData);
@@ -62,11 +64,12 @@ export function AuthProvider({ children }) {
       const serverUser = res.data.data;
       const userData = {
         username: serverUser.username,
-        fullName: serverUser.full_name,
+        fullName: serverUser.fullName || serverUser.full_name,
         role: serverUser.role,
         department: serverUser.department || null,
-        policeStationId: serverUser.police_station_id || null,
-        badgeNumber: serverUser.badge_number || null,
+        policeStationId: serverUser.policeStationId || serverUser.police_station_id || null,
+        badgeNumber: serverUser.badgeNumber || serverUser.badge_number || null,
+        photoUrl: serverUser.photoUrl || serverUser.photo_url || null,
       };
       localStorage.setItem('garuda_user', JSON.stringify(userData));
       setUser(userData);
@@ -109,6 +112,8 @@ export function AuthProvider({ children }) {
         role: data.role,
         department: data.department || null,
         policeStationId: data.policeStationId || null,
+        badgeNumber: data.badgeNumber || null,
+        photoUrl: data.photoUrl || null,
       };
       localStorage.setItem('garuda_user', JSON.stringify(userData));
       setUser(userData);

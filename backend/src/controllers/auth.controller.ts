@@ -118,9 +118,10 @@ export const login = async (req: AuthRequest, res: Response) => {
     res.json(successResponse({
       accessToken,
       refreshToken: refreshTokenString,
-      expiresIn: 8 * 60 * 60, // 8 hours in seconds
-      username: user.username,
+      expiresIn: 8 * 60 * 60,       username: user.username,
       fullName: user.full_name,
+      badgeNumber: user.badge_number,
+      photoUrl: (user as any).photo_url || null,
       role: user.role,
       department: user.department,
       policeStationId: user.police_station_id ? Number(user.police_station_id) : null,
@@ -138,31 +139,22 @@ export const refresh = async (req: AuthRequest, res: Response) => {
   const token = refreshToken || req.cookies?.garuda_refresh_token;
 
   if (!token) {
-    return res.status(400).json({ message: 'Refresh token is required' });
+    return res.status(401).json({ message: 'Refresh token required' });
   }
 
   try {
-    const stored = await prisma.refresh_tokens.findUnique({
-      where: { token: token },
+    const record = await prisma.refresh_tokens.findUnique({
+      where: { token },
       include: { users: true }
     });
 
-    if (!stored || stored.revoked || new Date() > stored.expiry_date) {
+    if (!record || record.revoked || record.expiry_date < new Date()) {
       return res.status(401).json({ message: 'Invalid or expired refresh token' });
     }
 
-    const user = stored.users;
-    if (!user) {
-      return res.status(401).json({ message: 'Invalid refresh token user' });
-    }
-
-    // ── SECURITY FIX #7: Reject deactivated users at token refresh
-    if (!user.is_active) {
-      await prisma.refresh_tokens.update({
-        where: { id: stored.id },
-        data: { revoked: true },
-      });
-      return res.status(401).json({ message: 'Account has been deactivated' });
+    const user = record.users;
+    if (!user || !user.is_active) {
+      return res.status(401).json({ message: 'User inactive or not found' });
     }
 
     const newAccessToken = jwt.sign(
@@ -178,8 +170,8 @@ export const refresh = async (req: AuthRequest, res: Response) => {
       JWT_KEY,
       { expiresIn: '8h' }
     );
-    
-    // ── SECURITY FIX #12: Store JWTs in HttpOnly cookies
+
+    // ── SECURITY FIX #12: Store new accessToken in HttpOnly cookie
     const cookieOptions = {
       httpOnly: true,
       secure: IS_PROD,
@@ -189,15 +181,16 @@ export const refresh = async (req: AuthRequest, res: Response) => {
 
     res.cookie('garuda_access_token', newAccessToken, {
       ...cookieOptions,
-      maxAge: 8 * 60 * 60 * 1000 // 8 hours
+      maxAge: 8 * 60 * 60 * 1000
     });
 
     res.json(successResponse({
       accessToken: newAccessToken,
-      refreshToken: stored.token,
       expiresIn: 8 * 60 * 60,
       username: user.username,
       fullName: user.full_name,
+      badgeNumber: user.badge_number,
+      photoUrl: (user as any).photo_url || null,
       role: user.role,
       department: user.department,
       policeStationId: user.police_station_id ? Number(user.police_station_id) : null,
@@ -248,7 +241,7 @@ export const logout = async (req: AuthRequest, res: Response) => {
 export const getMe = async (req: AuthRequest, res: Response) => {
   try {
     const user = await prisma.users.findUnique({
-      where: { id: req.user!.userId }
+      where: { id: BigInt(req.user!.userId) }
     });
     
     if (!user) {
@@ -256,8 +249,15 @@ export const getMe = async (req: AuthRequest, res: Response) => {
     }
     
     const { password_hash, ...userWithoutPassword } = user;
-    res.json(successResponse(convertBigIntsToNumbers(userWithoutPassword)));
+    const formattedUser = convertBigIntsToNumbers(userWithoutPassword);
+    res.json(successResponse({
+      ...formattedUser,
+      fullName: user.full_name,
+      badgeNumber: user.badge_number,
+      photoUrl: (user as any).photo_url || null,
+    }));
   } catch (error) {
+    console.error('getMe error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -265,8 +265,8 @@ export const getMe = async (req: AuthRequest, res: Response) => {
 // ── Update own profile (self-service) ─────────────────────────────────
 export const updateMyProfile = async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.user!.userId;
-    const { fullName, badgeNumber } = req.body;
+    const userId = BigInt(req.user!.userId);
+    const { fullName, badgeNumber, photoUrl } = req.body;
 
     const user = await prisma.users.findUnique({ where: { id: userId } });
     if (!user) {
@@ -279,6 +279,9 @@ export const updateMyProfile = async (req: AuthRequest, res: Response) => {
     }
     if (badgeNumber !== undefined) {
       updateData.badge_number = badgeNumber?.trim() || null;
+    }
+    if (photoUrl !== undefined) {
+      updateData.photo_url = photoUrl || null;
     }
 
     if (Object.keys(updateData).length === 0) {
@@ -294,9 +297,15 @@ export const updateMyProfile = async (req: AuthRequest, res: Response) => {
       `Self-service profile update: ${JSON.stringify(Object.keys(updateData))}`);
 
     const { password_hash: _, ...userWithoutPassword } = updated;
-    res.json(successResponse(convertBigIntsToNumbers(userWithoutPassword), 'Profile updated successfully'));
+    const formattedUser = convertBigIntsToNumbers(userWithoutPassword);
+    res.json(successResponse({
+      ...formattedUser,
+      fullName: updated.full_name,
+      badgeNumber: updated.badge_number,
+      photoUrl: (updated as any).photo_url || null,
+    }, 'Profile updated successfully'));
   } catch (error) {
-    console.error(error);
+    console.error('updateMyProfile error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -304,7 +313,7 @@ export const updateMyProfile = async (req: AuthRequest, res: Response) => {
 // ── Change own password (self-service) ────────────────────────────────
 export const changeMyPassword = async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.user!.userId;
+    const userId = BigInt(req.user!.userId);
     const { currentPassword, newPassword } = req.body;
 
     if (!currentPassword || !newPassword) {

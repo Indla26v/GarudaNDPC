@@ -84,11 +84,8 @@ export default function OffenderForm() {
   const navigate = useNavigate();
   const perms = usePermissions();
 
-  const isEdit = location.pathname.endsWith('/edit');
-  const isNew = location.pathname.endsWith('/new') || (!id && !isEdit);
-  const isView = !isEdit && !isNew && !!id;
-
-  const isSamePS = !perms.isStationLevel || (String(form.psId) === String(perms.policeStationId));
+  const isEditRoute = location.pathname.endsWith('/edit');
+  const isNew = location.pathname.endsWith('/new') || (!id && !isEditRoute);
 
   const [aadhaarRevealed, setAadhaarRevealed] = useState(false);
   const [aadhaarMasked, setAadhaarMasked] = useState(true);
@@ -125,10 +122,15 @@ export default function OffenderForm() {
     supplyChainLinks: [],
   });
 
+  const isSamePS = !perms.isStationLevel || (!form.psId || String(form.psId) === String(perms.policeStationId));
+  const isCrossPSEditRestricted = isEditRoute && !!form.psId && !isSamePS;
+  const isEdit = isEditRoute && !isCrossPSEditRestricted;
+  const isView = (!isEditRoute && !isNew && !!id) || isCrossPSEditRestricted;
+
   useEffect(() => {
     fetchStations();
-    if (isEdit || isView) fetchOffender();
-  }, [id, isEdit, isView]);
+    if (isEditRoute || isView || !!id) fetchOffender();
+  }, [id, isEditRoute, isView]);
 
   useEffect(() => {
     if (snackbar) {
@@ -152,7 +154,8 @@ export default function OffenderForm() {
         slNo: d.slNo||'', psId: d.psId||'', fullName: d.fullName||'',
         alias: d.alias||'', fatherHusbandName: d.fatherHusbandName||'',
         age: d.age||'', gender: d.gender||'', category: d.category||'',
-        fullAddress: d.fullAddress||'', landmark: d.landmark||'',
+        fullAddress: d.fullAddress || d.full_address || '',
+        landmark: d.landmark || d.landmarkArea || d.landmark_area || '',
         district: d.district||'', state: d.state||'',
         occupation: d.occupation||'', monthlyIncome: d.monthlyIncome||'',
         addictionType: d.addictionType||'', consumptionFrequency: d.consumptionFrequency||'',
@@ -801,19 +804,69 @@ export default function OffenderForm() {
           .filter(s => s.value?.trim())
           .map(s => ({ contactType: s.contactType, value: s.value.trim(), notes: s.notes || '' }))
       ];
-      const body = {
-        ...restForm,
-        age: form.age ? Number(form.age) : null,
-        monthlyIncome: form.monthlyIncome ? Number(form.monthlyIncome) : null,
-        psId: Number(form.psId),
-        contacts: combinedContacts,
-        financials: flattenedFinancials
-      };
+      let body = {};
+      if (sectionName === 'Basic Information') {
+        body = {
+          slNo: form.slNo,
+          psId: form.psId ? Number(form.psId) : null,
+          fullName: form.fullName,
+          alias: form.alias,
+          fatherHusbandName: form.fatherHusbandName,
+          age: form.age ? Number(form.age) : null,
+          gender: form.gender,
+          category: form.category,
+          occupation: form.occupation,
+          monthlyIncome: form.monthlyIncome ? Number(form.monthlyIncome) : null,
+          aadhaarNo: form.aadhaarNo,
+          voterId: form.voterId,
+          panCard: form.panCard,
+          photoUrl: form.photoUrl,
+          previousCrimeHistory: form.previousCrimeHistory,
+          historySheetStatus: form.historySheetStatus
+        };
+      } else if (sectionName === 'Address Details') {
+        body = {
+          fullAddress: form.fullAddress,
+          landmarkArea: form.landmark || form.landmarkArea,
+          district: form.district,
+          state: form.state
+        };
+      } else if (sectionName === 'Phone & Email Contacts' || sectionName === 'Social Media & Messaging Profiles') {
+        body = { contacts: combinedContacts };
+      } else if (sectionName === 'Drug Profile') {
+        body = {
+          addictionType: form.addictionType,
+          consumptionFrequency: form.consumptionFrequency,
+          sourceOfProcurement: form.sourceOfProcurement,
+          testResult: form.testResult,
+          modeOfPurchase: form.modeOfPurchase,
+          usualConsumptionSpot: form.usualConsumptionSpot,
+          sectionOfLaw: form.sectionOfLaw
+        };
+      } else if (sectionName === 'Financial Details') {
+        body = { financials: flattenedFinancials };
+      } else if (sectionName === 'Criminal History') {
+        body = { criminalHistories: form.criminalHistories };
+      } else if (sectionName === 'Supply Chain Links') {
+        body = { supplyChainLinks: form.supplyChainLinks };
+      } else {
+        body = {
+          ...restForm,
+          landmarkArea: form.landmark || form.landmarkArea,
+          age: form.age ? Number(form.age) : null,
+          monthlyIncome: form.monthlyIncome ? Number(form.monthlyIncome) : null,
+          psId: form.psId ? Number(form.psId) : null,
+          contacts: combinedContacts,
+          financials: flattenedFinancials
+        };
+      }
       if (isEdit) {
         const url = sectionName ? `/offenders/${id}?section=${encodeURIComponent(sectionName)}` : `/offenders/${id}`;
-        await api.put(url, body);
-        const successMsg = sectionName ? `${sectionName} updated successfully!` : 'Profile updated successfully!';
-        setSnackbar({ type: 'success', message: successMsg });
+        const res = await api.put(url, body);
+        const serverMsg = res.data?.message;
+        const isPending = res.data?.data?.isPendingApproval;
+        const successMsg = serverMsg || (sectionName ? `${sectionName} updated successfully!` : 'Profile updated successfully!');
+        setSnackbar({ type: isPending ? 'info' : 'success', message: successMsg });
       } else {
         const res = await api.post('/offenders', body);
         const newId = res.data?.data?.id;
@@ -945,21 +998,28 @@ export default function OffenderForm() {
     return () => { if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop()); };
   }, []);
 
-  const inp = "w-full px-3 py-2 rounded-lg text-sm outline-none";
-  const sel = "w-full px-3 py-2 rounded-lg text-sm outline-none cursor-pointer";
+  const inp = "w-full px-4 py-2.5 rounded-full text-sm outline-none shadow-xs";
+  const sel = "w-full px-4 py-2.5 rounded-full text-sm outline-none cursor-pointer shadow-xs";
 
-  const renderField = (label, value, children) => (
-    <div>
-      <label className="block text-xs font-bold uppercase tracking-wider mb-1.5" style={{ color: 'var(--color-garuda-400)' }}>{label}</label>
-      {isView ? (
-        <div className="px-3 py-2 rounded-lg text-sm font-semibold" style={{ background: 'var(--color-garuda-900)', border: '1px solid var(--color-garuda-700)', color: 'var(--color-garuda-100)', minHeight: '38px', display: 'flex', alignItems: 'center' }}>
-          {value || '—'}
-        </div>
-      ) : (
-        children
-      )}
-    </div>
-  );
+  const renderField = (label, value, children) => {
+    const childId = children?.props?.id;
+    return (
+      <div>
+        {isView ? (
+          <span className="block text-xs font-bold uppercase tracking-wider mb-1.5" style={{ color: 'var(--color-garuda-400)' }}>{label}</span>
+        ) : (
+          <label htmlFor={childId} className="block text-xs font-bold uppercase tracking-wider mb-1.5" style={{ color: 'var(--color-garuda-400)' }}>{label}</label>
+        )}
+        {isView ? (
+          <div className="px-4 py-2.5 rounded-full text-sm font-semibold shadow-xs" style={{ background: 'var(--color-garuda-900)', border: '1px solid var(--color-garuda-700)', color: 'var(--color-garuda-100)', minHeight: '38px', display: 'flex', alignItems: 'center' }}>
+            {value || '—'}
+          </div>
+        ) : (
+          children
+        )}
+      </div>
+    );
+  };
 
   const pageTitle = isNew
     ? 'Add New Profile'
@@ -1030,6 +1090,20 @@ export default function OffenderForm() {
         </div>
       </div>
 
+      {isCrossPSEditRestricted && (
+        <div className="p-4 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-300 flex items-center gap-3.5 shadow-md">
+          <div className="p-2 rounded-xl bg-amber-500/20 text-amber-400 font-black text-xl flex items-center justify-center shrink-0 select-none">
+            ⚠️
+          </div>
+          <div>
+            <h4 className="font-bold text-sm text-amber-200">Access Restricted — Read-Only Mode</h4>
+            <p className="text-xs text-amber-300/90 mt-0.5 font-medium">
+              This record belongs to another police station ({stations.find(s => String(s.id) === String(form.psId))?.name || 'Other PS'}). You have <strong>Read-Only access</strong> and cannot edit records outside your assigned police station.
+            </p>
+          </div>
+        </div>
+      )}
+
       {error && (
         <div className="px-4 py-3 rounded-lg text-sm" style={{ background: 'rgba(239,68,68,0.15)', color: 'var(--color-danger-400)', border: '1px solid rgba(239,68,68,0.3)' }}>
           {error}
@@ -1054,7 +1128,7 @@ export default function OffenderForm() {
               <button 
                 type="button" 
                 onClick={() => handleSubmit(false, 'Basic Information')} 
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white border-none cursor-pointer transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-sm"
+                className="px-4 py-1.5 rounded-full text-xs font-black text-white border-none cursor-pointer transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-md"
                 style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)' }}
               >
                 Update Section
@@ -1075,7 +1149,7 @@ export default function OffenderForm() {
                 </div>
               ) : (
                 <div className="w-full min-w-[240px] flex flex-col items-center">
-                  <label className="block text-xs font-bold uppercase tracking-wider mb-1.5 w-full text-left" style={{ color: 'var(--color-garuda-400)' }}>Subject Photograph</label>
+                  <span className="block text-xs font-bold uppercase tracking-wider mb-1.5 w-full text-left" style={{ color: 'var(--color-garuda-400)' }}>Subject Photograph</span>
                   <div className="flex flex-col gap-3 p-4 rounded-xl border w-full items-center justify-center" style={{ background: 'var(--color-garuda-700)', borderColor: 'var(--color-garuda-600)' }}>
                     {form.photoUrl ? (
                       <div className="flex flex-col items-center gap-3">
@@ -1124,10 +1198,11 @@ export default function OffenderForm() {
                         </button>
                         <div className="text-center text-xs font-semibold" style={{ color: 'var(--color-garuda-400)' }}>or</div>
                         <div className="w-full">
-                          <label className="w-full px-4 py-2.5 rounded-lg text-xs font-bold cursor-pointer flex items-center justify-center gap-2 transition-all border text-center hover:scale-[1.02] active:scale-[0.98]"
+                          <label htmlFor="photo-upload-input" className="w-full px-4 py-2.5 rounded-lg text-xs font-bold cursor-pointer flex items-center justify-center gap-2 transition-all border text-center hover:scale-[1.02] active:scale-[0.98]"
                             style={{ background: 'var(--color-garuda-600)', color: 'var(--color-garuda-100)', borderColor: 'var(--color-garuda-500)' }}>
                             Upload
                             <input 
+                              id="photo-upload-input"
                               type="file" 
                               accept="image/*" 
                               onChange={handleFileChange} 
@@ -1175,7 +1250,11 @@ export default function OffenderForm() {
               {renderField("Occupation", form.occupation, <input id="occupation" name="occupation" className={inp} style={inputStyle} value={form.occupation} onChange={e => set('occupation', e.target.value)} />)}
               {renderField("Monthly Income (₹)", form.monthlyIncome ? `₹${form.monthlyIncome}` : '', <input id="monthlyIncome" name="monthlyIncome" type="number" className={inp} style={inputStyle} value={form.monthlyIncome} onChange={e => set('monthlyIncome', e.target.value)} />)}
               <div>
-                <label htmlFor="aadhaarNo" className="block text-xs font-bold uppercase tracking-wider mb-1.5" style={{ color: 'var(--color-garuda-400)' }}>Aadhaar No</label>
+                {isView ? (
+                  <span className="block text-xs font-bold uppercase tracking-wider mb-1.5" style={{ color: 'var(--color-garuda-400)' }}>Aadhaar No</span>
+                ) : (
+                  <label htmlFor="aadhaarNo" className="block text-xs font-bold uppercase tracking-wider mb-1.5" style={{ color: 'var(--color-garuda-400)' }}>Aadhaar No</label>
+                )}
                 {isView ? (
                   <div className="flex gap-2">
                     <div className="px-3 py-2 rounded-lg text-sm font-semibold flex-1" style={{ background: 'var(--color-garuda-900)', border: '1px solid var(--color-garuda-700)', color: 'var(--color-garuda-100)', minHeight: '38px', display: 'flex', alignItems: 'center' }}>
@@ -1217,7 +1296,7 @@ export default function OffenderForm() {
               <button 
                 type="button" 
                 onClick={() => handleSubmit(false, 'Address Details')} 
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white border-none cursor-pointer transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-sm"
+                className="px-4 py-1.5 rounded-full text-xs font-black text-white border-none cursor-pointer transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-md"
                 style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)' }}
               >
                 Update Section
@@ -1247,7 +1326,7 @@ export default function OffenderForm() {
               <button 
                 type="button" 
                 onClick={() => handleSubmit(false, 'Phone & Email Contacts')} 
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white border-none cursor-pointer transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-sm"
+                className="px-4 py-1.5 rounded-full text-xs font-black text-white border-none cursor-pointer transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-md"
                 style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)' }}
               >
                 Update Section
@@ -1332,7 +1411,7 @@ export default function OffenderForm() {
               <button 
                 type="button" 
                 onClick={() => handleSubmit(false, 'Social Media & Messaging Profiles')} 
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white border-none cursor-pointer transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-sm"
+                className="px-4 py-1.5 rounded-full text-xs font-black text-white border-none cursor-pointer transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-md"
                 style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)' }}
               >
                 Update Section
@@ -1393,7 +1472,7 @@ export default function OffenderForm() {
               <button 
                 type="button" 
                 onClick={() => handleSubmit(false, 'Drug Profile')} 
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white border-none cursor-pointer transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-sm"
+                className="px-4 py-1.5 rounded-full text-xs font-black text-white border-none cursor-pointer transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-md"
                 style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)' }}
               >
                 Update Section
@@ -1454,7 +1533,7 @@ export default function OffenderForm() {
               <button 
                 type="button" 
                 onClick={() => handleSubmit(false, 'Financial Details')} 
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white border-none cursor-pointer transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-sm"
+                className="px-4 py-1.5 rounded-full text-xs font-black text-white border-none cursor-pointer transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-md"
                 style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)' }}
               >
                 Update Section
@@ -1549,7 +1628,7 @@ export default function OffenderForm() {
               <button 
                 type="button" 
                 onClick={() => handleSubmit(false, 'Criminal History')} 
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white border-none cursor-pointer transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-sm"
+                className="px-4 py-1.5 rounded-full text-xs font-black text-white border-none cursor-pointer transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-md"
                 style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)' }}
               >
                 Update Section
@@ -1631,7 +1710,7 @@ export default function OffenderForm() {
               <button 
                 type="button" 
                 onClick={() => handleSubmit(false, 'Supply Chain Links')} 
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white border-none cursor-pointer transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-sm"
+                className="px-4 py-1.5 rounded-full text-xs font-black text-white border-none cursor-pointer transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-md"
                 style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)' }}
               >
                 Update Section
@@ -1762,8 +1841,8 @@ export default function OffenderForm() {
       {!isView && (
         <div className="flex justify-end pt-4">
           <button onClick={handleSubmit} disabled={saving}
-            className="px-6 py-2.5 rounded-lg text-sm font-semibold text-white cursor-pointer transition-all whitespace-nowrap"
-            style={{ background: saving ? 'var(--color-garuda-600)' : 'linear-gradient(135deg, var(--color-accent-500), var(--color-accent-400))', boxShadow: saving ? 'none' : 'var(--shadow-glow)' }}>
+            className="px-8 py-3 rounded-full text-sm font-black text-slate-950 cursor-pointer transition-all whitespace-nowrap shadow-lg shadow-amber-500/25 active:scale-95 border-none"
+            style={{ background: saving ? 'var(--color-garuda-600)' : 'linear-gradient(135deg, #f59e0b, #d97706)' }}>
             {saving ? 'Saving...' : isEdit ? 'Update Profile' : 'Create Profile'}
           </button>
         </div>
