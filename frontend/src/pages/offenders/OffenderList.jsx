@@ -49,6 +49,7 @@ export default function OffenderList({ isConsumerOnly = false }) {
     return user?.policeStationId ? String(user.policeStationId) : '';
   });
   const [categoryFilter, setCategoryFilter] = useState(() => searchParams.get('category') || '');
+  const [arrestStatus, setArrestStatus] = useState(() => searchParams.get('arrestStatus') || '');
 
   // Time Range Filtering
   const [periodFilter, setPeriodFilter] = useState(() => searchParams.get('timeRange') || 'all');
@@ -152,8 +153,23 @@ export default function OffenderList({ isConsumerOnly = false }) {
   }, []);
 
   useEffect(() => {
+    const category = searchParams.get('category');
+    const timeRange = searchParams.get('timeRange');
+    const month = searchParams.get('month');
+    const year = searchParams.get('year');
+    const arrest = searchParams.get('arrestStatus');
+
+    if (category !== null) setCategoryFilter(category);
+    if (timeRange !== null) setPeriodFilter(timeRange);
+    if (month !== null) setSelectedMonth(month);
+    if (year !== null) setSelectedYear(year);
+    if (arrest !== null) setArrestStatus(arrest);
+    setPage(0);
+  }, [searchParams]);
+
+  useEffect(() => {
     fetchOffenders();
-  }, [page, psFilter, categoryFilter, isConsumerOnly, periodFilter, selectedMonth, selectedYear]);
+  }, [page, psFilter, categoryFilter, arrestStatus, isConsumerOnly, periodFilter, selectedMonth, selectedYear]);
 
   const fetchStations = async () => {
     try {
@@ -172,6 +188,7 @@ export default function OffenderList({ isConsumerOnly = false }) {
       } else if (categoryFilter) {
         params.category = categoryFilter;
       }
+      if (arrestStatus) params.arrestStatus = arrestStatus;
       params.timeRange = periodFilter;
       if (periodFilter === 'monthly' && selectedMonth) params.month = selectedMonth;
       if (periodFilter === 'yearly' && selectedYear) params.year = selectedYear;
@@ -212,6 +229,7 @@ export default function OffenderList({ isConsumerOnly = false }) {
       } else if (categoryFilter) {
         params.category = categoryFilter;
       }
+      if (arrestStatus) params.arrestStatus = arrestStatus;
       params.timeRange = periodFilter;
       if (periodFilter === 'monthly' && selectedMonth) params.month = selectedMonth;
       if (periodFilter === 'yearly' && selectedYear) params.year = selectedYear;
@@ -506,6 +524,22 @@ export default function OffenderList({ isConsumerOnly = false }) {
           ]}
         />
       </div>
+
+      {arrestStatus && (
+        <div className="flex items-center gap-2 px-1">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+            <span>Filter: Arrested in Custody</span>
+            <button
+              type="button"
+              onClick={() => { setArrestStatus(''); setPage(0); }}
+              className="ml-1 hover:text-emerald-800 dark:hover:text-white cursor-pointer font-black"
+              title="Clear arrest filter"
+            >
+              ✕
+            </button>
+          </span>
+        </div>
+      )}
 
       {/* Table Card */}
       <div className="card rounded-3xl overflow-hidden border border-slate-200/80 dark:border-slate-800 shadow-xl">

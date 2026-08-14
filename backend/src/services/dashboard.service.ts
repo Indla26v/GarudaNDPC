@@ -81,12 +81,13 @@ export class DashboardService {
       ? { cases: { police_stations: psFilter.police_stations }, ...seizureDateCondition }
       : { ...seizureDateCondition };
 
-    const [totalCases, totalOffenders, totalArrests, seizures] = await Promise.all([
+    const [totalCases, totalOffenders, arrestsGroup, seizures] = await Promise.all([
       prisma.cases.count({ where: caseWhere }),
       prisma.offenders.count({ where: offenderWhere }),
-      prisma.case_accused.count({ where: caseAccusedWhere }),
+      prisma.case_accused.groupBy({ by: ['offender_id'], where: caseAccusedWhere }),
       prisma.seizures.findMany({ where: seizureWhere, select: { contraband_kg: true, cash_amount: true } }),
     ]);
+    const totalArrests = arrestsGroup.length;
 
     let totalContrabandKg = 0;
     let totalCashAmount = 0;

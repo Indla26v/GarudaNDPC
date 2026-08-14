@@ -16,7 +16,7 @@ import { handleControllerError } from '../utils/error-handler';
 
 export const getOffenders = async (req: AuthRequest, res: Response) => {
   try {
-    const { query, psId, category, page = 0, size = 10, timeRange, month, year } = req.query;
+    const { page = 0, size = 20, query, psId, category, timeRange, month, year, arrestStatus } = req.query;
     
     let whereClause: any = { ...getOffenderWhere(req.user!) };
 
@@ -31,37 +31,77 @@ export const getOffenders = async (req: AuthRequest, res: Response) => {
     } else if (psId === '') {
       delete whereClause.ps_id;
     }
-    if (category) {
+
+    const andConditions: any[] = [];
+
+    if (category && category !== 'ABSCONDER') {
       whereClause.category = category as any;
     }
+
     if (query) {
       const q = String(query);
-      whereClause.OR = [
-        { full_name: { contains: q, mode: 'insensitive' } },
-        { alias: { contains: q, mode: 'insensitive' } },
-        { offender_identity_docs: { some: { OR: [
-          { aadhaar_no: { contains: q, mode: 'insensitive' } },
-          { voter_id: { contains: q, mode: 'insensitive' } },
-          { pan_card: { contains: q, mode: 'insensitive' } }
-        ] } } },
-        { offender_contacts: { some: { value: { contains: q, mode: 'insensitive' } } } },
-        { case_accused: { some: { cases: { fir_no: { contains: q, mode: 'insensitive' } } } } }
-      ];
+      andConditions.push({
+        OR: [
+          { full_name: { contains: q, mode: 'insensitive' } },
+          { alias: { contains: q, mode: 'insensitive' } },
+          { offender_identity_docs: { some: { OR: [
+            { aadhaar_no: { contains: q, mode: 'insensitive' } },
+            { voter_id: { contains: q, mode: 'insensitive' } },
+            { pan_card: { contains: q, mode: 'insensitive' } }
+          ] } } },
+          { offender_contacts: { some: { value: { contains: q, mode: 'insensitive' } } } },
+          { case_accused: { some: { cases: { fir_no: { contains: q, mode: 'insensitive' } } } } }
+        ]
+      });
     }
 
+    let dateFilter: any = null;
     if (timeRange === 'monthly') {
       const monthStr = month ? String(month) : new Date().toISOString().substring(0, 7);
       const [y, m] = monthStr.split('-').map(Number);
       if (y && m) {
         const start = new Date(y, m - 1, 1, 0, 0, 0, 0);
         const end = new Date(y, m, 0, 23, 59, 59, 999);
-        whereClause.created_at = { gte: start, lte: end };
+        dateFilter = { gte: start, lte: end };
       }
     } else if (timeRange === 'yearly') {
       const y = year ? Number(year) : new Date().getFullYear();
       const start = new Date(y, 0, 1, 0, 0, 0, 0);
       const end = new Date(y, 11, 31, 23, 59, 59, 999);
-      whereClause.created_at = { gte: start, lte: end };
+      dateFilter = { gte: start, lte: end };
+    }
+
+    const isArrestFilter = arrestStatus === 'ARRESTED' || arrestStatus === 'CUSTODY' || req.query.arrested === 'true';
+
+    if (isArrestFilter) {
+      andConditions.push({
+        case_accused: {
+          some: {
+            arrest_status: { in: ['POLICE_CUSTODY', 'JUDICIAL_CUSTODY'] },
+            ...(dateFilter ? { cases: { OR: [{ case_date: dateFilter }, { case_date: null, created_at: dateFilter }] } } : {})
+          }
+        }
+      });
+    } else if (category === 'ABSCONDER' || arrestStatus === 'ABSCONDING') {
+      andConditions.push({
+        case_accused: {
+          some: {
+            arrest_status: 'ABSCONDING',
+            ...(dateFilter ? { cases: { OR: [{ case_date: dateFilter }, { case_date: null, created_at: dateFilter }] } } : {})
+          }
+        }
+      });
+    } else if (dateFilter) {
+      andConditions.push({
+        OR: [
+          { case_accused: { some: { cases: { OR: [{ case_date: dateFilter }, { case_date: null, created_at: dateFilter }] } } } },
+          { case_accused: { none: {} }, created_at: dateFilter }
+        ]
+      });
+    }
+
+    if (andConditions.length > 0) {
+      whereClause.AND = andConditions;
     }
 
     const skip = Number(page) * Number(size);

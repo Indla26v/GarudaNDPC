@@ -515,64 +515,66 @@ export default function CaseDetail() {
           )}
 
           {!loading && caseData?.seizedVehicles?.length > 0 && (
-            <div className="rounded-xl p-6" style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}>
-              <h3 className="font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--color-garuda-200)' }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ec4899" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-                  <path d="M14 16H9m10 0h3v-3.15a1 1 0 0 0-.84-.99L16 11l-2.7-3.6a1 1 0 0 0-.8-.4H5.24a2 2 0 0 0-1.8 1.1l-.8 1.63A6 6 0 0 0 2 12.42V16h2" />
-                  <circle cx="6.5" cy="16.5" r="2.5" />
-                  <circle cx="16.5" cy="16.5" r="2.5" />
-                </svg>
-                Seized Vehicles ({caseData.seizedVehicles.length})
-              </h3>
+            <div className="rounded-3xl p-6 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xl space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+                <h3 className="font-extrabold text-base text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ec4899" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                    <path d="M14 16H9m10 0h3v-3.15a1 1 0 0 0-.84-.99L16 11l-2.7-3.6a1 1 0 0 0-.8-.4H5.24a2 2 0 0 0-1.8 1.1l-.8 1.63A6 6 0 0 0 2 12.42V16h2" />
+                    <circle cx="6.5" cy="16.5" r="2.5" />
+                    <circle cx="16.5" cy="16.5" r="2.5" />
+                  </svg>
+                  Seized Vehicles ({caseData.seizedVehicles.length})
+                </h3>
+              </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr style={{ borderBottom: '1px solid var(--color-garuda-700)' }}>
-                      <th className="text-left px-3 py-2 text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--color-garuda-400)' }}>Reg No</th>
-                      <th className="text-left px-3 py-2 text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--color-garuda-400)' }}>Type</th>
-                      <th className="text-left px-3 py-2 text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--color-garuda-400)' }}>Make / Model</th>
-                      <th className="text-left px-3 py-2 text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--color-garuda-400)' }}>Owner</th>
-                      <th className="text-center px-3 py-2 text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--color-garuda-400)' }}>Status</th>
-                      {canEdit && <th className="text-right px-3 py-2 text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--color-garuda-400)' }}>Actions</th>}
+                    <tr className="border-b border-slate-100 dark:border-slate-800">
+                      <th className="text-left px-4 py-3 text-[11px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">Reg No</th>
+                      <th className="text-left px-4 py-3 text-[11px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">Type</th>
+                      <th className="text-left px-4 py-3 text-[11px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">Make / Model</th>
+                      <th className="text-left px-4 py-3 text-[11px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">Owner</th>
+                      <th className="text-center px-4 py-3 text-[11px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">Status</th>
+                      {canEdit && <th className="text-right px-4 py-3 text-[11px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">Actions</th>}
                     </tr>
                   </thead>
                   <tbody>
                     {caseData.seizedVehicles.map((v) => {
-                      const statusColors = {
-                        SEIZED: '#ef4444',
-                        RELEASED: '#22c55e',
-                        COURT_CUSTODY: '#f59e0b',
-                        DISPOSED: '#6b7280',
-                      };
-                      const statusColor = statusColors[v.currentStatus] || '#ef4444';
+                      const statusBadge = {
+                        SEIZED: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20',
+                        RELEASED: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
+                        COURT_CUSTODY: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20',
+                        DISPOSED: 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20',
+                      }[v.currentStatus] || 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20';
+
                       return (
-                        <tr key={v.id} style={{ borderBottom: '1px solid var(--color-garuda-700)' }}>
-                          <td className="px-3 py-2.5 font-mono font-semibold" style={{ color: 'var(--color-garuda-50)' }}>{v.registrationNo}</td>
-                          <td className="px-3 py-2.5" style={{ color: 'var(--color-garuda-300)' }}>
+                        <tr key={v.id} className="border-b border-slate-100/80 dark:border-slate-800/80 hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
+                          <td className="px-4 py-3.5">
+                            <span className="font-mono font-extrabold text-xs sm:text-sm text-slate-900 dark:text-white px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80">
+                              {v.registrationNo}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3.5 text-xs font-bold text-slate-700 dark:text-slate-300">
                             {({ TWO_WHEELER: 'Two Wheeler', FOUR_WHEELER: 'Four Wheeler', AUTO: 'Auto', TRUCK: 'Truck', BUS: 'Bus', OTHER: 'Other' })[v.vehicleType] || v.vehicleType}
                           </td>
-                          <td className="px-3 py-2.5" style={{ color: 'var(--color-garuda-200)' }}>
+                          <td className="px-4 py-3.5 text-xs font-extrabold text-slate-800 dark:text-slate-200">
                             {v.makeModel || '—'}
-                            {v.color && <span className="text-xs ml-1" style={{ color: 'var(--color-garuda-500)' }}>({v.color})</span>}
+                            {v.color && <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 ml-1.5">({v.color})</span>}
                           </td>
-                          <td className="px-3 py-2.5" style={{ color: 'var(--color-garuda-200)' }}>{v.ownerName || '—'}</td>
-                          <td className="px-3 py-2.5 text-center">
-                            <span
-                              className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider"
-                              style={{ background: statusColor + '18', color: statusColor, border: `1px solid ${statusColor}40` }}
-                            >
+                          <td className="px-4 py-3.5 text-xs font-semibold text-slate-600 dark:text-slate-400">{v.ownerName || '—'}</td>
+                          <td className="px-4 py-3.5 text-center">
+                            <span className={`inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border shadow-2xs ${statusBadge}`}>
                               {v.currentStatus?.replace('_', ' ')}
                             </span>
                           </td>
                           {canEdit && (
-                            <td className="px-3 py-2.5 text-right">
+                            <td className="px-4 py-3.5 text-right">
                               <button
                                 onClick={() => {
                                   setSelectedVehicle(v);
                                   setIsModalOpen(true);
                                 }}
-                                className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded bg-transparent hover:bg-white/10 transition-colors"
-                                style={{ color: 'var(--color-accent-400)', border: '1px solid var(--color-accent-500)40' }}
+                                className="px-3 py-1.5 rounded-full text-xs font-extrabold text-amber-600 dark:text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/25 transition-all shadow-2xs cursor-pointer"
                               >
                                 Update
                               </button>
@@ -593,36 +595,50 @@ export default function CaseDetail() {
             if (!notesList.length) return null;
 
             return (
-              <div className="rounded-xl p-6 space-y-4 mt-6" style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}>
-                <div className="flex items-center justify-between pb-2 border-b" style={{ borderColor: 'var(--color-garuda-700)' }}>
-                  <div className="flex items-center gap-2">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                    </svg>
-                    <h3 className="font-semibold" style={{ color: 'var(--color-garuda-200)' }}>
-                      Quick Notes & Remarks ({notesList.length})
-                    </h3>
+              <div className="rounded-3xl p-6 space-y-4 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xl mt-6">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-orange-500/10 dark:bg-orange-500/15 border border-orange-500/20 flex items-center justify-center text-orange-500">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 className="font-extrabold text-base text-slate-900 dark:text-white uppercase tracking-wider">
+                        Quick Notes & Remarks ({notesList.length})
+                      </h3>
+                      <p className="text-[11px] font-medium text-slate-400 dark:text-slate-500">
+                        Investigation activity & status logs
+                      </p>
+                    </div>
                   </div>
                 </div>
 
-                <div className="space-y-3">
+                <div className="space-y-3.5 pt-1">
                   {notesList.map((note, idx) => (
-                    <div key={note.id || idx} className="p-3.5 rounded-lg border space-y-1.5" style={{ background: 'var(--color-garuda-900)', borderColor: 'var(--color-garuda-700)' }}>
+                    <div 
+                      key={note.id || idx} 
+                      className="p-4 rounded-2xl bg-slate-50/90 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/60 shadow-2xs space-y-2.5 hover:border-slate-300 dark:hover:border-slate-600 transition-colors"
+                    >
                       <div className="flex justify-between items-center text-xs">
-                        <span className="font-semibold" style={{ color: 'var(--color-accent-400)' }}>
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-orange-500/10 text-orange-600 dark:text-orange-400 border border-orange-500/20">
                           Note #{notesList.length - idx}
                         </span>
                         {note.timestamp ? (
-                          <span className="text-[11px] font-mono" style={{ color: 'var(--color-garuda-400)' }}>
+                          <span className="text-[11px] font-mono font-semibold text-slate-400 dark:text-slate-400 flex items-center gap-1.5">
+                            <svg className="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <circle cx="12" cy="12" r="10" strokeWidth="2" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6l4 2" />
+                            </svg>
                             {new Date(note.timestamp).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                           </span>
                         ) : (
-                          <span className="text-[11px] italic" style={{ color: 'var(--color-garuda-500)' }}>Previous Note</span>
+                          <span className="text-[11px] italic text-slate-400">Previous Note</span>
                         )}
                       </div>
-                      <p className="text-sm font-medium leading-relaxed whitespace-pre-wrap" style={{ color: 'var(--color-garuda-50)' }}>
-                        "{note.text}"
+                      <p className="text-xs sm:text-sm font-medium leading-relaxed text-slate-800 dark:text-slate-200 whitespace-pre-wrap pl-1 border-l-2 border-orange-500/30">
+                        {note.text}
                       </p>
                     </div>
                   ))}

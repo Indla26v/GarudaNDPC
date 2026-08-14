@@ -10,8 +10,15 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [idleLogout, setIdleLogout] = useState(false);
-  const { login, loading } = useAuth();
+  const { login, loading, isAuthenticated, sessionValidated } = useAuth();
   const navigate = useNavigate();
+
+  // If already authenticated and session validated, redirect to dashboard
+  useEffect(() => {
+    if (sessionValidated && isAuthenticated) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [isAuthenticated, sessionValidated, navigate]);
 
   // Check if user was logged out due to inactivity
   useEffect(() => {

@@ -66,6 +66,6 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
     req.user = decoded;
     next();
   } catch (err) {
-    return res.sendStatus(403);
+    return res.sendStatus(401);
   }
 };

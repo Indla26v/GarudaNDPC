@@ -80,6 +80,18 @@ export default function CaseManagement() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    const stage = searchParams.get('stage');
+    const timeRange = searchParams.get('timeRange');
+    const month = searchParams.get('month');
+    const year = searchParams.get('year');
+
+    if (stage !== null) setStageFilter(stage);
+    if (timeRange !== null) setPeriodFilter(timeRange);
+    if (month !== null) setSelectedMonth(month);
+    if (year !== null) setSelectedYear(year);
+  }, [searchParams]);
+
+  useEffect(() => {
     fetchCases();
   }, [page, stageFilter, periodFilter, selectedMonth, selectedYear]);
 
@@ -88,7 +100,7 @@ export default function CaseManagement() {
     setError('');
     try {
       const params = {
-        page: page + 1,
+        page,
         size: 15,
         ...(search ? { search } : {}),
         ...(stageFilter ? { stage: stageFilter } : {}),

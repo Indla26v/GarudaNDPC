@@ -93,7 +93,13 @@ api.interceptors.response.use(
     }
 
     // ── 401 handling — token refresh via HttpOnly Cookie ────────────────
-    if (error.response?.status === 401 && originalRequest && !originalRequest._retry && !originalRequest.url.includes('/auth/login')) {
+    if (
+      error.response?.status === 401 &&
+      originalRequest &&
+      !originalRequest._retry &&
+      !originalRequest.url.includes('/auth/login') &&
+      !originalRequest.url.includes('/auth/refresh')
+    ) {
       originalRequest._retry = true;
 
       try {

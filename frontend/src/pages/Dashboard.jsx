@@ -12,7 +12,7 @@
  *  - Quick action links
  */
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 
 import api from '../api/axios';
 import CustomSelect from '../components/CustomSelect';
@@ -38,9 +38,9 @@ const getAvatarColor = (name) => {
 
 const KPI_CARDS = [
   { key: 'totalCases',           label: 'Total Cases',       Icon: IconClipboard, color: '#3b82f6', link: '/cases' },
-  { key: 'totalArrests',         label: 'Arrests',           Icon: IconLock,      color: '#22c55e', link: '/offenders' },
+  { key: 'totalArrests',         label: 'Arrests',           Icon: IconLock,      color: '#22c55e', link: '/offenders?arrestStatus=ARRESTED' },
   { key: 'totalAbsconders',      label: 'Absconders',        Icon: IconRunning,   color: '#ef4444', link: '/offenders?category=ABSCONDER' },
-  { key: 'pendingChargeSheets',  label: 'Pending CS',        Icon: IconHourglass, color: '#f59e0b', link: '/cases?stage=CHARGESHEET' },
+  { key: 'pendingChargeSheets',  label: 'Pending CS',        Icon: IconHourglass, color: '#f59e0b', link: '/cases?stage=FIR' },
   { key: 'pendingCourtCases',    label: 'Pending Courts',    Icon: IconScale,     color: '#8b5cf6', link: '/cases?stage=TRIAL' },
   { key: 'convictionsThisYear',  label: 'Convictions (YTD)', Icon: IconCheckCircle, color: '#06b6d4', link: '/cases?stage=CONVICTED' },
 ];
@@ -141,10 +141,28 @@ const generatePastMonths = () => {
 };
 
 export default function Dashboard() {
+  const [searchParams] = useSearchParams();
   const pastMonthOptions = useMemo(() => generatePastMonths(), []);
-  const [timeRange, setTimeRange] = useState('monthly');
-  const [selectedMonth, setSelectedMonth] = useState(pastMonthOptions[0]?.value || '');
-  const [selectedYear, setSelectedYear] = useState(String(new Date().getFullYear()));
+
+  const [timeRange, setTimeRange] = useState(() => {
+    return searchParams.get('timeRange') || 
+           sessionStorage.getItem('garuda_dashboard_timeRange') || 
+           'monthly';
+  });
+
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    return searchParams.get('month') || 
+           sessionStorage.getItem('garuda_dashboard_selectedMonth') || 
+           pastMonthOptions[0]?.value || 
+           '';
+  });
+
+  const [selectedYear, setSelectedYear] = useState(() => {
+    return searchParams.get('year') || 
+           sessionStorage.getItem('garuda_dashboard_selectedYear') || 
+           String(new Date().getFullYear());
+  });
+
   const [sortColumn, setSortColumn] = useState('totalCases');
   const [sortOrder, setSortOrder] = useState('desc');
 
@@ -152,6 +170,30 @@ export default function Dashboard() {
   const yearRef = useRef(null);
   const [showMonthDropdown, setShowMonthDropdown] = useState(false);
   const [showYearDropdown, setShowYearDropdown] = useState(false);
+
+  // Sync from URL search params if present
+  useEffect(() => {
+    const qRange = searchParams.get('timeRange');
+    const qMonth = searchParams.get('month');
+    const qYear = searchParams.get('year');
+
+    if (qRange) setTimeRange(qRange);
+    if (qMonth) setSelectedMonth(qMonth);
+    if (qYear) setSelectedYear(qYear);
+  }, [searchParams]);
+
+  // Persist filter selections to sessionStorage so they are remembered when returning to Dashboard
+  useEffect(() => {
+    if (timeRange) sessionStorage.setItem('garuda_dashboard_timeRange', timeRange);
+  }, [timeRange]);
+
+  useEffect(() => {
+    if (selectedMonth) sessionStorage.setItem('garuda_dashboard_selectedMonth', selectedMonth);
+  }, [selectedMonth]);
+
+  useEffect(() => {
+    if (selectedYear) sessionStorage.setItem('garuda_dashboard_selectedYear', selectedYear);
+  }, [selectedYear]);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -544,215 +586,182 @@ export default function Dashboard() {
       {/* ── Side-by-Side: Most Wanted List & Hierarchy of Smugglers ────── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Most Wanted List */}
-        <div className="card rounded-xl p-5 shadow-card border border-slate-700/20 flex flex-col relative overflow-hidden">
-          <div className="flex justify-between items-center mb-5 border-b border-slate-700/20 pb-3">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-red-500">
+        <div className="rounded-3xl p-6 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xl flex flex-col relative overflow-hidden">
+          <div className="flex justify-between items-center mb-4 border-b border-slate-100 dark:border-slate-800 pb-3">
+            <h3 className="text-sm font-extrabold uppercase tracking-wider text-rose-600 dark:text-rose-400">
               Most Wanted List
             </h3>
-            <span className="text-[10px] px-2 py-0.5 rounded bg-red-500/10 text-red-400 font-bold uppercase tracking-wider border border-red-500/20">
+            <span className="text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 shadow-2xs">
               Top 10 Active
             </span>
           </div>
 
           <div className="flex flex-col sm:flex-row gap-4 items-center sm:items-stretch flex-1">
-            {/* Gangster/Detective Badge (Left side) */}
-            <div className="flex flex-col items-center justify-center p-4 border border-red-500/10 rounded-xl bg-red-500/[0.03] select-none w-full sm:w-[150px] shrink-0">
-              <div className="relative flex items-center justify-center w-24 h-24 rounded-full border-4 border-red-500/15 group">
-                <svg viewBox="0 0 100 100" className="w-16 h-16 text-red-500 transition-all duration-300 group-hover:scale-105" fill="currentColor">
-                  {/* Target rings */}
+            {/* Detective Badge (Left side) */}
+            <div className="flex flex-col items-center justify-center p-4 rounded-2xl border border-rose-500/20 bg-gradient-to-b from-rose-500/10 via-rose-500/5 to-transparent select-none w-full sm:w-[150px] shrink-0 shadow-xs">
+              <div className="relative flex items-center justify-center w-20 h-20 rounded-full border-2 border-rose-500/30 bg-white/60 dark:bg-slate-800/80 shadow-md group">
+                <svg viewBox="0 0 100 100" className="w-14 h-14 text-rose-500 transition-all duration-300 group-hover:scale-105" fill="currentColor">
                   <circle cx="50" cy="50" r="44" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="4 4" className="opacity-60" />
                   <circle cx="50" cy="50" r="38" fill="none" stroke="currentColor" strokeWidth="1.5" className="opacity-30" />
-                  
-                  {/* Crosshairs */}
                   <line x1="50" y1="6" x2="50" y2="14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                   <line x1="50" y1="86" x2="50" y2="94" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                   <line x1="6" y1="50" x2="14" y2="50" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                   <line x1="86" y1="50" x2="94" y2="50" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-
-                  {/* Hat Crown */}
                   <path d="M33 39 C33 22, 67 22, 67 39 Z" />
-
-                  {/* Hat Ribbon */}
-                  <path d="M32.5 37 L67.5 37 L67 40 L33 40 Z" fill="#7f1d1d" />
-
-                  {/* Hat Brim */}
+                  <path d="M32.5 37 L67.5 37 L67 40 L33 40 Z" fill="#991b1b" />
                   <path d="M18 43 C18 40.5, 30 40, 50 40 C70 40, 82 40.5, 82 43 C82 45, 70 45.5, 50 45.5 C30 45.5, 18 45, 18 43 Z" />
-
-                  {/* Face & Neck */}
                   <path d="M35 44 L65 44 L63 56 C61 63, 57 64, 50 64 C43 64, 39 63, 37 56 Z" />
                   <path d="M44 62 L56 62 L56 68 L44 68 Z" />
-
-                  {/* Sunglasses (cuts through face) */}
-                  <path d="M38 50 C38 47, 47 47, 47 50 C47 53, 38 53, 38 50 Z M53 50 C53 47, 62 47, 62 50 C62 53, 53 53, 53 50 Z" fill="var(--color-garuda-800)" />
-                  <line x1="47" y1="49" x2="53" y2="49" stroke="var(--color-garuda-800)" strokeWidth="2" />
-
-                  {/* Coat / Shoulders */}
+                  <path d="M38 50 C38 47, 47 47, 47 50 C47 53, 38 53, 38 50 Z M53 50 C53 47, 62 47, 62 50 C62 53, 53 53, 53 50 Z" fill="#1e293b" />
+                  <line x1="47" y1="49" x2="53" y2="49" stroke="#1e293b" strokeWidth="2" />
                   <path d="M22 76 L34 66 L42 70 L50 63 L58 70 L66 66 L78 76 C78 76, 50 82, 22 76 Z" />
                 </svg>
               </div>
-              <div className="mt-3 text-red-500 font-extrabold text-[10px] tracking-widest uppercase bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20 shadow-sm animate-pulse">
+              <div className="mt-3 text-rose-600 dark:text-rose-400 font-black text-[10px] tracking-widest uppercase bg-rose-500/10 px-2.5 py-1 rounded-full border border-rose-500/20 shadow-2xs">
                 Most Wanted
               </div>
-              <div className="flex gap-1 mt-2 text-red-500 text-xs">
+              <div className="flex gap-1 mt-2 text-rose-500 text-xs">
                 <span>★</span><span>★</span><span>★</span>
               </div>
             </div>
 
-            {/* Table of Suspects (Right side) */}
-            <div className="flex-1 w-full overflow-x-auto">
-              <div className="max-h-[220px] overflow-y-auto scrollbar-thin pr-2">
-                <table className="w-full text-left text-xs border-collapse table-fixed">
-                  <thead>
-                    <tr className="border-b border-slate-700/20 text-[10px] font-extrabold uppercase tracking-wider text-[var(--color-garuda-400)]">
-                      <th className="py-2 px-1 w-[50%]">Name / Alias</th>
-                      <th className="py-2 px-1 w-[28%]">District</th>
-                      <th className="py-2 px-1 w-[22%]">State</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {loading && !summary ? (
-                      [...Array(5)].map((_, idx) => (
-                        <tr key={idx} className="border-b border-slate-700/10 animate-pulse">
-                          <td className="py-3 px-1 w-[50%]"><span className="inline-block w-24 h-4 bg-slate-700/50 rounded" /></td>
-                          <td className="py-3 px-1 w-[28%]"><span className="inline-block w-16 h-4 bg-slate-700/50 rounded" /></td>
-                          <td className="py-3 px-1 w-[22%]"><span className="inline-block w-16 h-4 bg-slate-700/50 rounded" /></td>
-                        </tr>
-                      ))
-                    ) : summary?.mostWanted?.length > 0 ? (
-                      summary.mostWanted.map((o) => {
-                        const riskBorders = {
-                          CRITICAL: '#dc2626',
-                          HIGH: '#f97316',
-                          MEDIUM: '#eab308',
-                          LOW: '#3b82f6',
-                        };
-                        const borderColor = riskBorders[o.riskScore] || '#3b82f6';
-                        return (
-                          <tr 
-                            key={o.id} 
-                            onClick={() => navigate(`/offenders/${o.id}`)}
-                            className="border-b border-slate-700/10 hover:bg-red-500/[0.04] cursor-pointer transition-colors duration-150"
+            {/* List of Suspects (Right side) */}
+            <div className="flex-1 w-full overflow-hidden flex flex-col">
+              <div className="max-h-[220px] overflow-y-auto pr-1 space-y-1.5 scrollbar-thin">
+                {loading && !summary ? (
+                  [...Array(4)].map((_, idx) => (
+                    <div key={idx} className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 animate-pulse flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700" />
+                        <div className="space-y-1">
+                          <div className="w-24 h-3 bg-slate-200 dark:bg-slate-700 rounded" />
+                          <div className="w-16 h-2 bg-slate-200 dark:bg-slate-700 rounded" />
+                        </div>
+                      </div>
+                      <div className="w-14 h-3 bg-slate-200 dark:bg-slate-700 rounded" />
+                    </div>
+                  ))
+                ) : summary?.mostWanted?.length > 0 ? (
+                  summary.mostWanted.map((o) => {
+                    const ringColor = {
+                      CRITICAL: '#ef4444',
+                      HIGH: '#f97316',
+                      MEDIUM: '#f59e0b',
+                      LOW: '#3b82f6',
+                    }[o.riskScore] || '#ef4444';
+
+                    return (
+                      <div
+                        key={o.id}
+                        onClick={() => navigate(`/offenders/${o.id}`)}
+                        className="p-2.5 rounded-2xl bg-slate-50/80 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 hover:border-rose-500/40 dark:hover:border-rose-500/40 hover:bg-rose-500/5 dark:hover:bg-rose-500/10 cursor-pointer transition-all duration-200 flex items-center justify-between gap-3 shadow-2xs"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div
+                            className="w-8 h-8 rounded-full overflow-hidden border-2 flex-shrink-0 flex items-center justify-center text-[10px] font-black text-white shadow-xs"
+                            style={{ borderColor: ringColor, backgroundColor: getAvatarColor(o.fullName) }}
                           >
-                            <td className="py-2.5 px-1 w-[50%]">
-                              <div className="flex items-center gap-2 min-w-0">
-                                {/* Avatar */}
-                                <div 
-                                  className="w-6.5 h-6.5 rounded-full overflow-hidden border flex-shrink-0 flex items-center justify-center text-[9px] font-black text-white"
-                                  style={{ borderColor: borderColor, backgroundColor: getAvatarColor(o.fullName) }}
-                                >
-                                  {o.photoUrl ? (
-                                    <img src={o.photoUrl} alt={o.fullName} className="w-full h-full object-cover" />
-                                  ) : (
-                                    o.fullName?.charAt(0).toUpperCase() || '?'
-                                  )}
-                                </div>
-                                <div className="flex flex-col min-w-0">
-                                  <span className="font-extrabold text-xs text-[var(--color-garuda-100)] truncate hover:text-red-500 transition-colors duration-150" title={o.fullName}>
-                                    {o.fullName}
-                                  </span>
-                                  {o.alias && (
-                                    <span className="text-[9px] font-bold text-[var(--color-garuda-400)] truncate tracking-wide" title={o.alias}>
-                                      @{o.alias}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            </td>
-                            <td className="py-2.5 px-1 w-[28%] text-[var(--color-garuda-300)] font-semibold text-xs truncate" title={o.district || o.psName || 'Tirupati'}>
-                              {o.district || o.psName || 'Tirupati'}
-                            </td>
-                            <td className="py-2.5 px-1 w-[22%] text-[var(--color-garuda-300)] font-semibold text-xs truncate" title={o.state || 'Andhra Pradesh'}>
-                              {o.state || 'Andhra Pradesh'}
-                            </td>
-                          </tr>
-                        );
-                      })
-                    ) : (
-                      <tr>
-                        <td colSpan={3} className="text-center py-6 text-[var(--color-garuda-500)]">
-                          No active or absconding suspects.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
+                            {o.photoUrl ? (
+                              <img src={o.photoUrl} alt={o.fullName} className="w-full h-full object-cover" />
+                            ) : (
+                              o.fullName?.charAt(0).toUpperCase() || '?'
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-extrabold text-xs text-slate-900 dark:text-white truncate hover:text-rose-600 dark:hover:text-rose-400 transition-colors">
+                              {o.fullName}
+                            </p>
+                            <p className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 truncate">
+                              {o.alias ? `@${o.alias} • ` : ''}{o.district || o.psName || 'Tirupati'}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-[10px] font-mono font-bold text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-700/80 px-2 py-0.5 rounded-md border border-slate-200/80 dark:border-slate-600 shadow-2xs">
+                            {o.state || 'AP'}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <p className="text-xs text-center py-8 text-slate-400 dark:text-slate-500 font-semibold">
+                    No active or absconding suspects.
+                  </p>
+                )}
               </div>
             </div>
           </div>
         </div>
 
         {/* Hierarchy of Smugglers */}
-        <div className="card rounded-xl p-5 shadow-card border border-slate-700/20 relative overflow-hidden flex flex-col justify-between">
-          {/* Decorative corner grid background */}
-          <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-indigo-500/5 to-transparent pointer-events-none rounded-bl-full" />
-          
-          <div className="flex justify-between items-center mb-5 border-b border-slate-700/20 pb-3">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-indigo-400">
-              Hierarchy of Smugglers
-            </h3>
-            <span className="text-[10px] px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 font-bold uppercase tracking-wider border border-indigo-500/20">
+        <div className="rounded-3xl p-6 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xl relative overflow-hidden flex flex-col justify-between">
+          <div className="flex justify-between items-center mb-4 border-b border-slate-100 dark:border-slate-800 pb-3">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-indigo-500" />
+              <h3 className="text-sm font-extrabold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+                Hierarchy of Smugglers
+              </h3>
+            </div>
+            <span className="text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 shadow-2xs">
               Level 1 to 7
             </span>
           </div>
 
           <div className="overflow-x-auto pb-2 scrollbar-thin flex-1 flex items-center">
-            <div className="flex items-stretch justify-between min-w-[520px] lg:min-w-0 gap-1 px-1 w-full">
+            <div className="flex items-stretch justify-between min-w-[540px] lg:min-w-0 gap-1.5 px-1 w-full">
               {HIERARCHY_STAGES.map((stage, idx) => {
                 const count = summary?.smugglerHierarchy?.[stage.key];
-                
-                // Render Icon based on type
+
                 let IconComponent = null;
                 if (stage.iconType === 'network') {
-                  IconComponent = <IconNetwork size={16} color="#ffffff" />;
+                  IconComponent = <IconNetwork size={18} color="#ffffff" />;
                 } else if (stage.iconType === 'rupee') {
                   IconComponent = <span className="text-sm font-black text-white">₹</span>;
                 } else if (stage.iconType === 'supplier' || stage.iconType === 'peddler') {
-                  IconComponent = <IconOffender size={16} color="#ffffff" />;
+                  IconComponent = <IconOffender size={18} color="#ffffff" />;
                 } else if (stage.iconType === 'truck') {
-                  IconComponent = <IconTruck size={16} color="#ffffff" />;
+                  IconComponent = <IconTruck size={18} color="#ffffff" />;
                 } else if (stage.iconType === 'crown') {
-                  IconComponent = <IconCrown size={16} color="#ffffff" />;
+                  IconComponent = <IconCrown size={18} color="#ffffff" />;
                 } else if (stage.iconType === 'consumers') {
-                  IconComponent = <IconConsumer size={16} color="#ffffff" />;
+                  IconComponent = <IconConsumer size={18} color="#ffffff" />;
                 }
 
                 return (
                   <div key={stage.key} className="flex flex-col items-center flex-1 text-center select-none group relative">
-                    {/* Large Icon Badge with dynamic colored glow and connecting dotted lines */}
-                    <div className="flex flex-col items-center w-full mb-2">
-                      {/* Relative container for badge and line */}
+                    {/* Icon container with connecting line */}
+                    <div className="flex flex-col items-center w-full mb-1.5">
                       <div className="relative w-full flex items-center justify-center">
-                        <div 
-                          className="w-10 h-10 rounded-full flex items-center justify-center text-white transition-all duration-300 shadow-md group-hover:scale-110 relative z-10"
-                          style={{ 
+                        <div
+                          className="w-11 h-11 rounded-2xl flex items-center justify-center text-white transition-all duration-300 shadow-md group-hover:scale-110 relative z-10"
+                          style={{
                             background: `linear-gradient(135deg, ${stage.borderColor}dd, ${stage.borderColor})`,
-                            boxShadow: `0 4px 10px ${stage.borderColor}33`,
+                            boxShadow: `0 4px 12px ${stage.borderColor}40`,
                           }}
                         >
                           {IconComponent}
                         </div>
-                        
-                        {/* Connecting dotted line pointing to next step */}
+
                         {idx < HIERARCHY_STAGES.length - 1 && (
-                          <div className="absolute left-[calc(50%+20px)] right-[calc(-50%+20px)] top-1/2 -translate-y-1/2 z-0">
-                            <div 
-                              className="border-t-2 border-dotted h-0 w-full" 
-                              style={{ borderColor: 'var(--color-garuda-400)', opacity: 0.5 }} 
+                          <div className="absolute left-[calc(50%+22px)] right-[calc(-50%+22px)] top-1/2 -translate-y-1/2 z-0">
+                            <div
+                              className="border-t-2 border-dotted h-0 w-full"
+                              style={{ borderColor: stage.borderColor, opacity: 0.35 }}
                             />
                           </div>
                         )}
                       </div>
                     </div>
 
-                    {/* Title Label */}
-                    <p className="text-[9px] font-extrabold tracking-wider uppercase mb-1 min-h-[24px] flex items-center justify-center leading-tight text-[var(--color-garuda-300)]">
+                    <p className="text-[9.5px] font-extrabold tracking-tight uppercase mb-1 min-h-[26px] flex items-center justify-center leading-tight text-slate-700 dark:text-slate-300">
                       {stage.label}
                     </p>
 
-                    {/* Count/Data */}
-                    <div className="text-base font-black mt-0.5 transition-all duration-300 group-hover:scale-110 text-[var(--color-garuda-100)]">
+                    <div className="text-sm font-black text-slate-900 dark:text-white px-2.5 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 shadow-2xs transition-all duration-300 group-hover:scale-105">
                       {loading && !summary ? (
-                        <span className="inline-block w-8 h-4 bg-slate-700/50 animate-pulse rounded" />
+                        <span className="inline-block w-6 h-3 bg-slate-300 dark:bg-slate-700 animate-pulse rounded" />
                       ) : (
                         fmt(count)
                       )}
@@ -765,67 +774,88 @@ export default function Dashboard() {
         </div>
       </div>
 
-
-
       {/* ── Bottom Row: Alerts + Absconder Ticker ───────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Live Alert Feed */}
-        <div className="card rounded-xl p-5">
-          <h3 className="text-sm font-semibold mb-4 flex items-center gap-2" style={{ color: 'var(--color-garuda-200)' }}>
-            <IconBell size={16} color="#d97706" /> Live Alert Feed
-          </h3>
-          <div className="space-y-2 max-h-64 overflow-y-auto">
+        <div className="rounded-3xl p-6 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xl space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+            <h3 className="text-sm font-extrabold uppercase tracking-wider text-amber-600 dark:text-amber-400 flex items-center gap-2">
+              <IconBell size={18} color="#d97706" /> Live Alert Feed
+            </h3>
+            <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 rounded-full">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Live
+            </span>
+          </div>
+
+          <div className="space-y-2.5 max-h-64 overflow-y-auto pr-1 scrollbar-thin">
             {loading && !summary ? (
-              <div className="h-32 flex items-center justify-center text-xs text-[var(--color-garuda-500)] animate-pulse">
+              <div className="h-32 flex items-center justify-center text-xs text-slate-400 dark:text-slate-500 animate-pulse">
                 Loading alerts...
               </div>
             ) : (
               summary?.recentAlerts?.length > 0 ? summary.recentAlerts.map(alert => {
                 const AlertIcon = ALERT_ICON_MAP[alert.type] || IconMegaphone;
                 return (
-                  <div key={alert.id + alert.type} className="flex items-start gap-3 p-2.5 rounded-lg" style={{ background: 'var(--color-garuda-900)' }}>
-                    <AlertIcon size={16} />
+                  <div 
+                    key={alert.id + alert.type} 
+                    className="flex items-start gap-3 p-3 rounded-2xl bg-slate-50/80 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 shadow-2xs hover:border-amber-500/30 transition-colors"
+                  >
+                    <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 flex items-center justify-center flex-shrink-0">
+                      <AlertIcon size={16} />
+                    </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs" style={{ color: 'var(--color-garuda-100)' }}>{alert.message}</p>
-                      <p className="text-[10px] mt-0.5" style={{ color: 'var(--color-garuda-500)' }}>
-                        {new Date(alert.date).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}
+                      <p className="text-xs font-bold text-slate-800 dark:text-slate-200 leading-snug">{alert.message}</p>
+                      <p className="text-[10px] font-mono font-semibold text-slate-400 dark:text-slate-500 mt-1">
+                        {new Date(alert.date).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
                       </p>
                     </div>
                   </div>
                 );
               }) : (
-                <p className="text-sm" style={{ color: 'var(--color-garuda-500)' }}>No recent alerts</p>
+                <p className="text-sm text-center py-8 text-slate-400 dark:text-slate-500 font-semibold">No recent alerts</p>
               )
             )}
           </div>
         </div>
 
         {/* Absconder Ticker */}
-        <div className="card rounded-xl p-5">
-          <h3 className="text-sm font-semibold mb-4 flex items-center gap-2" style={{ color: 'var(--color-garuda-200)' }}>
-            <IconRunning size={16} color="#ef4444" /> Pending Absconders
-          </h3>
-          <div className="space-y-2 max-h-64 overflow-y-auto">
+        <div className="rounded-3xl p-6 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xl space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+            <h3 className="text-sm font-extrabold uppercase tracking-wider text-rose-600 dark:text-rose-400 flex items-center gap-2">
+              <IconRunning size={18} color="#ef4444" /> Pending Absconders
+            </h3>
+            <Link 
+              to="/offenders?category=ABSCONDER" 
+              className="text-[10px] font-black uppercase tracking-wider text-rose-600 dark:text-rose-400 hover:underline"
+            >
+              View All →
+            </Link>
+          </div>
+
+          <div className="space-y-2.5 max-h-64 overflow-y-auto pr-1 scrollbar-thin">
             {loading && !summary ? (
-              <div className="h-32 flex items-center justify-center text-xs text-[var(--color-garuda-500)] animate-pulse">
+              <div className="h-32 flex items-center justify-center text-xs text-slate-400 dark:text-slate-500 animate-pulse">
                 Loading absconders...
               </div>
             ) : (
               summary?.absconderTicker?.length > 0 ? summary.absconderTicker.map(a => (
-                <div key={a.id} className="flex items-center justify-between p-2.5 rounded-lg" style={{ background: 'var(--color-garuda-900)' }}>
+                <div 
+                  key={a.id} 
+                  className="flex items-center justify-between p-3 rounded-2xl bg-slate-50/80 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 shadow-2xs hover:border-rose-500/30 transition-colors"
+                >
                   <div>
-                    <p className="text-sm font-medium" style={{ color: 'var(--color-garuda-100)' }}>{a.name}</p>
-                    <p className="text-[10px]" style={{ color: 'var(--color-garuda-400)' }}>FIR: {a.firNo}</p>
+                    <p className="text-xs sm:text-sm font-extrabold text-slate-900 dark:text-white">{a.name}</p>
+                    <p className="text-[10px] font-mono font-semibold text-slate-500 dark:text-slate-400 mt-0.5">FIR: {a.firNo}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-bold" style={{ color: a.daysOutstanding > 30 ? '#ef4444' : '#f59e0b' }}>
+                    <span className="px-2.5 py-1 rounded-xl text-center font-mono font-black text-xs text-rose-600 dark:text-rose-400 bg-rose-500/10 border border-rose-500/20 inline-block shadow-2xs">
                       {a.daysOutstanding}d
-                    </p>
-                    <p className="text-[10px]" style={{ color: 'var(--color-garuda-500)' }}>outstanding</p>
+                    </span>
+                    <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mt-0.5">outstanding</p>
                   </div>
                 </div>
               )) : (
-                <p className="text-sm" style={{ color: 'var(--color-garuda-500)' }}>No absconders on record</p>
+                <p className="text-sm text-center py-8 text-slate-400 dark:text-slate-500 font-semibold">No absconders on record</p>
               )
             )}
           </div>

@@ -117,14 +117,20 @@ export const getDashboardSummary = async (req: AuthRequest, res: Response) => {
           : { ...seizureDateCondition });
 
     // ── Core KPIs ──────────────────────────────────────────────────────
-    const totalCases = await prisma.cases.count({ where: caseWhere });
-    const totalOffenders = await prisma.offenders.count({ where: offenderWhere });
-    const totalArrests = await prisma.case_accused.count({
-      where: { ...caseAccusedWhere, arrest_status: { in: ['POLICE_CUSTODY', 'JUDICIAL_CUSTODY'] } },
-    });
-    const totalAbsconders = await prisma.case_accused.count({
-      where: { ...caseAccusedWhere, arrest_status: 'ABSCONDING' },
-    });
+    const [totalCases, totalOffenders, arrestsGroup, abscondersGroup] = await Promise.all([
+      prisma.cases.count({ where: caseWhere }),
+      prisma.offenders.count({ where: offenderWhere }),
+      prisma.case_accused.groupBy({
+        by: ['offender_id'],
+        where: { ...caseAccusedWhere, arrest_status: { in: ['POLICE_CUSTODY', 'JUDICIAL_CUSTODY'] } },
+      }),
+      prisma.case_accused.groupBy({
+        by: ['offender_id'],
+        where: { ...caseAccusedWhere, arrest_status: 'ABSCONDING' },
+      }),
+    ]);
+    const totalArrests = arrestsGroup.length;
+    const totalAbsconders = abscondersGroup.length;
 
     // Pending charge sheets = cases in FIR stage
     const pendingChargeSheets = await prisma.cases.count({
@@ -309,15 +315,25 @@ export const getDashboardSummary = async (req: AuthRequest, res: Response) => {
         ...seizureDateCondition
       };
 
-      const psCases = await prisma.cases.count({ where: stationCaseWhere });
-      const psOffenders = await prisma.offenders.count({ where: stationOffenderWhere });
-      const psArrests = await prisma.case_accused.count({ where: stationArrestsWhere });
-      const psAbsconding = await prisma.case_accused.count({ where: stationAbscondingWhere });
+      const [psCases, psOffenders, psArrestsGroup, psAbscondingGroup, psSeizureAgg] = await Promise.all([
+        prisma.cases.count({ where: stationCaseWhere }),
+        prisma.offenders.count({ where: stationOffenderWhere }),
+        prisma.case_accused.groupBy({
+          by: ['offender_id'],
+          where: stationArrestsWhere,
+        }),
+        prisma.case_accused.groupBy({
+          by: ['offender_id'],
+          where: stationAbscondingWhere,
+        }),
+        prisma.seizures.aggregate({
+          where: stationSeizureWhere,
+          _sum: { contraband_kg: true, cash_amount: true },
+        }),
+      ]);
 
-      const psSeizureAgg = await prisma.seizures.aggregate({
-        where: stationSeizureWhere,
-        _sum: { contraband_kg: true, cash_amount: true },
-      });
+      const psArrests = psArrestsGroup.length;
+      const psAbsconding = psAbscondingGroup.length;
 
       return {
         psId: psId.toString(),
