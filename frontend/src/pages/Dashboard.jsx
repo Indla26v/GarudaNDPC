@@ -224,7 +224,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchSummary(true, timeRange, selectedMonth, selectedYear);
-  }, [timeRange, selectedMonth, selectedYear]);
+  }, [timeRange, selectedMonth, selectedYear, perms.policeStationId]);
 
   // Refresh data on SSE events (bypasses cache)
   useEffect(() => {
@@ -235,7 +235,7 @@ export default function Dashboard() {
 
   const fetchSummary = async (force = false, range = timeRange, m = selectedMonth, y = selectedYear) => {
     const now = Date.now();
-    const cacheKey = `summary_${range}_${m}_${y}`;
+    const cacheKey = `summary_${range}_${m}_${y}_${perms.policeStationId || 'all'}`;
     const cacheIsValid = cachedSummary && 
                          cachedToken === cacheKey &&
                          (now - lastFetchTime < CACHE_TTL);
@@ -270,6 +270,11 @@ export default function Dashboard() {
     searchParams.set('timeRange', timeRange);
     if (timeRange === 'monthly' && selectedMonth) searchParams.set('month', selectedMonth);
     if (timeRange === 'yearly' && selectedYear) searchParams.set('year', selectedYear);
+
+    const stationId = summary?.policeStationId || (summary?.isStationLevel ? perms.policeStationId : null);
+    if (stationId) {
+      searchParams.set('psId', String(stationId));
+    }
 
     return `${base}?${searchParams.toString()}`;
   };
@@ -313,7 +318,7 @@ export default function Dashboard() {
           </div>
           <p className="text-sm mt-1" style={{ color: 'var(--color-garuda-400)' }}>
             NDPS Operations{summary?.isStationLevel
-              ? ` — ${summary?.psWiseData?.[0]?.psName || 'Your Station'}`
+              ? ` — ${summary?.stationName || summary?.psWiseData?.[0]?.psName || 'Your Station'}`
               : ' — Tirupati District'}
           </p>
         </div>
@@ -575,7 +580,7 @@ export default function Dashboard() {
             </div>
           );
           return s.link ? (
-            <Link key={s.label} to={s.link} style={{ textDecoration: 'none' }}>
+            <Link key={s.label} to={getCardLink({ link: s.link })} style={{ textDecoration: 'none' }}>
               {content}
             </Link>
           ) : content;

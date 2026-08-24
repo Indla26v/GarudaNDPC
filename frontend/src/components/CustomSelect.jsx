@@ -1,9 +1,10 @@
 /**
  * GARUDA — Custom Executive Select / Dropdown Component
  * 
- * Replaces default browser <select> with a sleek custom popover menu.
+ * Replaces default browser <select> with a sleek, rounded custom popover menu.
  */
 import { useState, useRef, useEffect } from 'react';
+import { IconCheck } from './Icons';
 
 export default function CustomSelect({
   value,
@@ -11,6 +12,7 @@ export default function CustomSelect({
   options = [],
   placeholder = 'Select an option',
   className = '',
+  triggerClassName = '',
   disabled = false,
   id,
   name,
@@ -60,7 +62,7 @@ export default function CustomSelect({
   };
 
   return (
-    <div ref={containerRef} className={`relative inline-block w-full ${className}`}>
+    <div ref={containerRef} className={`relative inline-block ${className}`}>
       {label && (
         <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
           {label}
@@ -74,11 +76,11 @@ export default function CustomSelect({
         name={name}
         disabled={disabled}
         onClick={() => setIsOpen((prev) => !prev)}
-        className={`w-full flex items-center justify-between gap-2 px-3.5 py-2 text-xs font-bold rounded-xl border transition-all cursor-pointer ${
+        className={`w-full flex items-center justify-between gap-2.5 px-4 py-2 text-xs font-bold rounded-full border transition-all cursor-pointer select-none ${
           isOpen
-            ? 'border-amber-500 ring-2 ring-amber-500/20 bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs'
-            : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white hover:border-slate-300 dark:hover:border-slate-600 shadow-xs'
-        } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+            ? 'border-amber-500 ring-2 ring-amber-500/20 bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-md'
+            : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:border-slate-300 dark:hover:border-slate-600 shadow-2xs'
+        } ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${triggerClassName}`}
       >
         <span className="truncate">
           {selectedOption ? selectedOption.label : placeholder}
@@ -86,20 +88,20 @@ export default function CustomSelect({
 
         {/* Custom Chevron Icon */}
         <svg
-          className={`w-4 h-4 text-slate-400 transition-transform duration-200 flex-shrink-0 ${
+          className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 flex-shrink-0 ${
             isOpen ? 'rotate-180 text-amber-500' : ''
           }`}
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
         >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
         </svg>
       </button>
 
       {/* Floating Menu Popover */}
       {isOpen && (
-        <div className="absolute left-0 right-0 z-50 mt-1.5 max-h-60 overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-xl py-1 animate-fade-in text-xs font-medium">
+        <div className="absolute right-0 z-50 mt-2 min-w-full w-48 max-h-60 overflow-y-auto rounded-2xl border border-slate-200/90 dark:border-slate-700 bg-white dark:bg-slate-850 shadow-2xl p-1.5 animate-fade-in text-xs font-medium backdrop-blur-md">
           {normalizedOptions.length === 0 ? (
             <div className="px-3.5 py-2.5 text-slate-400 text-center font-medium">
               No options available
@@ -112,15 +114,15 @@ export default function CustomSelect({
                   key={opt.value}
                   type="button"
                   onClick={() => handleSelect(opt.value)}
-                  className={`w-full text-left px-3.5 py-2.5 flex items-center justify-between gap-2 transition-colors cursor-pointer ${
+                  className={`w-full text-left px-3.5 py-2 rounded-xl flex items-center justify-between gap-2 transition-all cursor-pointer select-none ${
                     isSelected
-                      ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold'
-                      : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60'
+                      ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 font-black'
+                      : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-750'
                   }`}
                 >
                   <span className="truncate">{opt.label}</span>
                   {isSelected && (
-                    <span className="text-amber-500 font-bold text-xs">✓</span>
+                    <IconCheck className="w-3.5 h-3.5 text-amber-500 shrink-0" />
                   )}
                 </button>
               );

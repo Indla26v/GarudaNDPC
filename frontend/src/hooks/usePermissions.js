@@ -32,6 +32,8 @@ export function usePermissions() {
   const role = user?.role || '';
   const department = user?.department || '';
   const policeStationId = user?.policeStationId || null;
+  const divisionId = user?.divisionId || null;
+  const district = user?.district || null;
 
   return useMemo(() => {
     const rank = ROLE_HIERARCHY[role] ?? 99;
@@ -136,6 +138,8 @@ export function usePermissions() {
       role,
       department,
       policeStationId,
+      divisionId,
+      district,
       hasMinRole,
       hasPermission,
       inDepartment,

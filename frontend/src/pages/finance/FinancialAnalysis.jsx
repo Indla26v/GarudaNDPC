@@ -546,6 +546,12 @@ export default function FinancialAnalysis() {
       return;
     }
 
+    const isPdf = uploadFile.type === 'application/pdf' || uploadFile.name.toLowerCase().endsWith('.pdf');
+    if (isPdf && uploadFile.size > 5 * 1024 * 1024) {
+      alert(`PDF statement file must be under 5 MB (ideally under 2 MB). Selected size is ${(uploadFile.size / (1024 * 1024)).toFixed(2)} MB.`);
+      return;
+    }
+
     const fd = new FormData();
     fd.append('file', uploadFile);
     fd.append('offenderId', String(selectedOffender.id));
@@ -798,7 +804,7 @@ export default function FinancialAnalysis() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold mb-1 text-garuda-200">Select statement file (Excel, CSV, PDF) *</label>
+                    <label className="block text-xs font-semibold mb-1 text-garuda-200">Select statement file (Excel, CSV, or PDF under 5MB) *</label>
                     <input 
                       type="file" 
                       accept=".csv, .xlsx, .xls, .pdf"

@@ -44,7 +44,30 @@ export default function CaseManagement() {
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [search, setSearch] = useState('');
+  const perms = usePermissions();
+  const navigate = useNavigate();
+
+  const getDefaultStationFilter = () => {
+    const qPs = searchParams.get('psId');
+    if (qPs !== null) return qPs;
+
+    // 1. SHO and CONSTABLE: Default to their respective Police Station
+    if (perms.role === 'SHO' || perms.role === 'CONSTABLE') {
+      return perms.policeStationId ? String(perms.policeStationId) : '';
+    }
+
+    // 2. SDPO: Default to their assigned Sub-Division
+    if (perms.role === 'SDPO' && perms.divisionId) {
+      return `SDPO:${perms.divisionId}`;
+    }
+
+    // 3. ASP and SP: Default to all stations
+    return '';
+  };
+
   const [stageFilter, setStageFilter] = useState(() => searchParams.get('stage') || '');
+  const [stationFilter, setStationFilter] = useState(() => getDefaultStationFilter());
+  const [stations, setStations] = useState([]);
   const [stageCounts, setStageCounts] = useState({});
 
   // Time / Period Filtering
@@ -59,6 +82,12 @@ export default function CaseManagement() {
   const yearRef = useRef(null);
   const [showMonthDropdown, setShowMonthDropdown] = useState(false);
   const [showYearDropdown, setShowYearDropdown] = useState(false);
+
+  useEffect(() => {
+    api.get('/police-stations')
+      .then((res) => setStations(res.data.data || []))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -76,24 +105,51 @@ export default function CaseManagement() {
   const selectedMonthObj = pastMonthOptions.find((opt) => opt.value === selectedMonth);
   const selectedMonthLabel = selectedMonthObj ? selectedMonthObj.label : 'Month';
 
-  const perms = usePermissions();
-  const navigate = useNavigate();
+  const stationOptions = useMemo(() => {
+    const opts = [{ value: '', label: 'All Police Stations' }];
+
+    // If SDPO, add their assigned sub-division option
+    if (perms.role === 'SDPO' && perms.divisionId) {
+      opts.push({
+        value: `SDPO:${perms.divisionId}`,
+        label: `Sub-Division: ${perms.divisionId}`,
+      });
+    }
+
+    // Add individual police stations
+    stations.forEach((s) => {
+      const isMyStation = (perms.role === 'SHO' || perms.role === 'CONSTABLE') && String(s.id) === String(perms.policeStationId);
+      opts.push({
+        value: String(s.id),
+        label: isMyStation ? `${s.name} (My Station)` : (s.sdpo ? `${s.name} (${s.sdpo})` : s.name),
+      });
+    });
+
+    return opts;
+  }, [stations, perms.role, perms.policeStationId, perms.divisionId]);
 
   useEffect(() => {
     const stage = searchParams.get('stage');
     const timeRange = searchParams.get('timeRange');
     const month = searchParams.get('month');
     const year = searchParams.get('year');
+    const psId = searchParams.get('psId');
 
     if (stage !== null) setStageFilter(stage);
     if (timeRange !== null) setPeriodFilter(timeRange);
     if (month !== null) setSelectedMonth(month);
     if (year !== null) setSelectedYear(year);
-  }, [searchParams]);
+    if (psId !== null) {
+      setStationFilter(psId);
+    } else {
+      setStationFilter(getDefaultStationFilter());
+    }
+    setPage(0);
+  }, [searchParams, perms.role, perms.policeStationId, perms.divisionId]);
 
   useEffect(() => {
     fetchCases();
-  }, [page, stageFilter, periodFilter, selectedMonth, selectedYear]);
+  }, [page, stageFilter, stationFilter, periodFilter, selectedMonth, selectedYear]);
 
   const fetchCases = async () => {
     setLoading(true);
@@ -104,6 +160,7 @@ export default function CaseManagement() {
         size: 15,
         ...(search ? { search } : {}),
         ...(stageFilter ? { stage: stageFilter } : {}),
+        ...(stationFilter ? { psId: stationFilter } : {}),
         timeRange: periodFilter,
         ...(periodFilter === 'monthly' ? { month: selectedMonth } : {}),
         ...(periodFilter === 'yearly' ? { year: selectedYear } : {}),
@@ -181,6 +238,7 @@ export default function CaseManagement() {
       const params = new URLSearchParams();
       if (search) params.append('search', search);
       if (stageFilter) params.append('stage', stageFilter);
+      if (stationFilter) params.append('psId', stationFilter);
       params.append('timeRange', periodFilter);
       if (periodFilter === 'monthly' && selectedMonth) params.append('month', selectedMonth);
       if (periodFilter === 'yearly' && selectedYear) params.append('year', selectedYear);
@@ -387,6 +445,17 @@ export default function CaseManagement() {
             <IconSearch size={14} /> Search
           </button>
         </form>
+
+        <CustomSelect
+          value={stationFilter}
+          onChange={(e) => {
+            setStationFilter(e.target.value);
+            setPage(0);
+          }}
+          placeholder="All Police Stations"
+          className="w-full md:w-56"
+          options={stationOptions}
+        />
 
         <CustomSelect
           value={stageFilter}

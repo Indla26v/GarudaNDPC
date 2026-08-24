@@ -7,6 +7,8 @@
     "test": "jest",
     "start": "tsx src/server.ts",
     "dev": "tsx watch src/server.ts",
+    "truncate:dummy": "tsx scripts/truncate-dummy-data.ts",
+    "create:admin": "tsx scripts/create-prod-admin.ts",
     "build": "node scripts/update-arrest-status-enum.js && prisma generate",
     "postinstall": "node scripts/update-arrest-status-enum.js && prisma generate"
   },

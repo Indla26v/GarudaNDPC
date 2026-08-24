@@ -31,15 +31,20 @@ export function AuthProvider({ children }) {
     try {
       const res = await api.get('/auth/me');
       const serverUser = res.data.data;
-      // Sync user data from server (role/department/photo may have changed)
+      // Sync user data from server (role/department/photo/password status may have changed)
       const userData = {
         username: serverUser.username,
         fullName: serverUser.fullName || serverUser.full_name,
+        email: serverUser.email || null,
+        phoneNumber: serverUser.phoneNumber || serverUser.phone_number || null,
         role: serverUser.role,
         department: serverUser.department || null,
         policeStationId: serverUser.policeStationId || serverUser.police_station_id || null,
+        divisionId: serverUser.divisionId || serverUser.division_id || null,
+        district: serverUser.district || null,
         badgeNumber: serverUser.badgeNumber || serverUser.badge_number || null,
         photoUrl: serverUser.photoUrl || serverUser.photo_url || null,
+        mustChangePassword: serverUser.mustChangePassword ?? false,
       };
       localStorage.setItem('garuda_user', JSON.stringify(userData));
       setUser(userData);
@@ -65,17 +70,31 @@ export function AuthProvider({ children }) {
       const userData = {
         username: serverUser.username,
         fullName: serverUser.fullName || serverUser.full_name,
+        email: serverUser.email || null,
+        phoneNumber: serverUser.phoneNumber || serverUser.phone_number || null,
         role: serverUser.role,
         department: serverUser.department || null,
         policeStationId: serverUser.policeStationId || serverUser.police_station_id || null,
+        divisionId: serverUser.divisionId || serverUser.division_id || null,
+        district: serverUser.district || null,
         badgeNumber: serverUser.badgeNumber || serverUser.badge_number || null,
         photoUrl: serverUser.photoUrl || serverUser.photo_url || null,
+        mustChangePassword: serverUser.mustChangePassword ?? false,
       };
       localStorage.setItem('garuda_user', JSON.stringify(userData));
       setUser(userData);
     } catch (err) {
       console.error('Failed to refresh user data:', err);
     }
+  }, []);
+
+  const markPasswordChanged = useCallback(() => {
+    setUser((prev) => {
+      if (!prev) return null;
+      const updated = { ...prev, mustChangePassword: false };
+      localStorage.setItem('garuda_user', JSON.stringify(updated));
+      return updated;
+    });
   }, []);
 
   // Validate session on initial mount
@@ -109,16 +128,21 @@ export function AuthProvider({ children }) {
       const userData = {
         username: data.username,
         fullName: data.fullName,
+        email: data.email || null,
+        phoneNumber: data.phoneNumber || null,
         role: data.role,
         department: data.department || null,
         policeStationId: data.policeStationId || null,
+        divisionId: data.divisionId || null,
+        district: data.district || null,
         badgeNumber: data.badgeNumber || null,
         photoUrl: data.photoUrl || null,
+        mustChangePassword: data.mustChangePassword ?? false,
       };
       localStorage.setItem('garuda_user', JSON.stringify(userData));
       setUser(userData);
       setSessionValidated(true);
-      return { success: true };
+      return { success: true, mustChangePassword: data.mustChangePassword ?? false };
     } catch (err) {
       const msg = err.response?.data?.message || 'Login failed';
       return { success: false, message: msg };
@@ -150,7 +174,7 @@ export function AuthProvider({ children }) {
   );
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated, loading, sessionValidated, login, logout, refreshUser }}>
+    <AuthContext.Provider value={{ user, isAuthenticated, loading, sessionValidated, login, logout, refreshUser, markPasswordChanged }}>
       {children}
     </AuthContext.Provider>
   );

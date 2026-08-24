@@ -7,6 +7,7 @@ import RoleGuard from './components/RoleGuard';
 import Layout from './components/Layout';
 import ConnectionGuard from './components/ConnectionGuard';
 import Login from './pages/Login';
+import ForceChangePassword from './pages/ForceChangePassword';
 import NoAccess from './pages/NoAccess';
 import Dashboard from './pages/Dashboard';
 import OffenderList from './pages/offenders/OffenderList';
@@ -23,6 +24,7 @@ import Reports from './pages/reports/Reports';
 import DeletionRequests from './pages/workflows/DeletionRequests';
 import EditRequests from './pages/workflows/EditRequests';
 import CommitApprovals from './pages/approvals/CommitApprovals';
+import ApprovalProgress from './pages/approvals/ApprovalProgress';
 import UserManagement from './pages/admin/UserManagement';
 import TeamManagement from './pages/admin/TeamManagement';
 import AuditLogs from './pages/admin/AuditLogs';
@@ -49,6 +51,7 @@ createRoot(document.getElementById('root')).render(
         <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/change-password" element={<ForceChangePassword />} />
 
             {/* Protected Routes */}
             <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
@@ -108,6 +111,7 @@ createRoot(document.getElementById('root')).render(
                   <CommitApprovals />
                 </RoleGuard>
               } />
+              <Route path="approval-progress" element={<ApprovalProgress />} />
 
               {/* District Analytics — DSP and above */}
               <Route path="district-analytics" element={

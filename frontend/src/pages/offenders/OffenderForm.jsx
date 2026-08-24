@@ -4,6 +4,7 @@ import api from '../../api/axios';
 import CustomSelect from '../../components/CustomSelect';
 import { usePermissions } from '../../hooks/usePermissions';
 import { OffenderCaseHistory, OffenderInterrogationPanel, ImeiPanel } from '../../components/OffenderPhase1Panels';
+import { IconWarning } from '../../components/Icons';
 
 const CATEGORIES = ['INTERSTATE_LINK','FINANCIER','SUPPLIER','TRANSPORTER','LOCAL_KINGPIN','LOCAL_PEDDLER','CONSUMER'];
 const GENDERS = ['MALE','FEMALE','OTHER'];
@@ -101,6 +102,7 @@ export default function OffenderForm() {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const [quickNotes, setQuickNotes] = useState('');
+  const [approvalInfo, setApprovalInfo] = useState({ status: '', notes: '' });
 
   const [form, setForm] = useState({
     slNo:'', psId:'', fullName:'', alias:'', fatherHusbandName:'',
@@ -291,6 +293,10 @@ export default function OffenderForm() {
           return uiFinancials;
         })(),
         criminalHistories: d.criminalHistories||[], supplyChainLinks: d.supplyChainLinks||[],
+      });
+      setApprovalInfo({
+        status: d.approvalStatus || '',
+        notes: d.approvalNotes || '',
       });
       setAadhaarMasked(d.identityDocs?.aadhaarMasked ?? !!String(d.aadhaarNo || '').includes('XXXX'));
     } catch {
@@ -973,6 +979,11 @@ export default function OffenderForm() {
   };
 
   const uploadFile = async (file) => {
+    if (file.size > 500 * 1024) {
+      setError(`Photo must be under 500 KB (ideally 200 KB - 500 KB). Selected file is ${(file.size / 1024).toFixed(0)} KB.`);
+      return;
+    }
+
     const formData = new FormData();
     formData.append('photo', file);
     setUploadingPhoto(true);
@@ -1091,9 +1102,9 @@ export default function OffenderForm() {
       </div>
 
       {isCrossPSEditRestricted && (
-        <div className="p-4 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-300 flex items-center gap-3.5 shadow-md">
-          <div className="p-2 rounded-xl bg-amber-500/20 text-amber-400 font-black text-xl flex items-center justify-center shrink-0 select-none">
-            ⚠️
+        <div className="p-4 rounded-2xl bg-amber-500/15 border border-amber-500/40 text-amber-300 flex items-center gap-3.5 shadow-md">
+          <div className="p-2.5 rounded-xl bg-amber-500/20 text-amber-400 font-black text-base flex items-center justify-center shrink-0 shadow-sm">
+            <IconWarning className="w-5 h-5" />
           </div>
           <div>
             <h4 className="font-bold text-sm text-amber-200">Access Restricted — Read-Only Mode</h4>
@@ -1107,6 +1118,31 @@ export default function OffenderForm() {
       {error && (
         <div className="px-4 py-3 rounded-lg text-sm" style={{ background: 'rgba(239,68,68,0.15)', color: 'var(--color-danger-400)', border: '1px solid rgba(239,68,68,0.3)' }}>
           {error}
+        </div>
+      )}
+
+      {approvalInfo.status === 'CHANGES_REQUESTED' && (
+        <div className="p-4.5 rounded-2xl bg-orange-500/15 border border-orange-500/40 text-orange-200 flex items-start gap-3.5 shadow-md animate-fade-in">
+          <div className="p-2.5 rounded-xl bg-orange-500 text-slate-950 font-black text-base flex items-center justify-center shrink-0 shadow-sm">
+            <IconWarning className="w-5 h-5" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <h4 className="font-bold text-sm text-orange-100">SHO Requested Changes / Revisions</h4>
+              <span className="px-2 py-0.5 rounded-full bg-orange-500 text-slate-950 text-[10px] font-black uppercase tracking-wider">
+                Action Needed
+              </span>
+            </div>
+            {approvalInfo.notes ? (
+              <p className="text-xs text-orange-200 mt-1.5 font-medium bg-orange-500/10 p-3 rounded-xl border border-orange-500/20 leading-relaxed">
+                <strong>SHO Feedback & Instructions:</strong> {approvalInfo.notes}
+              </p>
+            ) : (
+              <p className="text-xs text-orange-200 mt-1 font-medium">
+                The Station SHO has requested adjustments to this offender profile. Please update the necessary fields and click &quot;Save & Resubmit to SHO for Approval&quot;.
+              </p>
+            )}
+          </div>
         </div>
       )}
 
@@ -1204,12 +1240,15 @@ export default function OffenderForm() {
                             <input 
                               id="photo-upload-input"
                               type="file" 
-                              accept="image/*" 
+                              accept="image/jpeg,image/png,image/webp,image/jpg" 
                               onChange={handleFileChange} 
                               disabled={uploadingPhoto}
                               className="hidden" 
                             />
                           </label>
+                          <p className="text-[10px] text-center mt-1 font-medium" style={{ color: 'var(--color-garuda-400)' }}>
+                            JPG/PNG under 500KB (ideally 200–500 KB)
+                          </p>
                         </div>
                         {uploadingPhoto && <span className="text-xs animate-pulse text-center font-semibold" style={{ color: 'var(--color-garuda-400)' }}>Uploading…</span>}
                       </div>
@@ -1842,8 +1881,14 @@ export default function OffenderForm() {
         <div className="flex justify-end pt-4">
           <button onClick={handleSubmit} disabled={saving}
             className="px-8 py-3 rounded-full text-sm font-black text-slate-950 cursor-pointer transition-all whitespace-nowrap shadow-lg shadow-amber-500/25 active:scale-95 border-none"
-            style={{ background: saving ? 'var(--color-garuda-600)' : 'linear-gradient(135deg, #f59e0b, #d97706)' }}>
-            {saving ? 'Saving...' : isEdit ? 'Update Profile' : 'Create Profile'}
+            style={{ background: saving ? 'var(--color-garuda-600)' : (approvalInfo.status === 'CHANGES_REQUESTED' ? 'linear-gradient(135deg, #f97316, #ea580c)' : 'linear-gradient(135deg, #f59e0b, #d97706)') }}>
+            {saving
+              ? 'Saving...'
+              : isEdit
+              ? approvalInfo.status === 'CHANGES_REQUESTED'
+                ? 'Save & Resubmit to SHO for Approval'
+                : 'Update Profile'
+              : 'Create Profile'}
           </button>
         </div>
       )}

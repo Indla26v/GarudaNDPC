@@ -50,6 +50,10 @@ function useNavItems() {
           path: '/approvals', label: 'Commit Approvals', icon: IconAuditLog,
           show: perms.isSHO
         },
+        {
+          path: '/approval-progress', label: 'Approval Status', icon: IconAuditLog,
+          show: perms.role === 'CONSTABLE' || perms.isStationLevel
+        },
       ],
     },
     {
@@ -257,6 +261,15 @@ const DEPT_FULL_LABELS = {
   const handlePhotoSelect = (e) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (file.size > 500 * 1024) {
+        setProfileMsg({
+          type: 'error',
+          text: `Profile photo must be under 500 KB (ideally 200 KB - 500 KB). Selected file is ${(file.size / 1024).toFixed(0)} KB.`
+        });
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        return;
+      }
+      setProfileMsg({ type: '', text: '' });
       const reader = new FileReader();
       reader.onloadend = () => {
         setPhotoPreview(reader.result);
@@ -277,6 +290,8 @@ const DEPT_FULL_LABELS = {
   const openProfileModal = () => {
     setProfileForm({
       fullName: user?.fullName || '',
+      email: user?.email || '',
+      phoneNumber: user?.phoneNumber || '',
       badgeNumber: user?.badgeNumber || '',
       photoUrl: user?.photoUrl || '',
     });
@@ -296,6 +311,8 @@ const DEPT_FULL_LABELS = {
     try {
       await api.put('/auth/profile', {
         fullName: profileForm.fullName,
+        email: profileForm.email ? profileForm.email.trim() : null,
+        phoneNumber: profileForm.phoneNumber ? profileForm.phoneNumber.trim().replace(/[\s\-]/g, '') : null,
         badgeNumber: profileForm.badgeNumber,
         photoUrl: photoPreview !== undefined ? photoPreview : (profileForm.photoUrl || null),
       });
@@ -700,6 +717,9 @@ const DEPT_FULL_LABELS = {
                       </button>
                     )}
                   </div>
+                  <p className="text-[10px] text-center text-slate-500 dark:text-slate-400 mt-2 font-medium">
+                    JPG/PNG under 500KB (ideally 200–500 KB)
+                  </p>
                 </>
               ) : (
                 /* Live Camera Feed Container */
@@ -801,6 +821,27 @@ const DEPT_FULL_LABELS = {
                   onChange={(e) => setProfileForm({ ...profileForm, fullName: e.target.value })}
                   className="w-full px-4 py-2.5 rounded-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-semibold text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-800 focus:border-amber-500 focus:outline-none transition-all shadow-2xs"
                   placeholder="Enter your full name"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1.5">Email Address</label>
+                <input
+                  type="email"
+                  value={profileForm.email}
+                  onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })}
+                  className="w-full px-4 py-2.5 rounded-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-semibold text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-800 focus:border-amber-500 focus:outline-none transition-all shadow-2xs"
+                  placeholder="officer@appolice.gov.in"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1.5">Mobile Number</label>
+                <input
+                  type="tel"
+                  value={profileForm.phoneNumber}
+                  onChange={(e) => setProfileForm({ ...profileForm, phoneNumber: e.target.value })}
+                  className="w-full px-4 py-2.5 rounded-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-semibold text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-800 focus:border-amber-500 focus:outline-none transition-all shadow-2xs"
+                  placeholder="10-digit mobile number"
+                  maxLength={13}
                 />
               </div>
               <div>

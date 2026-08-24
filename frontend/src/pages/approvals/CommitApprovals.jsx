@@ -2,7 +2,16 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../api/axios';
-import { IconAuditLog, IconCheck, IconClose, IconCases, IconOffender, IconEdit, IconSearch } from '../../components/Icons';
+import {
+  IconAuditLog,
+  IconCheck,
+  IconClose,
+  IconCases,
+  IconOffender,
+  IconEdit,
+  IconSearch,
+  IconWarning,
+} from '../../components/Icons';
 
 export default function CommitApprovals() {
   const { user } = useAuth();
@@ -14,10 +23,23 @@ export default function CommitApprovals() {
   const [actionLoading, setActionLoading] = useState(null);
   const [message, setMessage] = useState({ text: '', type: '' });
 
-  // Review Modal State
+  // Note Action Modal State (for Request Changes & Reject with Notes)
+  const [noteModal, setNoteModal] = useState({
+    isOpen: false,
+    entity: '', // 'cases' | 'offenders' | 'edit-requests'
+    id: null,
+    item: null,
+    action: '', // 'request-changes' | 'reject'
+    noteText: '',
+  });
+
+  // Review Modal State for Edit Requests
   const [selectedEditRequest, setSelectedEditRequest] = useState(null);
   const [comparingEntity, setComparingEntity] = useState(null);
   const [comparingLoading, setComparingLoading] = useState(false);
+
+  // Quick Preview Modal State for Cases & Offenders
+  const [previewItem, setPreviewItem] = useState(null);
 
   const openReviewModal = async (er) => {
     setSelectedEditRequest(er);
@@ -81,7 +103,7 @@ export default function CommitApprovals() {
       fir_no: 'FIR Number',
       sectionOfLaw: 'Section of Law',
       section_of_law: 'Section of Law',
-      stage: 'Case Stage'
+      stage: 'Case Stage',
     };
 
     const getOriginalVal = (key) => {
@@ -95,7 +117,6 @@ export default function CommitApprovals() {
       if (key === 'sectionOfLaw' || key === 'section_of_law') return currentRecord.sectionOfLaw ?? currentRecord.section_of_law;
       if (key === 'previousCrimeHistory' || key === 'previous_crime_history') return currentRecord.previousCrimeHistory ?? currentRecord.previous_crime_history;
       if (key === 'photoUrl' || key === 'photo_url') return currentRecord.photoUrl ?? currentRecord.photo_url;
-      
       return currentRecord[key];
     };
 
@@ -106,7 +127,6 @@ export default function CommitApprovals() {
       const label = FIELD_LABELS[key] || key;
       const rawFrom = getOriginalVal(key);
 
-      // Monthly Income normalization (ignore currency symbol differences)
       if (key === 'monthlyIncome' || key === 'monthly_income') {
         const numFrom = rawFrom !== undefined && rawFrom !== null ? String(rawFrom).replace(/[^0-9.]/g, '') : '';
         const numTo = val !== undefined && val !== null ? String(val).replace(/[^0-9.]/g, '') : '';
@@ -115,12 +135,11 @@ export default function CommitApprovals() {
           key,
           label,
           from: numFrom ? `₹${numFrom}` : '—',
-          to: numTo ? `₹${numTo}` : '—'
+          to: numTo ? `₹${numTo}` : '—',
         });
         continue;
       }
 
-      // Boolean normalization
       if (key === 'previousCrimeHistory' || key === 'previous_crime_history') {
         const boolFrom = Boolean(rawFrom);
         const boolTo = Boolean(val);
@@ -129,12 +148,11 @@ export default function CommitApprovals() {
           key,
           label,
           from: boolFrom ? 'Yes (Has Record)' : 'No (No Record)',
-          to: boolTo ? 'Yes (Has Record)' : 'No (No Record)'
+          to: boolTo ? 'Yes (Has Record)' : 'No (No Record)',
         });
         continue;
       }
 
-      // Photo URL comparison & preview mode
       if (key === 'photoUrl' || key === 'photo_url') {
         const strFrom = rawFrom ? String(rawFrom).trim() : '';
         const strTo = val ? String(val).trim() : '';
@@ -144,12 +162,11 @@ export default function CommitApprovals() {
           label,
           from: strFrom || '—',
           to: strTo || '—',
-          isImage: true
+          isImage: true,
         });
         continue;
       }
 
-      // General text fields
       const fromStr = rawFrom !== undefined && rawFrom !== null ? String(rawFrom).trim() : '';
       const toStr = val !== undefined && val !== null ? String(val).trim() : '';
 
@@ -158,31 +175,7 @@ export default function CommitApprovals() {
           key,
           label,
           from: fromStr || '—',
-          to: toStr || '—'
-        });
-      }
-    }
-
-    if ('contacts' in changes && Array.isArray(changes.contacts)) {
-      const fromCount = currentRecord?.contacts?.length || 0;
-      const toCount = changes.contacts.length;
-      if (fromCount !== toCount) {
-        diffs.push({
-          label: 'Contacts List',
-          from: `${fromCount} contact(s)`,
-          to: `${toCount} updated contact(s)`
-        });
-      }
-    }
-
-    if ('financials' in changes && Array.isArray(changes.financials)) {
-      const fromCount = currentRecord?.financials?.length || 0;
-      const toCount = changes.financials.length;
-      if (fromCount !== toCount) {
-        diffs.push({
-          label: 'Financial Accounts',
-          from: `${fromCount} record(s)`,
-          to: `${toCount} updated account(s)`
+          to: toStr || '—',
         });
       }
     }
@@ -195,9 +188,9 @@ export default function CommitApprovals() {
     try {
       const psId = user?.policeStationId;
       const [casesRes, offendersRes, editsRes] = await Promise.all([
-        api.get(`/cases?approvalStatus=PENDING${psId ? `&psId=${psId}` : ''}`),
-        api.get(`/offenders?approvalStatus=PENDING${psId ? `&psId=${psId}` : ''}`),
-        api.get(`/edit-requests?status=PENDING`),
+        api.get(`/cases?approvalStatus=PENDING,CHANGES_REQUESTED${psId ? `&psId=${psId}` : ''}`),
+        api.get(`/offenders?approvalStatus=PENDING,CHANGES_REQUESTED${psId ? `&psId=${psId}` : ''}`),
+        api.get(`/edit-requests?status=PENDING,CHANGES_REQUESTED`),
       ]);
       setCases(casesRes.data?.data?.content || []);
       setOffenders(offendersRes.data?.data?.content || []);
@@ -214,30 +207,57 @@ export default function CommitApprovals() {
     fetchData();
   }, [user]);
 
-  const handleAction = async (entity, id, action) => {
+  const handleAction = async (entity, id, action, noteText = '') => {
     setActionLoading(`${entity}-${id}-${action}`);
     try {
       if (entity === 'edit-request') {
         if (action === 'approve') {
           await api.post(`/edit-requests/${id}/approve`);
+        } else if (action === 'request-changes') {
+          await api.post(`/edit-requests/${id}/request-changes`, { notes: noteText });
         } else {
-          await api.post(`/edit-requests/${id}/reject`, { rejectionReason: 'Rejected by SHO' });
+          await api.post(`/edit-requests/${id}/reject`, { rejectionReason: noteText || 'Rejected by SHO' });
         }
       } else {
-        await api.post(`/approvals/${entity}/${id}/${action}`);
+        if (action === 'approve') {
+          await api.post(`/approvals/${entity}/${id}/approve`);
+        } else if (action === 'request-changes') {
+          await api.post(`/approvals/${entity}/${id}/request-changes`, { notes: noteText });
+        } else {
+          await api.post(`/approvals/${entity}/${id}/reject`, { notes: noteText });
+        }
       }
-      setMessage({
-        text: `Record successfully ${action === 'approve' ? 'approved & committed to database' : 'rejected'}.`,
-        type: 'success'
-      });
+
+      let successMsg = 'Action completed successfully.';
+      if (action === 'approve') {
+        successMsg = 'Record successfully approved and committed to database.';
+      } else if (action === 'request-changes') {
+        successMsg = 'Changes requested. Record returned to Constable for revision.';
+      } else if (action === 'reject') {
+        successMsg = 'Record rejected.';
+      }
+
+      setMessage({ text: successMsg, type: 'success' });
+      setNoteModal({ isOpen: false, entity: '', id: null, item: null, action: '', noteText: '' });
       fetchData();
-      setTimeout(() => setMessage({ text: '', type: '' }), 4000);
+      setTimeout(() => setMessage({ text: '', type: '' }), 5000);
     } catch (err) {
       console.error(err);
-      setMessage({ text: err.response?.data?.message || `Failed to ${action} ${entity}.`, type: 'error' });
+      setMessage({ text: err.response?.data?.message || `Failed to process ${action} for ${entity}.`, type: 'error' });
     } finally {
       setActionLoading(null);
     }
+  };
+
+  const openNoteModal = (entity, item, action) => {
+    setNoteModal({
+      isOpen: true,
+      entity,
+      id: item.id,
+      item,
+      action,
+      noteText: item.approvalNotes || '',
+    });
   };
 
   const tabs = [
@@ -259,7 +279,7 @@ export default function CommitApprovals() {
               Commit Approvals
             </h1>
             <p className="text-xs font-semibold mt-0.5" style={{ color: 'var(--color-garuda-400)' }}>
-              Review, verify, and commit pending data submissions registered by Police Constables.
+              Review, verify, request revisions, or commit pending data submissions registered by Police Constables.
             </p>
           </div>
         </div>
@@ -268,7 +288,7 @@ export default function CommitApprovals() {
         <div className="flex items-center gap-2">
           <div className="px-4 py-2 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2 shadow-sm">
             <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
-            Total Pending: <span className="font-mono text-amber-500 font-black">{cases.length + offenders.length + editRequests.length}</span>
+            Total Pending Reviews: <span className="font-mono text-amber-500 font-black">{cases.length + offenders.length + editRequests.length}</span>
           </div>
         </div>
       </div>
@@ -281,13 +301,13 @@ export default function CommitApprovals() {
             : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
         }`}>
           <span>{message.text}</span>
-          <button onClick={() => setMessage({ text: '', type: '' })} className="hover:opacity-80">
+          <button onClick={() => setMessage({ text: '', type: '' })} className="hover:opacity-80 cursor-pointer">
             <IconClose className="w-4 h-4" />
           </button>
         </div>
       )}
 
-      {/* Tab Navigation (Pill Shaped Container) */}
+      {/* Tab Navigation */}
       <div className="flex items-center gap-2 p-1.5 rounded-full bg-slate-100 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/60 max-w-fit shadow-xs">
         {tabs.map((tab) => {
           const Icon = tab.icon;
@@ -316,7 +336,7 @@ export default function CommitApprovals() {
         })}
       </div>
 
-      {/* Main Table Card (32px Rounded Corners with Card Elevation) */}
+      {/* Main Table Card */}
       <div className="rounded-3xl border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-800 shadow-xl overflow-hidden">
         {/* Cases View */}
         {activeTab === 'cases' && (
@@ -325,10 +345,10 @@ export default function CommitApprovals() {
               <thead>
                 <tr className="bg-slate-100/80 dark:bg-slate-900 text-slate-700 dark:text-slate-300 font-bold uppercase tracking-wider border-b border-slate-200 dark:border-slate-700 select-none">
                   <th className="px-5 py-4">FIR Number</th>
-                  <th className="px-5 py-4">Stage</th>
+                  <th className="px-5 py-4">Stage / Section</th>
                   <th className="px-5 py-4">Submitted By</th>
-                  <th className="px-5 py-4">Status</th>
-                  <th className="px-5 py-4 text-right">Actions</th>
+                  <th className="px-5 py-4">Approval Status & Feedback</th>
+                  <th className="px-5 py-4 text-right">Review Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -336,10 +356,10 @@ export default function CommitApprovals() {
                   [1, 2, 3].map((i) => (
                     <tr key={i} className="animate-pulse">
                       <td className="px-5 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-24" /></td>
-                      <td className="px-5 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-16" /></td>
+                      <td className="px-5 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-20" /></td>
                       <td className="px-5 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-28" /></td>
-                      <td className="px-5 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-16" /></td>
-                      <td className="px-5 py-4 text-right"><div className="h-6 bg-slate-200 dark:bg-slate-700 rounded w-36 ml-auto" /></td>
+                      <td className="px-5 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-24" /></td>
+                      <td className="px-5 py-4 text-right"><div className="h-6 bg-slate-200 dark:bg-slate-700 rounded w-48 ml-auto" /></td>
                     </tr>
                   ))
                 ) : cases.length === 0 ? (
@@ -356,42 +376,80 @@ export default function CommitApprovals() {
                   cases.map((c) => (
                     <tr key={c.id} className="hover:bg-slate-50 dark:hover:bg-slate-750 transition-colors">
                       <td className="px-5 py-4 font-mono font-bold text-slate-900 dark:text-white">
-                        <Link to={`/cases/${c.id}`} className="hover:underline text-amber-500">
+                        <Link to={`/cases/${c.id}`} className="hover:underline text-amber-500 font-extrabold flex items-center gap-1.5">
                           {c.firNo}
                         </Link>
+                        {c.natureOfOffence && (
+                          <p className="text-[11px] font-normal text-slate-500 dark:text-slate-400 mt-0.5 truncate max-w-xs">
+                            {c.natureOfOffence}
+                          </p>
+                        )}
                       </td>
                       <td className="px-5 py-4 font-semibold text-slate-700 dark:text-slate-300">
                         <span className="px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30 uppercase tracking-wider">
                           {c.stage}
                         </span>
+                        {c.sectionOfLaw && (
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 font-mono">{c.sectionOfLaw}</p>
+                        )}
                       </td>
                       <td className="px-5 py-4 font-medium text-slate-700 dark:text-slate-300">
-                        {c.createdByName || 'Constable'}
+                        <div className="font-bold text-slate-900 dark:text-white">{c.createdByName || 'Constable'}</div>
+                        <div className="text-[10px] text-slate-400 font-mono mt-0.5">
+                          {c.createdAt ? new Date(c.createdAt).toLocaleDateString('en-IN') : 'Recent'}
+                        </div>
                       </td>
                       <td className="px-5 py-4">
-                        <span className="px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/30 uppercase tracking-wider">
-                          PENDING COMMIT
-                        </span>
+                        {c.approvalStatus === 'CHANGES_REQUESTED' ? (
+                          <div>
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-orange-500/10 text-orange-500 dark:text-orange-400 border border-orange-500/30 uppercase tracking-wider inline-flex items-center gap-1">
+                              <IconWarning className="w-3 h-3 text-orange-500" /> CHANGES REQUESTED
+                            </span>
+                            {c.approvalNotes && (
+                              <p className="text-[11px] text-orange-600 dark:text-orange-300 mt-1 font-medium bg-orange-500/5 p-1.5 rounded border border-orange-500/20 max-w-xs">
+                                <strong>Note:</strong> {c.approvalNotes}
+                              </p>
+                            )}
+                          </div>
+                        ) : (
+                          <div>
+                            <span className="px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/30 uppercase tracking-wider">
+                              PENDING COMMIT
+                            </span>
+                            {c.approvalNotes && (
+                              <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 italic max-w-xs">
+                                {c.approvalNotes}
+                              </p>
+                            )}
+                          </div>
+                        )}
                       </td>
                       <td className="px-5 py-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
+                        <div className="flex items-center justify-end gap-1.5 flex-wrap">
                           <Link
                             to={`/cases/${c.id}`}
-                            className="px-3.5 py-1.5 rounded-full text-xs font-extrabold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors shadow-2xs"
+                            className="px-3 py-1.5 rounded-full text-xs font-extrabold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors shadow-2xs"
                           >
                             View
                           </Link>
                           <button
                             disabled={!!actionLoading}
                             onClick={() => handleAction('cases', c.id, 'approve')}
-                            className="px-3.5 py-1.5 rounded-full text-xs font-extrabold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-2xs"
+                            className="px-3 py-1.5 rounded-full text-xs font-extrabold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/25 transition-all flex items-center gap-1 cursor-pointer disabled:opacity-50 shadow-2xs"
                           >
                             <IconCheck className="w-3.5 h-3.5" /> Approve
                           </button>
                           <button
                             disabled={!!actionLoading}
-                            onClick={() => handleAction('cases', c.id, 'reject')}
-                            className="px-3.5 py-1.5 rounded-full text-xs font-extrabold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/30 hover:bg-rose-500/20 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-2xs"
+                            onClick={() => openNoteModal('cases', c, 'request-changes')}
+                            className="px-3 py-1.5 rounded-full text-xs font-extrabold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 hover:bg-amber-500/25 transition-all flex items-center gap-1 cursor-pointer disabled:opacity-50 shadow-2xs"
+                          >
+                            <IconEdit className="w-3.5 h-3.5" /> Request Changes
+                          </button>
+                          <button
+                            disabled={!!actionLoading}
+                            onClick={() => openNoteModal('cases', c, 'reject')}
+                            className="px-3 py-1.5 rounded-full text-xs font-extrabold bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30 hover:bg-rose-500/25 transition-all flex items-center gap-1 cursor-pointer disabled:opacity-50 shadow-2xs"
                           >
                             <IconClose className="w-3.5 h-3.5" /> Reject
                           </button>
@@ -414,8 +472,8 @@ export default function CommitApprovals() {
                   <th className="px-5 py-4">Offender Name</th>
                   <th className="px-5 py-4">Category</th>
                   <th className="px-5 py-4">Submitted By</th>
-                  <th className="px-5 py-4">Status</th>
-                  <th className="px-5 py-4 text-right">Actions</th>
+                  <th className="px-5 py-4">Approval Status & Feedback</th>
+                  <th className="px-5 py-4 text-right">Review Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -425,8 +483,8 @@ export default function CommitApprovals() {
                       <td className="px-5 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-28" /></td>
                       <td className="px-5 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-20" /></td>
                       <td className="px-5 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-24" /></td>
-                      <td className="px-5 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-16" /></td>
-                      <td className="px-5 py-4 text-right"><div className="h-6 bg-slate-200 dark:bg-slate-700 rounded w-36 ml-auto" /></td>
+                      <td className="px-5 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-24" /></td>
+                      <td className="px-5 py-4 text-right"><div className="h-6 bg-slate-200 dark:bg-slate-700 rounded w-48 ml-auto" /></td>
                     </tr>
                   ))
                 ) : offenders.length === 0 ? (
@@ -443,9 +501,21 @@ export default function CommitApprovals() {
                   offenders.map((o) => (
                     <tr key={o.id} className="hover:bg-slate-50 dark:hover:bg-slate-750 transition-colors">
                       <td className="px-5 py-4 font-bold text-slate-900 dark:text-white">
-                        <Link to={`/offenders/${o.id}`} className="hover:underline text-amber-500">
-                          {o.fullName}
-                        </Link>
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 flex items-center justify-center overflow-hidden shrink-0">
+                            {o.photoUrl ? (
+                              <img src={o.photoUrl} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <span className="font-bold text-amber-500 text-xs">{o.fullName?.[0] || 'O'}</span>
+                            )}
+                          </div>
+                          <div>
+                            <Link to={`/offenders/${o.id}`} className="hover:underline text-amber-500 font-extrabold">
+                              {o.fullName}
+                            </Link>
+                            {o.alias && <p className="text-[11px] font-normal text-slate-400">Alias: {o.alias}</p>}
+                          </div>
+                        </div>
                       </td>
                       <td className="px-5 py-4 font-semibold text-slate-700 dark:text-slate-300">
                         <span className="px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/30 uppercase tracking-wider">
@@ -453,32 +523,62 @@ export default function CommitApprovals() {
                         </span>
                       </td>
                       <td className="px-5 py-4 font-medium text-slate-700 dark:text-slate-300">
-                        {o.createdByName || 'Constable'}
+                        <div className="font-bold text-slate-900 dark:text-white">{o.createdByName || 'Constable'}</div>
+                        <div className="text-[10px] text-slate-400 font-mono mt-0.5">
+                          {o.createdAt ? new Date(o.createdAt).toLocaleDateString('en-IN') : 'Recent'}
+                        </div>
                       </td>
                       <td className="px-5 py-4">
-                        <span className="px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/30 uppercase tracking-wider">
-                          PENDING COMMIT
-                        </span>
+                        {o.approvalStatus === 'CHANGES_REQUESTED' ? (
+                          <div>
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-orange-500/10 text-orange-500 dark:text-orange-400 border border-orange-500/30 uppercase tracking-wider inline-flex items-center gap-1">
+                              <IconWarning className="w-3 h-3 text-orange-500" /> CHANGES REQUESTED
+                            </span>
+                            {o.approvalNotes && (
+                              <p className="text-[11px] text-orange-600 dark:text-orange-300 mt-1 font-medium bg-orange-500/5 p-1.5 rounded border border-orange-500/20 max-w-xs">
+                                <strong>Note:</strong> {o.approvalNotes}
+                              </p>
+                            )}
+                          </div>
+                        ) : (
+                          <div>
+                            <span className="px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/30 uppercase tracking-wider">
+                              PENDING COMMIT
+                            </span>
+                            {o.approvalNotes && (
+                              <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 italic max-w-xs">
+                                {o.approvalNotes}
+                              </p>
+                            )}
+                          </div>
+                        )}
                       </td>
                       <td className="px-5 py-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
+                        <div className="flex items-center justify-end gap-1.5 flex-wrap">
                           <Link
                             to={`/offenders/${o.id}`}
-                            className="px-3.5 py-1.5 rounded-full text-xs font-extrabold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors shadow-2xs"
+                            className="px-3 py-1.5 rounded-full text-xs font-extrabold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors shadow-2xs"
                           >
                             View
                           </Link>
                           <button
                             disabled={!!actionLoading}
                             onClick={() => handleAction('offenders', o.id, 'approve')}
-                            className="px-3.5 py-1.5 rounded-full text-xs font-extrabold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-2xs"
+                            className="px-3 py-1.5 rounded-full text-xs font-extrabold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/25 transition-all flex items-center gap-1 cursor-pointer disabled:opacity-50 shadow-2xs"
                           >
                             <IconCheck className="w-3.5 h-3.5" /> Approve
                           </button>
                           <button
                             disabled={!!actionLoading}
-                            onClick={() => handleAction('offenders', o.id, 'reject')}
-                            className="px-3.5 py-1.5 rounded-full text-xs font-extrabold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/30 hover:bg-rose-500/20 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-2xs"
+                            onClick={() => openNoteModal('offenders', o, 'request-changes')}
+                            className="px-3 py-1.5 rounded-full text-xs font-extrabold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 hover:bg-amber-500/25 transition-all flex items-center gap-1 cursor-pointer disabled:opacity-50 shadow-2xs"
+                          >
+                            <IconEdit className="w-3.5 h-3.5" /> Request Changes
+                          </button>
+                          <button
+                            disabled={!!actionLoading}
+                            onClick={() => openNoteModal('offenders', o, 'reject')}
+                            className="px-3 py-1.5 rounded-full text-xs font-extrabold bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30 hover:bg-rose-500/25 transition-all flex items-center gap-1 cursor-pointer disabled:opacity-50 shadow-2xs"
                           >
                             <IconClose className="w-3.5 h-3.5" /> Reject
                           </button>
@@ -501,8 +601,8 @@ export default function CommitApprovals() {
                   <th className="px-5 py-4">Entity Type</th>
                   <th className="px-5 py-4">Entity ID</th>
                   <th className="px-5 py-4">Requested By</th>
-                  <th className="px-5 py-4">Status</th>
-                  <th className="px-5 py-4 text-right">Actions</th>
+                  <th className="px-5 py-4">Status & Notes</th>
+                  <th className="px-5 py-4 text-right">Review Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -512,8 +612,8 @@ export default function CommitApprovals() {
                       <td className="px-5 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-20" /></td>
                       <td className="px-5 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-16" /></td>
                       <td className="px-5 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-24" /></td>
-                      <td className="px-5 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-16" /></td>
-                      <td className="px-5 py-4 text-right"><div className="h-6 bg-slate-200 dark:bg-slate-700 rounded w-36 ml-auto" /></td>
+                      <td className="px-5 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-24" /></td>
+                      <td className="px-5 py-4 text-right"><div className="h-6 bg-slate-200 dark:bg-slate-700 rounded w-48 ml-auto" /></td>
                     </tr>
                   ))
                 ) : editRequests.length === 0 ? (
@@ -538,32 +638,55 @@ export default function CommitApprovals() {
                         #{er.entity_id}
                       </td>
                       <td className="px-5 py-4 font-medium text-slate-700 dark:text-slate-300">
-                        {er.requested_user?.full_name || 'Constable'}
+                        <div className="font-bold text-slate-900 dark:text-white">{er.requested_user?.full_name || 'Constable'}</div>
+                        <div className="text-[10px] text-slate-400 font-mono mt-0.5">
+                          {er.requested_at ? new Date(er.requested_at).toLocaleDateString('en-IN') : 'Recent'}
+                        </div>
                       </td>
                       <td className="px-5 py-4">
-                        <span className="px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/30 uppercase tracking-wider">
-                          PENDING EDIT
-                        </span>
+                        {er.status === 'CHANGES_REQUESTED' ? (
+                          <div>
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-orange-500/10 text-orange-500 dark:text-orange-400 border border-orange-500/30 uppercase tracking-wider inline-flex items-center gap-1">
+                              <IconWarning className="w-3 h-3 text-orange-500" /> CHANGES REQUESTED
+                            </span>
+                            {er.rejection_reason && (
+                              <p className="text-[11px] text-orange-600 dark:text-orange-300 mt-1 font-medium bg-orange-500/5 p-1.5 rounded border border-orange-500/20 max-w-xs">
+                                <strong>Note:</strong> {er.rejection_reason}
+                              </p>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/30 uppercase tracking-wider">
+                            PENDING EDIT
+                          </span>
+                        )}
                       </td>
                       <td className="px-5 py-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
+                        <div className="flex items-center justify-end gap-1.5 flex-wrap">
                           <button
                             onClick={() => openReviewModal(er)}
-                            className="px-3.5 py-1.5 rounded-full text-xs font-extrabold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/30 hover:bg-blue-500/20 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+                            className="px-3 py-1.5 rounded-full text-xs font-extrabold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/30 hover:bg-blue-500/20 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
                           >
                             <IconSearch className="w-3.5 h-3.5" /> Review Changes
                           </button>
                           <button
                             disabled={!!actionLoading}
                             onClick={() => handleAction('edit-request', er.id, 'approve')}
-                            className="px-3.5 py-1.5 rounded-full text-xs font-extrabold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-xs"
+                            className="px-3 py-1.5 rounded-full text-xs font-extrabold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/25 transition-all flex items-center gap-1 cursor-pointer disabled:opacity-50 shadow-xs"
                           >
-                            <IconCheck className="w-3.5 h-3.5" /> Approve Edit
+                            <IconCheck className="w-3.5 h-3.5" /> Approve
                           </button>
                           <button
                             disabled={!!actionLoading}
-                            onClick={() => handleAction('edit-request', er.id, 'reject')}
-                            className="px-3.5 py-1.5 rounded-full text-xs font-extrabold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/30 hover:bg-rose-500/20 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-xs"
+                            onClick={() => openNoteModal('edit-request', er, 'request-changes')}
+                            className="px-3 py-1.5 rounded-full text-xs font-extrabold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 hover:bg-amber-500/25 transition-all flex items-center gap-1 cursor-pointer disabled:opacity-50 shadow-xs"
+                          >
+                            <IconEdit className="w-3.5 h-3.5" /> Request Changes
+                          </button>
+                          <button
+                            disabled={!!actionLoading}
+                            onClick={() => openNoteModal('edit-request', er, 'reject')}
+                            className="px-3 py-1.5 rounded-full text-xs font-extrabold bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30 hover:bg-rose-500/25 transition-all flex items-center gap-1 cursor-pointer disabled:opacity-50 shadow-xs"
                           >
                             <IconClose className="w-3.5 h-3.5" /> Reject
                           </button>
@@ -578,11 +701,92 @@ export default function CommitApprovals() {
         )}
       </div>
 
-      {/* Light Mode Ultra Clean Review Changes Modal */}
+      {/* Note Action Modal (Request Changes / Rejection Notes) */}
+      {noteModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fade-in">
+          <div className="w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col">
+            <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-gradient-to-r from-amber-500/10 to-transparent">
+              <div className="flex items-center gap-3">
+                <div className={`p-2.5 rounded-2xl ${noteModal.action === 'request-changes' ? 'bg-amber-500 text-slate-950' : 'bg-rose-500 text-white'} font-bold`}>
+                  {noteModal.action === 'request-changes' ? <IconEdit className="w-5 h-5" /> : <IconClose className="w-5 h-5" />}
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900 dark:text-white">
+                    {noteModal.action === 'request-changes' ? 'Request Changes & Return to Constable' : 'Reject Submission'}
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    {noteModal.entity.toUpperCase()} #{noteModal.id}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setNoteModal({ isOpen: false, entity: '', id: null, item: null, action: '', noteText: '' })}
+                className="p-2 rounded-full text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+              >
+                <IconClose className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                {noteModal.action === 'request-changes'
+                  ? 'Please describe the changes or missing details needed from the Constable. This note will appear on their Approval Progress tracker and editing screen.'
+                  : 'Please state the reason for rejecting this record submission.'}
+              </p>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  {noteModal.action === 'request-changes' ? 'SHO Instructions / Feedback Note *' : 'Rejection Reason'}
+                </label>
+                <textarea
+                  rows={4}
+                  value={noteModal.noteText}
+                  onChange={(e) => setNoteModal({ ...noteModal, noteText: e.target.value })}
+                  placeholder={
+                    noteModal.action === 'request-changes'
+                      ? 'e.g. Please verify and fill in vehicle registration number, attach panchnama PDF, or correct the offender age before resubmission.'
+                      : 'e.g. Duplicate case record or incorrect jurisdiction.'
+                  }
+                  className="w-full px-4 py-3 rounded-2xl text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+            </div>
+
+            <div className="p-5 border-t border-slate-100 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900 flex items-center justify-between">
+              <button
+                onClick={() => setNoteModal({ isOpen: false, entity: '', id: null, item: null, action: '', noteText: '' })}
+                className="px-4 py-2 rounded-full text-xs font-bold bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                disabled={!noteModal.noteText.trim() || !!actionLoading}
+                onClick={() => handleAction(noteModal.entity, noteModal.id, noteModal.action, noteModal.noteText)}
+                className={`px-5 py-2.5 rounded-full text-xs font-black transition-all flex items-center gap-2 cursor-pointer shadow-md disabled:opacity-50 ${
+                  noteModal.action === 'request-changes'
+                    ? 'bg-amber-500 text-slate-950 hover:bg-amber-400 shadow-amber-500/20'
+                    : 'bg-rose-500 text-white hover:bg-rose-600 shadow-rose-500/20'
+                }`}
+              >
+                {noteModal.action === 'request-changes' ? (
+                  <>
+                    <IconEdit className="w-4 h-4" /> Send Back to Constable
+                  </>
+                ) : (
+                  <>
+                    <IconClose className="w-4 h-4" /> Confirm Rejection
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Review Edit Request Modal */}
       {selectedEditRequest && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in">
           <div className="w-full max-w-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
-            
             {/* Modal Header */}
             <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent dark:from-slate-850 dark:to-slate-900">
               <div className="flex items-center gap-3.5">
@@ -642,7 +846,7 @@ export default function CommitApprovals() {
               {comparingLoading ? (
                 <div className="py-16 flex flex-col items-center justify-center gap-3 text-slate-400 animate-pulse">
                   <div className="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
-                  <p className="text-xs font-extrabold text-slate-600 dark:text-slate-400">Loading profile data & computing changes...</p>
+                  <p className="text-xs font-extrabold text-slate-600 dark:text-slate-400">Loading data & computing changes...</p>
                 </div>
               ) : (
                 (() => {
@@ -650,8 +854,8 @@ export default function CommitApprovals() {
                   if (diffs.length === 0) {
                     return (
                       <div className="py-12 text-center text-slate-500 text-xs font-semibold bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200/80 dark:border-slate-700/60 p-6 shadow-xs">
-                        <p className="text-sm font-bold text-slate-700 dark:text-slate-300">No field differences detected</p>
-                        <p className="text-xs text-slate-500 mt-1">The requested values match the existing record.</p>
+                        <p className="text-sm font-bold text-slate-700 dark:text-slate-300">No direct field differences detected</p>
+                        <p className="text-xs text-slate-500 mt-1">Review raw proposal: {selectedEditRequest.reason || 'No description provided'}</p>
                       </div>
                     );
                   }
@@ -719,16 +923,28 @@ export default function CommitApprovals() {
                 Close
               </button>
 
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
                 <button
                   disabled={!!actionLoading}
-                  onClick={async () => {
-                    await handleAction('edit-request', selectedEditRequest.id, 'reject');
+                  onClick={() => {
+                    const er = selectedEditRequest;
                     setSelectedEditRequest(null);
+                    openNoteModal('edit-request', er, 'request-changes');
                   }}
-                  className="px-5 py-2.5 rounded-full text-xs font-extrabold bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300 border border-rose-200 dark:border-rose-500/30 hover:bg-rose-200 dark:hover:bg-rose-500/30 transition-all flex items-center gap-2 cursor-pointer shadow-xs disabled:opacity-50"
+                  className="px-4 py-2.5 rounded-full text-xs font-extrabold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 hover:bg-amber-500/25 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
                 >
-                  <IconClose className="w-4 h-4" /> Reject Request
+                  <IconEdit className="w-3.5 h-3.5" /> Request Changes
+                </button>
+                <button
+                  disabled={!!actionLoading}
+                  onClick={() => {
+                    const er = selectedEditRequest;
+                    setSelectedEditRequest(null);
+                    openNoteModal('edit-request', er, 'reject');
+                  }}
+                  className="px-4 py-2.5 rounded-full text-xs font-extrabold bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300 border border-rose-200 dark:border-rose-500/30 hover:bg-rose-200 dark:hover:bg-rose-500/30 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+                >
+                  <IconClose className="w-3.5 h-3.5" /> Reject
                 </button>
                 <button
                   disabled={!!actionLoading}
@@ -736,13 +952,12 @@ export default function CommitApprovals() {
                     await handleAction('edit-request', selectedEditRequest.id, 'approve');
                     setSelectedEditRequest(null);
                   }}
-                  className="px-6 py-2.5 rounded-full text-xs font-black bg-amber-500 hover:bg-amber-400 text-slate-950 transition-all flex items-center gap-2 cursor-pointer shadow-lg shadow-amber-500/25 active:scale-95 disabled:opacity-50"
+                  className="px-5 py-2.5 rounded-full text-xs font-black bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition-all flex items-center gap-1.5 cursor-pointer shadow-lg shadow-emerald-500/25"
                 >
                   <IconCheck className="w-4 h-4" /> Approve & Commit
                 </button>
               </div>
             </div>
-
           </div>
         </div>
       )}

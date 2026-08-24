@@ -6,6 +6,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../api/axios';
 import CustomSelect from '../../components/CustomSelect';
 import { usePermissions } from '../../hooks/usePermissions';
+import { IconWarning } from '../../components/Icons';
 
 export const ARREST_STATUS_META = {
   POLICE_CUSTODY: {
@@ -153,6 +154,7 @@ export default function CaseForm() {
   const [sectionErrors, setSectionErrors] = useState({});
   const [notesHistory, setNotesHistory] = useState([]);
   const [newNote, setNewNote] = useState('');
+  const [approvalInfo, setApprovalInfo] = useState({ status: '', notes: '' });
 
   const isSamePS = !perms.isStationLevel || (!form.psId || String(form.psId) === String(perms.policeStationId));
   const isCrossPSEditRestricted = isEdit && !!form.psId && !isSamePS;
@@ -250,6 +252,10 @@ export default function CaseForm() {
       } else {
         setUploadedFiles([]);
       }
+      setApprovalInfo({
+        status: c.approvalStatus || '',
+        notes: c.approvalNotes || '',
+      });
     } catch {
       setError('Failed to load case');
     } finally {
@@ -294,8 +300,16 @@ export default function CaseForm() {
     try {
       const newUploaded = [];
       for (const file of files) {
-        if (file.size > 15 * 1024 * 1024) {
-          setError(`File ${file.name} is too large (max 15MB)`);
+        const isImg = file.type.startsWith('image/');
+        const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+
+        if (isImg && file.size > 500 * 1024) {
+          setError(`Image file "${file.name}" exceeds 500 KB limit. Selected size: ${(file.size / 1024).toFixed(0)} KB`);
+          continue;
+        }
+
+        if (file.size > 5 * 1024 * 1024) {
+          setError(`File "${file.name}" exceeds 5 MB limit (ideally under 2 MB). Selected size: ${(file.size / (1024 * 1024)).toFixed(2)} MB`);
           continue;
         }
 
@@ -508,10 +522,10 @@ export default function CaseForm() {
       </div>
 
       {isCrossPSEditRestricted && (
-        <div className="p-4 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-300 flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 shadow-md">
+        <div className="p-4 rounded-2xl bg-amber-500/15 border border-amber-500/40 text-amber-300 flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 shadow-md">
           <div className="flex items-center gap-3.5">
-            <div className="p-2 rounded-xl bg-amber-500/20 text-amber-400 font-black text-xl flex items-center justify-center shrink-0 select-none">
-              ⚠️
+            <div className="p-2.5 rounded-xl bg-amber-500/20 text-amber-400 font-black text-base flex items-center justify-center shrink-0 shadow-sm">
+              <IconWarning className="w-5 h-5" />
             </div>
             <div>
               <h4 className="font-bold text-sm text-amber-200">Access Restricted — Read-Only Mode</h4>
@@ -533,6 +547,31 @@ export default function CaseForm() {
       {error && (
         <div className="p-3 rounded-lg text-sm" style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)' }}>
           {error}
+        </div>
+      )}
+
+      {approvalInfo.status === 'CHANGES_REQUESTED' && (
+        <div className="p-4.5 rounded-2xl bg-orange-500/15 border border-orange-500/40 text-orange-200 flex items-start gap-3.5 shadow-md animate-fade-in">
+          <div className="p-2.5 rounded-xl bg-orange-500 text-slate-950 font-black text-base flex items-center justify-center shrink-0 shadow-sm">
+            <IconWarning className="w-5 h-5" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <h4 className="font-bold text-sm text-orange-100">SHO Requested Changes / Revisions</h4>
+              <span className="px-2 py-0.5 rounded-full bg-orange-500 text-slate-950 text-[10px] font-black uppercase tracking-wider">
+                Action Needed
+              </span>
+            </div>
+            {approvalInfo.notes ? (
+              <p className="text-xs text-orange-200 mt-1.5 font-medium bg-orange-500/10 p-3 rounded-xl border border-orange-500/20 leading-relaxed">
+                <strong>SHO Feedback & Instructions:</strong> {approvalInfo.notes}
+              </p>
+            ) : (
+              <p className="text-xs text-orange-200 mt-1 font-medium">
+                The Station SHO has requested adjustments to this case. Please update the necessary fields and click &quot;Save & Resubmit to SHO for Approval&quot;.
+              </p>
+            )}
+          </div>
         </div>
       )}
 
@@ -1041,7 +1080,7 @@ export default function CaseForm() {
                   />
                 </label>
                 <span className="text-xs" style={{ color: 'var(--color-garuda-400)' }}>
-                  Upload scans, FIR copies, or seizure reports (PDF, Word, Images up to 15MB each).
+                  Upload scans, FIR copies, or seizure reports (PDFs up to 5MB, Images up to 500KB — ideally under 2MB / 200–500 KB).
                 </span>
               </div>
 
@@ -1094,8 +1133,23 @@ export default function CaseForm() {
                 View Case Details
               </button>
             ) : (
-              <button type="submit" disabled={saving} className="px-5 py-2.5 rounded-lg text-sm text-white" style={{ background: 'var(--color-accent-500)', opacity: saving ? 0.6 : 1 }}>
-                {saving ? 'Saving...' : isEdit ? 'Update Case' : 'Register Case'}
+              <button
+                type="submit"
+                disabled={saving}
+                className="px-6 py-2.5 rounded-xl text-sm font-extrabold text-white cursor-pointer shadow-lg hover:shadow-orange-500/20 active:scale-95 transition-all"
+                style={{
+                  background: approvalInfo.status === 'CHANGES_REQUESTED' ? 'linear-gradient(135deg, #f97316, #ea580c)' : 'var(--color-accent-500)',
+                  opacity: saving ? 0.6 : 1,
+                  border: 'none'
+                }}
+              >
+                {saving
+                  ? 'Saving...'
+                  : isEdit
+                  ? approvalInfo.status === 'CHANGES_REQUESTED'
+                    ? 'Save & Resubmit to SHO for Approval'
+                    : 'Update Case'
+                  : 'Register Case'}
               </button>
             )}
           </div>

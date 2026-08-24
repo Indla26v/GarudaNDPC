@@ -2,7 +2,7 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 export default function ProtectedRoute({ children }) {
-  const { isAuthenticated, sessionValidated } = useAuth();
+  const { user, isAuthenticated, sessionValidated } = useAuth();
 
   // Wait until session validation finishes before rendering protected routes
   if (!sessionValidated) {
@@ -16,6 +16,10 @@ export default function ProtectedRoute({ children }) {
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (user?.mustChangePassword) {
+    return <Navigate to="/change-password" replace />;
   }
 
   return children;

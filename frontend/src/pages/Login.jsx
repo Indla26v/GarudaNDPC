@@ -10,15 +10,19 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [idleLogout, setIdleLogout] = useState(false);
-  const { login, loading, isAuthenticated, sessionValidated } = useAuth();
+  const { user, login, loading, isAuthenticated, sessionValidated } = useAuth();
   const navigate = useNavigate();
 
-  // If already authenticated and session validated, redirect to dashboard
+  // If already authenticated and session validated, redirect appropriately
   useEffect(() => {
     if (sessionValidated && isAuthenticated) {
-      navigate('/dashboard', { replace: true });
+      if (user?.mustChangePassword) {
+        navigate('/change-password', { replace: true });
+      } else {
+        navigate('/dashboard', { replace: true });
+      }
     }
-  }, [isAuthenticated, sessionValidated, navigate]);
+  }, [isAuthenticated, sessionValidated, user, navigate]);
 
   // Check if user was logged out due to inactivity
   useEffect(() => {
@@ -33,7 +37,11 @@ export default function Login() {
     setError('');
     const result = await login(username, password);
     if (result.success) {
-      navigate('/dashboard');
+      if (result.mustChangePassword) {
+        navigate('/change-password');
+      } else {
+        navigate('/dashboard');
+      }
     } else {
       setError(result.message);
     }

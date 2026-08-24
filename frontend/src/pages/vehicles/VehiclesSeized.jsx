@@ -5,7 +5,7 @@
  * Full-featured list of all seized vehicles with search, filter, sort, and clickable rows.
  */
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../../api/axios';
 import CustomSelect from '../../components/CustomSelect';
 import { IconCar, IconSearch } from '../../components/Icons';
@@ -51,6 +51,7 @@ const fieldStyle = { background: 'var(--color-garuda-900)', border: '1px solid v
 
 export default function VehiclesSeized() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [vehicles, setVehicles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -61,20 +62,46 @@ export default function VehiclesSeized() {
   const [vehicleType, setVehicleType] = useState('ALL');
   const [status, setStatus] = useState('ALL');
   const [searchInput, setSearchInput] = useState('');
-  
+
+  const [psIdFilter, setPsIdFilter] = useState(() => searchParams.get('psId') || '');
+  const [timeRange, setTimeRange] = useState(() => searchParams.get('timeRange') || '');
+  const [month, setMonth] = useState(() => searchParams.get('month') || '');
+  const [year, setYear] = useState(() => searchParams.get('year') || '');
+
   // Modal state
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
+    const qPsId = searchParams.get('psId');
+    const qRange = searchParams.get('timeRange');
+    const qMonth = searchParams.get('month');
+    const qYear = searchParams.get('year');
+    if (qPsId !== null) setPsIdFilter(qPsId);
+    if (qRange !== null) setTimeRange(qRange);
+    if (qMonth !== null) setMonth(qMonth);
+    if (qYear !== null) setYear(qYear);
+    setPage(0);
+  }, [searchParams]);
+
+  useEffect(() => {
     fetchVehicles();
-  }, [page, vehicleType, status]);
+  }, [page, vehicleType, status, psIdFilter, timeRange, month, year, search]);
 
   const fetchVehicles = async () => {
     try {
       setLoading(true);
-      const params = { page, size, vehicleType, status };
-      if (search) params.search = search;
+      const params = {
+        page,
+        size,
+        vehicleType,
+        status,
+        ...(search ? { search } : {}),
+        ...(psIdFilter ? { psId: psIdFilter } : {}),
+        ...(timeRange ? { timeRange } : {}),
+        ...(month ? { month } : {}),
+        ...(year ? { year } : {}),
+      };
       const res = await api.get('/vehicles', { params });
       setVehicles(res.data.data?.content || []);
       setTotal(res.data.data?.totalElements || 0);
