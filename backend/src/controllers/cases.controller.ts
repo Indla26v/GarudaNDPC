@@ -289,10 +289,18 @@ export const updateCase = async (req: AuthRequest, res: Response) => {
       }
     }
 
+    const isPendingPipeline = existing.approval_status === 'PENDING' || existing.approval_status === 'CHANGES_REQUESTED';
+
     const updated = await prisma.$transaction(async (tx) => {
+      const caseUpdateData: any = { ...mapCaseData(req.body), updated_at: new Date() };
+      if (userRole === 'CONSTABLE' && isPendingPipeline) {
+        caseUpdateData.approval_status = 'PENDING';
+        caseUpdateData.approval_notes = req.body.resubmitNote ? `[Resubmitted] ${req.body.resubmitNote}` : '[Resubmitted with updates]';
+      }
+
       const updatedCase = await tx.cases.update({
         where: { id },
-        data: { ...mapCaseData(req.body), updated_at: new Date() } as any,
+        data: caseUpdateData,
         include: caseInclude,
       });
 
@@ -369,13 +377,32 @@ export const getCases = async (req: AuthRequest, res: Response) => {
     const scope = getCaseWhere(req.user!) as any;
 
     if (psId) {
-      scope.ps_id = BigInt(psId as string);
-    } else if (psId === '') {
+      const psIdStr = String(psId);
+      if (psIdStr.startsWith('SDPO:')) {
+        const division = psIdStr.substring('SDPO:'.length);
+        scope.police_stations = { sdpo: division };
+        delete scope.ps_id;
+      } else if (psIdStr === 'ALL' || psIdStr === '') {
+        delete scope.ps_id;
+        delete scope.police_stations;
+      } else {
+        scope.ps_id = BigInt(psIdStr);
+        delete scope.police_stations;
+      }
+    } else if (psId === '' || psId === 'ALL') {
       delete scope.ps_id;
+      delete scope.police_stations;
     }
 
     if (approvalStatus) {
-      scope.approval_status = String(approvalStatus);
+      const parts = String(approvalStatus).split(',').map(s => s.trim()).filter(Boolean);
+      if (parts.includes('ALL')) {
+        // no approval status filter
+      } else if (parts.length > 1) {
+        scope.approval_status = { in: parts };
+      } else if (parts.length === 1) {
+        scope.approval_status = parts[0];
+      }
     } else {
       scope.approval_status = 'APPROVED';
     }
@@ -452,8 +479,26 @@ export const getCases = async (req: AuthRequest, res: Response) => {
 
 export const exportCasesExcel = async (req: AuthRequest, res: Response) => {
   try {
-    const { stage, search, timeRange, month, year, approvalStatus } = req.query;
+    const { stage, search, timeRange, month, year, approvalStatus, psId } = req.query;
     const scope = getCaseWhere(req.user!) as any;
+
+    if (psId) {
+      const psIdStr = String(psId);
+      if (psIdStr.startsWith('SDPO:')) {
+        const division = psIdStr.substring('SDPO:'.length);
+        scope.police_stations = { sdpo: division };
+        delete scope.ps_id;
+      } else if (psIdStr === 'ALL' || psIdStr === '') {
+        delete scope.ps_id;
+        delete scope.police_stations;
+      } else {
+        scope.ps_id = BigInt(psIdStr);
+        delete scope.police_stations;
+      }
+    } else if (psId === '' || psId === 'ALL') {
+      delete scope.ps_id;
+      delete scope.police_stations;
+    }
 
     if (approvalStatus) {
       scope.approval_status = String(approvalStatus);
@@ -753,7 +798,9 @@ function toCaseResponse(c: any) {
     isHistorySheet: c.is_history_sheet,
     isRowdySheet: c.is_rowdy_sheet,
     relevantFiles: toWebUrls(c.relevant_files),
-    createdByName: c.users?.full_name,
+    createdByName: c.users?.full_name || c.users?.username,
+    approvalStatus: c.approval_status,
+    approvalNotes: c.approval_notes,
     createdAt: c.created_at,
     updatedAt: c.updated_at,
     accused: c.case_accused?.map((ca: any) => ({

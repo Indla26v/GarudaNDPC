@@ -135,7 +135,16 @@ export const getEditRequests = async (req: AuthRequest, res: Response) => {
     const { status, entityType, page = 0, size = 20 } = req.query;
 
     const where: any = {};
-    if (status) where.status = String(status);
+    if (status) {
+      const parts = String(status).split(',').map(s => s.trim()).filter(Boolean);
+      if (parts.includes('ALL')) {
+        // no status filter
+      } else if (parts.length > 1) {
+        where.status = { in: parts };
+      } else if (parts.length === 1) {
+        where.status = parts[0];
+      }
+    }
     if (entityType) where.entity_type = String(entityType);
 
     if (['SHO', 'SDPO', 'ASP', 'DSP'].includes(userRole)) {
@@ -285,7 +294,7 @@ export const rejectEditRequest = async (req: AuthRequest, res: Response) => {
     const userId = req.user!.userId;
     const userRole = req.user!.role;
     const userPsId = req.user!.policeStationId;
-    const { rejectionReason } = req.body;
+    const { rejectionReason, notes, reason } = req.body;
 
     if (!['SDPO', 'SP', 'SHO', 'ASP', 'DSP'].includes(userRole)) {
       return res.status(403).json({ message: 'Only SHO, SDPO, ASP, or SP can reject edit requests' });
@@ -304,19 +313,70 @@ export const rejectEditRequest = async (req: AuthRequest, res: Response) => {
       }
     }
 
+    const noteText = rejectionReason || notes || reason || 'Rejected by SHO';
+
     await prisma.edit_requests.update({
       where: { id: BigInt(id as string) },
       data: {
         status: 'REJECTED',
         approved_by: BigInt(userId),
         approved_at: new Date(),
-        rejection_reason: rejectionReason || 'Rejected by SHO',
+        rejection_reason: noteText,
       },
     });
 
-    await logAudit('EDIT_REJECTED', 'EDIT_REQUEST', BigInt(id as string), req, 'Edit request rejected');
+    await logAudit('EDIT_REJECTED', 'EDIT_REQUEST', BigInt(id as string), req, `Edit request rejected: ${noteText}`);
 
     res.json(successResponse({ id }, 'Edit request rejected'));
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+export const requestChangesEditRequest = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user!.userId;
+    const userRole = req.user!.role;
+    const userPsId = req.user!.policeStationId;
+    const { notes, reason, rejectionReason } = req.body;
+
+    if (!['SDPO', 'SP', 'SHO', 'ASP', 'DSP'].includes(userRole)) {
+      return res.status(403).json({ message: 'Only SHO, SDPO, ASP, or SP can request changes on edit requests' });
+    }
+
+    const noteText = notes || reason || rejectionReason;
+    if (!noteText || !noteText.trim()) {
+      return res.status(400).json({ message: 'Please provide instructions/notes about the required changes' });
+    }
+
+    const request = await prisma.edit_requests.findUnique({
+      where: { id: BigInt(id as string) },
+      include: { requested_user: true },
+    });
+
+    if (!request) return res.status(404).json({ message: 'Edit request not found' });
+
+    if (['SHO', 'SDPO', 'DSP'].includes(userRole) && userPsId) {
+      if (request.requested_user?.police_station_id && String(request.requested_user.police_station_id) !== String(userPsId)) {
+        return res.status(403).json({ message: 'You can only review edit requests for your assigned police station' });
+      }
+    }
+
+    await prisma.edit_requests.update({
+      where: { id: BigInt(id as string) },
+      data: {
+        status: 'CHANGES_REQUESTED',
+        approved_by: BigInt(userId),
+        approved_at: new Date(),
+        rejection_reason: noteText.trim(),
+      },
+    });
+
+    await logAudit('EDIT_REJECTED', 'EDIT_REQUEST', BigInt(id as string), req, `Changes requested on edit request: ${noteText.trim()}`);
+
+    res.json(successResponse({ id }, 'Changes requested successfully. Sent back to Constable for revision.'));
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });

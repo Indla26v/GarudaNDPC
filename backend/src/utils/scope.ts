@@ -138,8 +138,15 @@ export function getEnforcementWhere(user: ScopeUser): Record<string, any> {
 /** Returns a Prisma `where` clause and station-level flag for dashboard metrics. */
 export function getDashboardScope(user: ScopeUser): { psFilter: Record<string, any>; isStationLevel: boolean } {
   const strategy = resolveStrategy(user);
+  const isStation = strategy.isStationLevel(user);
+  if (isStation && user.policeStationId) {
+    return {
+      psFilter: { ps_id: BigInt(user.policeStationId) },
+      isStationLevel: true,
+    };
+  }
   return {
     psFilter: strategy.buildWhere(user, 'case'),
-    isStationLevel: strategy.isStationLevel(user),
+    isStationLevel: isStation,
   };
 }

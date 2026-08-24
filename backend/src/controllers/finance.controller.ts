@@ -106,6 +106,11 @@ export const uploadStatement = async (req: AuthRequest, res: Response) => {
 
     const rawExt = (file.originalname.split('.').pop() || '').toUpperCase();
     const fileType = rawExt === 'XLS' ? 'XLSX' : rawExt;
+
+    if (fileType === 'PDF' && file.size > 5 * 1024 * 1024) {
+      return res.status(400).json({ message: 'PDF statement files must be under 5MB (ideally under 2MB).' });
+    }
+
     const monthDate = new Date(statementMonth);
     if (isNaN(monthDate.getTime())) return res.status(400).json({ message: 'Invalid statementMonth' });
 

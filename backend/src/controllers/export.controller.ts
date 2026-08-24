@@ -128,10 +128,22 @@ export const exportOffendersCsv = async (req: AuthRequest, res: Response) => {
     const isCsv = formatType === 'csv';
     const isConsumer = category === 'CONSUMER';
 
-    if (psId && String(psId).trim() !== '' && !isNaN(Number(psId))) {
-      where.ps_id = BigInt(String(psId));
-    } else if (psId === '') {
+    if (psId) {
+      const psIdStr = String(psId);
+      if (psIdStr.startsWith('SDPO:')) {
+        const division = psIdStr.substring('SDPO:'.length);
+        where.police_stations = { sdpo: division };
+        delete where.ps_id;
+      } else if (psIdStr === 'ALL' || psIdStr === '') {
+        delete where.ps_id;
+        delete where.police_stations;
+      } else if (!isNaN(Number(psIdStr))) {
+        where.ps_id = BigInt(psIdStr);
+        delete where.police_stations;
+      }
+    } else if (psId === '' || psId === 'ALL') {
       delete where.ps_id;
+      delete where.police_stations;
     }
 
     const andConditions: any[] = [];

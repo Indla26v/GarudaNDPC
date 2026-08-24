@@ -44,6 +44,20 @@ router.post('/upload', uploadLimiter, uploadDocument.single('file'), (req: any, 
     return res.status(400).json({ message: 'No file uploaded' });
   }
 
+  // ── File Size Validation ──
+  const isImage = req.file.mimetype.startsWith('image/');
+  const isPdf = req.file.mimetype === 'application/pdf' || req.file.originalname.toLowerCase().endsWith('.pdf');
+  
+  if (isImage && req.file.size > 500 * 1024) {
+    if (req.file.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+    return res.status(400).json({ message: 'Image files must be under 500KB.' });
+  }
+
+  if (isPdf && req.file.size > 5 * 1024 * 1024) {
+    if (req.file.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+    return res.status(400).json({ message: 'PDF files must be under 5MB (ideally under 2MB).' });
+  }
+
   // ── SECURITY: Magic bytes validation for uploaded document ──
   try {
     const fileBuffer = fs.readFileSync(req.file.path);

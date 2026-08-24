@@ -9,7 +9,7 @@ import { getDashboardScope, ScopeUser } from '../utils/scope';
  */
 export const getSeizedVehicles = async (req: AuthRequest, res: Response) => {
   try {
-    const { page = 0, size = 20, search, vehicleType, status } = req.query;
+    const { page = 0, size = 20, search, vehicleType, status, psId, timeRange, month, year } = req.query;
     const skip = Number(page) * Number(size);
     const take = Number(size);
 
@@ -20,21 +20,53 @@ export const getSeizedVehicles = async (req: AuthRequest, res: Response) => {
     const where: any = {};
 
     // Scope by police station
-    if (psFilter.ps_id) {
+    if (psId) {
+      where.cases = { ps_id: BigInt(psId as string) };
+    } else if (psFilter.ps_id) {
       where.cases = { ps_id: psFilter.ps_id };
     } else if (psFilter.police_stations) {
       where.cases = { police_stations: psFilter.police_stations };
     }
 
+    if (timeRange === 'monthly') {
+      const monthStr = month ? String(month) : new Date().toISOString().substring(0, 7);
+      const [y, m] = monthStr.split('-').map(Number);
+      if (y && m) {
+        const start = new Date(y, m - 1, 1, 0, 0, 0, 0);
+        const end = new Date(y, m, 0, 23, 59, 59, 999);
+        where.OR = [
+          { seizure_date: { gte: start, lte: end } },
+          { seizure_date: null, cases: { case_date: { gte: start, lte: end } } }
+        ];
+      }
+    } else if (timeRange === 'yearly') {
+      const y = year ? Number(year) : new Date().getFullYear();
+      const start = new Date(y, 0, 1, 0, 0, 0, 0);
+      const end = new Date(y, 11, 31, 23, 59, 59, 999);
+      where.OR = [
+        { seizure_date: { gte: start, lte: end } },
+        { seizure_date: null, cases: { case_date: { gte: start, lte: end } } }
+      ];
+    }
+
     // Search filter
     if (search) {
       const searchStr = String(search);
-      where.OR = [
+      const searchCondition = [
         { registration_no: { contains: searchStr, mode: 'insensitive' } },
         { owner_name: { contains: searchStr, mode: 'insensitive' } },
         { make_model: { contains: searchStr, mode: 'insensitive' } },
         { cases: { fir_no: { contains: searchStr, mode: 'insensitive' } } },
       ];
+      if (where.OR) {
+        where.AND = [
+          { OR: where.OR },
+          { OR: searchCondition }
+        ];
+        delete where.OR;
+      } else {
+        where.OR = searchCondition;
+      }
     }
 
     // Vehicle type filter

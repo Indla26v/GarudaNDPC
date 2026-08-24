@@ -548,6 +548,8 @@ export const getDashboardSummary = async (req: AuthRequest, res: Response) => {
 
       // Scope info for frontend
       isStationLevel,
+      stationName: (isStationLevel && stationsToQuery.length === 1) ? stationsToQuery[0].name : null,
+      policeStationId: psFilter.ps_id ? Number(psFilter.ps_id) : null,
 
       // Alerts & activity
       recentAlerts: recentAlerts.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 10),

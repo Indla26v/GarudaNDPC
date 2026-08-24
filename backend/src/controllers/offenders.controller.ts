@@ -21,15 +21,34 @@ export const getOffenders = async (req: AuthRequest, res: Response) => {
     let whereClause: any = { ...getOffenderWhere(req.user!) };
 
     if (req.query.approvalStatus) {
-      whereClause.approval_status = String(req.query.approvalStatus);
+      const parts = String(req.query.approvalStatus).split(',').map(s => s.trim()).filter(Boolean);
+      if (parts.includes('ALL')) {
+        // no approval status filter
+      } else if (parts.length > 1) {
+        whereClause.approval_status = { in: parts };
+      } else if (parts.length === 1) {
+        whereClause.approval_status = parts[0];
+      }
     } else {
       whereClause.approval_status = 'APPROVED';
     }
 
     if (psId) {
-      whereClause.ps_id = BigInt(psId as string);
-    } else if (psId === '') {
+      const psIdStr = String(psId);
+      if (psIdStr.startsWith('SDPO:')) {
+        const division = psIdStr.substring('SDPO:'.length);
+        whereClause.police_stations = { sdpo: division };
+        delete whereClause.ps_id;
+      } else if (psIdStr === 'ALL' || psIdStr === '') {
+        delete whereClause.ps_id;
+        delete whereClause.police_stations;
+      } else if (!isNaN(Number(psIdStr))) {
+        whereClause.ps_id = BigInt(psIdStr);
+        delete whereClause.police_stations;
+      }
+    } else if (psId === '' || psId === 'ALL') {
       delete whereClause.ps_id;
+      delete whereClause.police_stations;
     }
 
     const andConditions: any[] = [];
@@ -137,12 +156,17 @@ export const getOffenders = async (req: AuthRequest, res: Response) => {
       alias: o.alias,
       category: o.category,
       status: o.status,
+      approvalStatus: o.approval_status,
+      approvalNotes: o.approval_notes,
       riskScore: o.risk_score,
       psName: o.police_stations?.name,
       district: o.district,
       mobile: o.offender_contacts?.[0]?.value || null,
       totalCases: o.case_accused.length,
-      photoUrl: o.photo_url
+      photoUrl: o.photo_url,
+      createdByName: (o as any).users?.full_name || (o as any).users?.username,
+      createdAt: o.created_at,
+      updatedAt: o.updated_at
     }));
 
     res.json(successResponse({ content: formatted, totalElements: total, totalPages: Math.ceil(total / take) }));
@@ -203,6 +227,8 @@ export const getOffenderById = async (req: AuthRequest, res: Response) => {
       monthlyIncome: o.monthly_income,
       photoUrl: o.photo_url,
       status: o.status,
+      approvalStatus: o.approval_status,
+      approvalNotes: o.approval_notes,
       riskScore: o.risk_score,
       createdByName: o.users?.full_name,
       createdAt: o.created_at,
@@ -713,7 +739,10 @@ export const updateOffender = async (req: AuthRequest, res: Response) => {
     if (!existing) return res.status(404).json({ message: 'Offender not found or access denied' });
 
     // Constables cannot commit directly to DB — route edits to SHO for approval
-    if (userRole === 'CONSTABLE') {
+    // UNLESS the record is already in the pending/changes_requested approval pipeline
+    const isPendingPipeline = existing.approval_status === 'PENDING' || existing.approval_status === 'CHANGES_REQUESTED';
+
+    if (userRole === 'CONSTABLE' && !isPendingPipeline) {
       const newReq = await prisma.edit_requests.create({
         data: {
           entity_type: 'OFFENDER',
@@ -777,6 +806,11 @@ export const updateOffender = async (req: AuthRequest, res: Response) => {
          if (data.testResult !== undefined || data.test_result !== undefined) {
            updateDataObj.test_result = data.testResult || data.test_result;
          }
+       }
+
+       if (userRole === 'CONSTABLE' && isPendingPipeline) {
+         updateDataObj.approval_status = 'PENDING';
+         updateDataObj.approval_notes = data.resubmitNote ? `[Resubmitted] ${data.resubmitNote}` : '[Resubmitted with updates]';
        }
 
        if (Object.keys(updateDataObj).length > 0) {

@@ -69,6 +69,7 @@ model cases {
   relevant_files         String?                  @db.VarChar(1000)
   updated_at             DateTime                 @default(now()) @db.Timestamp(6)
   approval_status        record_approval_status   @default(APPROVED)
+  approval_notes         String?
   case_accused           case_accused[]
   users                  users?                   @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
   police_stations        police_stations          @relation(fields: [ps_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -253,6 +254,7 @@ model offenders {
   test_result                                                         test_result?
   status                                                              offender_status          @default(ACTIVE)
   approval_status                                                     record_approval_status   @default(APPROVED)
+  approval_notes                                                      String?
   risk_score                                                          risk_score?
   case_accused                                                        case_accused[]
   intelligence_inputs                                                 intelligence_inputs[]
@@ -489,6 +491,8 @@ model users {
   username             String                 @unique @db.VarChar(50)
   password_hash        String                 @db.VarChar(255)
   full_name            String                 @db.VarChar(200)
+  email                String?                @db.VarChar(255)
+  phone_number         String?                @db.VarChar(20)
   role                 user_role
   department           department_type        @default(POLICE)
   badge_number         String?                @db.VarChar(50)
@@ -498,6 +502,7 @@ model users {
   district             String?                @db.VarChar(100)
   team_id              BigInt?
   is_active            Boolean                @default(true)
+  must_change_password Boolean                @default(true)
   last_login           DateTime?              @db.Timestamp(6)
   failed_login_count   Int                    @default(0)
   locked_until         DateTime?              @db.Timestamp(6)
@@ -875,12 +880,14 @@ enum edit_request_status {
   PENDING
   APPROVED
   REJECTED
+  CHANGES_REQUESTED
 }
 
 enum record_approval_status {
   PENDING
   APPROVED
   REJECTED
+  CHANGES_REQUESTED
 }
 
 enum imei_status {

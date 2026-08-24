@@ -13,6 +13,10 @@ import { validatePassword } from '../utils/password-policy';
 import { recordPasswordHash } from '../utils/password-history';
 import { checkBreachedPassword } from '../utils/breached-password';
 
+// Helper regex for validating email & phone
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_REGEX = /^(?:\+91|0)?[6-9]\d{9}$/;
+
 // ── List all users ────────────────────────────────────────────────────
 export const getUsers = async (req: AuthRequest, res: Response) => {
   try {
@@ -39,6 +43,8 @@ export const getUsers = async (req: AuthRequest, res: Response) => {
       id: u.id.toString(),
       username: u.username,
       fullName: u.full_name,
+      email: u.email || null,
+      phoneNumber: u.phone_number || null,
       role: u.role,
       department: u.department,
       badgeNumber: u.badge_number,
@@ -50,6 +56,7 @@ export const getUsers = async (req: AuthRequest, res: Response) => {
       policeStationName: u.police_stations?.name || null,
       policeStationDistrict: u.police_stations?.district || null,
       isActive: u.is_active,
+      mustChangePassword: u.must_change_password ?? false,
       lastLogin: u.last_login,
       createdAt: u.created_at,
     }));
@@ -76,6 +83,8 @@ export const getUserById = async (req: AuthRequest, res: Response) => {
       id: user.id.toString(),
       username: user.username,
       fullName: user.full_name,
+      email: user.email || null,
+      phoneNumber: user.phone_number || null,
       role: user.role,
       department: user.department,
       badgeNumber: user.badge_number,
@@ -85,6 +94,7 @@ export const getUserById = async (req: AuthRequest, res: Response) => {
       policeStationName: user.police_stations?.name || null,
       policeStationDistrict: user.police_stations?.district || null,
       isActive: user.is_active,
+      mustChangePassword: user.must_change_password ?? false,
       lastLogin: user.last_login,
       createdAt: user.created_at,
     }));
@@ -97,10 +107,22 @@ export const getUserById = async (req: AuthRequest, res: Response) => {
 // ── Create user ──────────────────────────────────────────────────────
 export const createUser = async (req: AuthRequest, res: Response) => {
   try {
-    const { username, password, fullName, role, policeStationId, department, badgeNumber, divisionId, district } = req.body;
+    const { username, password, fullName, email, phoneNumber, role, policeStationId, department, badgeNumber, divisionId, district } = req.body;
 
     if (!username || !password || !fullName || !role) {
       return res.status(400).json({ message: 'username, password, fullName, and role are required' });
+    }
+
+    // ── Email Validation (Mandatory) ──
+    const trimmedEmail = email ? String(email).trim() : null;
+    if (!trimmedEmail || !EMAIL_REGEX.test(trimmedEmail)) {
+      return res.status(400).json({ message: 'A valid email address is required' });
+    }
+
+    // ── Phone Validation (Mandatory) ──
+    const trimmedPhone = phoneNumber ? String(phoneNumber).replace(/[\s\-]/g, '') : null;
+    if (!trimmedPhone || !PHONE_REGEX.test(trimmedPhone)) {
+      return res.status(400).json({ message: 'A valid 10-digit mobile number is required' });
     }
 
     // ── Password Policy Enforcement ──
@@ -134,6 +156,8 @@ export const createUser = async (req: AuthRequest, res: Response) => {
         username,
         password_hash: passwordHash,
         full_name: fullName,
+        email: trimmedEmail,
+        phone_number: trimmedPhone,
         role,
         department: department || 'OPERATIONS',
         badge_number: badgeNumber || null,
@@ -141,6 +165,7 @@ export const createUser = async (req: AuthRequest, res: Response) => {
         district: (role === 'SP' || role === 'ASP') ? (district || null) : null,
         police_station_id: (role !== 'SP' && role !== 'ASP' && role !== 'SDPO' && policeStationId) ? BigInt(policeStationId) : null,
         is_active: true,
+        must_change_password: true,
       }
     });
 
@@ -151,7 +176,7 @@ export const createUser = async (req: AuthRequest, res: Response) => {
       `User ${username} created with role ${role}`);
 
     res.status(201).json(successResponse(
-      { id: newUser.id.toString(), username: newUser.username, role: newUser.role },
+      { id: newUser.id.toString(), username: newUser.username, role: newUser.role, email: newUser.email, phoneNumber: newUser.phone_number },
       'User created successfully'
     ));
   } catch (error) {
@@ -164,13 +189,27 @@ export const createUser = async (req: AuthRequest, res: Response) => {
 export const updateUser = async (req: AuthRequest, res: Response) => {
   try {
     const id = req.params.id as string;
-    const { fullName, role, policeStationId, isActive, password, department, badgeNumber, divisionId, district } = req.body;
+    const { fullName, email, phoneNumber, role, policeStationId, isActive, password, department, badgeNumber, divisionId, district } = req.body;
 
     const existing = await prisma.users.findUnique({ where: { id: BigInt(id) } });
     if (!existing) return res.status(404).json({ message: 'User not found' });
 
     const updateData: any = {};
     if (fullName !== undefined) updateData.full_name = fullName;
+    if (email !== undefined) {
+      const trimmedEmail = email ? String(email).trim() : null;
+      if (trimmedEmail && !EMAIL_REGEX.test(trimmedEmail)) {
+        return res.status(400).json({ message: 'Invalid email address format' });
+      }
+      updateData.email = trimmedEmail;
+    }
+    if (phoneNumber !== undefined) {
+      const trimmedPhone = phoneNumber ? String(phoneNumber).replace(/[\s\-]/g, '') : null;
+      if (trimmedPhone && !PHONE_REGEX.test(trimmedPhone)) {
+        return res.status(400).json({ message: 'Invalid phone number. Must be a valid 10-digit mobile number' });
+      }
+      updateData.phone_number = trimmedPhone;
+    }
     if (role !== undefined) updateData.role = role;
     if (department !== undefined) updateData.department = department;
     if (badgeNumber !== undefined) updateData.badge_number = badgeNumber || null;
@@ -203,6 +242,7 @@ export const updateUser = async (req: AuthRequest, res: Response) => {
         });
       }
       updateData.password_hash = await bcrypt.hash(password, 12);
+      updateData.must_change_password = true;
       // ── Record admin-reset password in history ──
       await recordPasswordHash(BigInt(id), updateData.password_hash);
     }
@@ -386,7 +426,6 @@ export const deleteOffenderDirect = async (req: AuthRequest, res: Response) => {
     res.json(successResponse(null, 'Offender profile deleted successfully'));
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Server error during direct offender deletion' });
+    res.status(500).json({ message: 'Server error' });
   }
 };
-

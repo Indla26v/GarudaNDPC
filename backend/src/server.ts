@@ -140,7 +140,7 @@ app.get('/api/health', (req, res) => {
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   if (err instanceof multer.MulterError) {
     if (err.code === 'LIMIT_FILE_SIZE') {
-      return res.status(400).json({ message: 'File is too large. Maximum allowed size is 50MB.' });
+      return res.status(400).json({ message: 'File is too large. Please ensure PDF/documents are under 5MB and pictures/images are under 500KB.' });
     }
     return res.status(400).json({ message: `Upload error: ${err.message}` });
   }

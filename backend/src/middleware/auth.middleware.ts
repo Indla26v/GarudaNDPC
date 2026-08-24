@@ -47,12 +47,20 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as any;
 
-    // ── SECURITY FIX #7: Verify the user account is still active and not locked
-    // This prevents deactivated/locked users from continuing to operate
-    // with a previously issued JWT (up to 8h window otherwise).
+    // Fetch latest user account status and assignments from database
     const dbUser = await prisma.users.findUnique({
       where: { id: BigInt(decoded.userId) },
-      select: { is_active: true, locked_until: true },
+      select: {
+        id: true,
+        username: true,
+        role: true,
+        department: true,
+        police_station_id: true,
+        district: true,
+        division_id: true,
+        is_active: true,
+        locked_until: true,
+      },
     });
 
     if (!dbUser || !dbUser.is_active) {
@@ -63,7 +71,15 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
       return res.status(423).json({ message: 'Account locked. Try again later.' });
     }
 
-    req.user = decoded;
+    req.user = {
+      userId: Number(dbUser.id),
+      username: dbUser.username,
+      role: dbUser.role,
+      department: dbUser.department,
+      policeStationId: dbUser.police_station_id ? Number(dbUser.police_station_id) : null,
+      district: dbUser.district || decoded.district || null,
+      divisionId: dbUser.division_id || decoded.divisionId || null,
+    };
     next();
   } catch (err) {
     return res.sendStatus(401);

@@ -22,6 +22,9 @@ const MAX_FAILED_LOGINS = 5;
 const LOCKOUT_MINUTES = 15;
 const IS_PROD = process.env.NODE_ENV === 'production';
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_REGEX = /^(?:\+91|0)?[6-9]\d{9}$/;
+
 function generateRefreshToken() {
   return crypto.randomBytes(40).toString('hex');
 }
@@ -118,15 +121,19 @@ export const login = async (req: AuthRequest, res: Response) => {
     res.json(successResponse({
       accessToken,
       refreshToken: refreshTokenString,
-      expiresIn: 8 * 60 * 60,       username: user.username,
+      expiresIn: 8 * 60 * 60,
+      username: user.username,
       fullName: user.full_name,
+      email: user.email || null,
+      phoneNumber: user.phone_number || null,
       badgeNumber: user.badge_number,
       photoUrl: (user as any).photo_url || null,
       role: user.role,
       department: user.department,
       policeStationId: user.police_station_id ? Number(user.police_station_id) : null,
       district: user.district || null,
-      divisionId: user.division_id || null
+      divisionId: user.division_id || null,
+      mustChangePassword: user.must_change_password ?? false,
     }));
   } catch (error) {
     console.error(error);
@@ -189,13 +196,16 @@ export const refresh = async (req: AuthRequest, res: Response) => {
       expiresIn: 8 * 60 * 60,
       username: user.username,
       fullName: user.full_name,
+      email: user.email || null,
+      phoneNumber: user.phone_number || null,
       badgeNumber: user.badge_number,
       photoUrl: (user as any).photo_url || null,
       role: user.role,
       department: user.department,
       policeStationId: user.police_station_id ? Number(user.police_station_id) : null,
       district: user.district || null,
-      divisionId: user.division_id || null
+      divisionId: user.division_id || null,
+      mustChangePassword: user.must_change_password ?? false,
     }));
   } catch(error) {
     console.error(error);
@@ -253,8 +263,11 @@ export const getMe = async (req: AuthRequest, res: Response) => {
     res.json(successResponse({
       ...formattedUser,
       fullName: user.full_name,
+      email: user.email || null,
+      phoneNumber: user.phone_number || null,
       badgeNumber: user.badge_number,
       photoUrl: (user as any).photo_url || null,
+      mustChangePassword: user.must_change_password ?? false,
     }));
   } catch (error) {
     console.error('getMe error:', error);
@@ -266,7 +279,7 @@ export const getMe = async (req: AuthRequest, res: Response) => {
 export const updateMyProfile = async (req: AuthRequest, res: Response) => {
   try {
     const userId = BigInt(req.user!.userId);
-    const { fullName, badgeNumber, photoUrl } = req.body;
+    const { fullName, badgeNumber, photoUrl, email, phoneNumber } = req.body;
 
     const user = await prisma.users.findUnique({ where: { id: userId } });
     if (!user) {
@@ -282,6 +295,20 @@ export const updateMyProfile = async (req: AuthRequest, res: Response) => {
     }
     if (photoUrl !== undefined) {
       updateData.photo_url = photoUrl || null;
+    }
+    if (email !== undefined) {
+      const trimmedEmail = email ? String(email).trim() : null;
+      if (trimmedEmail && !EMAIL_REGEX.test(trimmedEmail)) {
+        return res.status(400).json({ message: 'Invalid email address format' });
+      }
+      updateData.email = trimmedEmail;
+    }
+    if (phoneNumber !== undefined) {
+      const trimmedPhone = phoneNumber ? String(phoneNumber).replace(/[\s\-]/g, '') : null;
+      if (trimmedPhone && !PHONE_REGEX.test(trimmedPhone)) {
+        return res.status(400).json({ message: 'Invalid phone number. Must be a valid 10-digit mobile number' });
+      }
+      updateData.phone_number = trimmedPhone;
     }
 
     if (Object.keys(updateData).length === 0) {
@@ -301,8 +328,11 @@ export const updateMyProfile = async (req: AuthRequest, res: Response) => {
     res.json(successResponse({
       ...formattedUser,
       fullName: updated.full_name,
+      email: updated.email || null,
+      phoneNumber: updated.phone_number || null,
       badgeNumber: updated.badge_number,
       photoUrl: (updated as any).photo_url || null,
+      mustChangePassword: updated.must_change_password ?? false,
     }, 'Profile updated successfully'));
   } catch (error) {
     console.error('updateMyProfile error:', error);
@@ -364,6 +394,7 @@ export const changeMyPassword = async (req: AuthRequest, res: Response) => {
       data: {
         password_hash: newHash,
         password_changed_at: new Date(),
+        must_change_password: false,
       },
     });
 

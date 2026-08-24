@@ -39,15 +39,22 @@ export default function OffenderList({ isConsumerOnly = false }) {
   const perms = usePermissions();
   const pastMonthOptions = useMemo(() => generatePastMonths(), []);
 
+  const getDefaultPsFilter = () => {
+    const qPs = searchParams.get('psId');
+    if (qPs !== null) return qPs;
+
+    if (perms.role === 'SHO' || perms.role === 'CONSTABLE') {
+      return perms.policeStationId ? String(perms.policeStationId) : '';
+    }
+    if (perms.role === 'SDPO' && perms.divisionId) {
+      return `SDPO:${perms.divisionId}`;
+    }
+    return '';
+  };
+
   const [offenders, setOffenders] = useState([]);
   const [search, setSearch] = useState('');
-  const [psFilter, setPsFilter] = useState(() => {
-    const role = user?.role;
-    if (role === 'SP' || role === 'ASP' || role === 'SDPO' || user?.department === 'CYBER_ANALYTICS') {
-      return '';
-    }
-    return user?.policeStationId ? String(user.policeStationId) : '';
-  });
+  const [psFilter, setPsFilter] = useState(() => getDefaultPsFilter());
   const [categoryFilter, setCategoryFilter] = useState(() => searchParams.get('category') || '');
   const [arrestStatus, setArrestStatus] = useState(() => searchParams.get('arrestStatus') || '');
 
@@ -152,20 +159,49 @@ export default function OffenderList({ isConsumerOnly = false }) {
     fetchStations();
   }, []);
 
+  const psOptions = useMemo(() => {
+    const opts = [{ value: '', label: 'All Police Stations' }];
+
+    // If SDPO, add their assigned sub-division option
+    if (perms.role === 'SDPO' && perms.divisionId) {
+      opts.push({
+        value: `SDPO:${perms.divisionId}`,
+        label: `Sub-Division: ${perms.divisionId}`,
+      });
+    }
+
+    // Add individual police stations
+    stations.forEach((ps) => {
+      const isMyStation = (perms.role === 'SHO' || perms.role === 'CONSTABLE') && String(ps.id) === String(perms.policeStationId);
+      opts.push({
+        value: String(ps.id),
+        label: isMyStation ? `${ps.name} (My Station)` : (ps.sdpo ? `${ps.name} (${ps.sdpo})` : ps.name),
+      });
+    });
+
+    return opts;
+  }, [stations, perms.role, perms.policeStationId, perms.divisionId]);
+
   useEffect(() => {
     const category = searchParams.get('category');
     const timeRange = searchParams.get('timeRange');
     const month = searchParams.get('month');
     const year = searchParams.get('year');
     const arrest = searchParams.get('arrestStatus');
+    const psId = searchParams.get('psId');
 
     if (category !== null) setCategoryFilter(category);
     if (timeRange !== null) setPeriodFilter(timeRange);
     if (month !== null) setSelectedMonth(month);
     if (year !== null) setSelectedYear(year);
     if (arrest !== null) setArrestStatus(arrest);
+    if (psId !== null) {
+      setPsFilter(psId);
+    } else {
+      setPsFilter(getDefaultPsFilter());
+    }
     setPage(0);
-  }, [searchParams]);
+  }, [searchParams, perms.role, perms.policeStationId, perms.divisionId]);
 
   useEffect(() => {
     fetchOffenders();
@@ -518,10 +554,7 @@ export default function OffenderList({ isConsumerOnly = false }) {
           onChange={(e) => { setPsFilter(e.target.value); setPage(0); }}
           placeholder="All Police Stations"
           className="w-full md:w-56"
-          options={[
-            { value: '', label: 'All Police Stations' },
-            ...stations.map((ps) => ({ value: ps.id, label: ps.name }))
-          ]}
+          options={psOptions}
         />
       </div>
 

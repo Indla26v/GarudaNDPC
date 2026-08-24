@@ -44,7 +44,7 @@ const ALLOWED_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
 
 export const uploadPhoto = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  limits: { fileSize: 500 * 1024 }, // 500KB max for photos/pictures
   fileFilter: (_req, file, cb) => {
     // ── SECURITY FIX #18: Reject SVG and enforce allowed extensions
     const ext = path.extname(file.originalname).toLowerCase();
@@ -71,7 +71,7 @@ export const uploadDocument = multer({
       cb(null, `doc-${uniqueSuffix}${ext}`);
     }
   }),
-  limits: { fileSize: 15 * 1024 * 1024 }, // 15MB
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB (standard website PDFs under 5MB, ideally under 2MB)
   fileFilter: (_req, file, cb) => {
     // Block potentially dangerous scripts/HTML
     if (file.mimetype.includes('html') || file.mimetype.includes('javascript') || file.mimetype.includes('svg') || path.extname(file.originalname).toLowerCase() === '.svg') {
