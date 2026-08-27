@@ -1,6 +1,17 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
-import { login, refresh, logout, getMe, updateMyProfile, changeMyPassword } from '../controllers/auth.controller';
+import {
+  login,
+  refresh,
+  logout,
+  getMe,
+  updateMyProfile,
+  changeMyPassword,
+  requestPasswordReset,
+  verifyPasswordResetOtp,
+  resetPasswordWithToken,
+  resetExpiredPasswordWithOtp,
+} from '../controllers/auth.controller';
 import { authenticate } from '../middleware/auth.middleware';
 
 const router = Router();
@@ -17,6 +28,15 @@ const authLimiter = rateLimit({
   legacyHeaders: false,       // Disable X-RateLimit-* headers
 });
 
+// ── Rate limit forgot-password endpoints (prevents email spam / OTP flooding)
+const forgotPasswordLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,  // 15 minute window
+  max: 10,                   // 10 requests per window per IP
+  message: { message: 'Too many password reset requests. Please try again after 15 minutes.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 router.post('/login', authLimiter, login);
 router.post('/refresh', authLimiter, refresh);
 router.post('/logout', authenticate, logout);
@@ -24,4 +44,11 @@ router.get('/me', authenticate, getMe);
 router.put('/profile', authenticate, updateMyProfile);
 router.put('/password', authenticate, changeMyPassword);
 
+// ── Forgot Password & 60-Day Renewal (OTP via Gmail SMTP) ─────────────
+router.post('/forgot-password/request', forgotPasswordLimiter, requestPasswordReset);
+router.post('/forgot-password/verify-otp', forgotPasswordLimiter, verifyPasswordResetOtp);
+router.post('/forgot-password/reset', forgotPasswordLimiter, resetPasswordWithToken);
+router.post('/password-expired/reset', forgotPasswordLimiter, resetExpiredPasswordWithOtp);
+
 export default router;
+

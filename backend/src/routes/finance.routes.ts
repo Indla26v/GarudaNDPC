@@ -21,12 +21,7 @@ const router = Router();
 
 router.use(authenticate);
 
-// Phase 2 — blocked for Phase 1 deployment. Remove this middleware to re-enable.
-router.use((_req, res) => {
-  return res.status(403).json({
-    message: 'This feature is not available in the current deployment phase.'
-  });
-});
+
 
 // ── SECURITY: Rate limit upload endpoints to prevent disk exhaustion ──
 const uploadLimiter = rateLimit({

@@ -1,8 +1,15 @@
 import { PrismaClient } from '@prisma/client';
 
+export type ExtendedPrismaClient = PrismaClient & {
+  password_resets: any;
+  mst_states: any;
+  mst_districts: any;
+  mst_mandals: any;
+};
+
 const prisma = new PrismaClient({
   log: process.env.NODE_ENV === 'development' ? ['warn', 'error'] : ['error'],
-});
+}) as ExtendedPrismaClient;
 
 /**
  * Warm up the Prisma/Neon DB connection with retry logic.

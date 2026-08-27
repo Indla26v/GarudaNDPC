@@ -7,6 +7,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { usePermissions } from '../../hooks/usePermissions';
 import api from '../../api/axios';
+import { toast } from '../../context/ToastContext';
 import CustomSelect from '../../components/CustomSelect';
 import {
   IconFieldStaff, IconSearch, IconMap, IconMegaphone, IconChain, IconSurveillance,
@@ -124,6 +125,7 @@ export default function Surveillance() {
   const [towerCaseId, setTowerCaseId] = useState('');
   const [towerUploadResult, setTowerUploadResult] = useState(null);
   const [towerUploading, setTowerUploading] = useState(false);
+  const [towerStatus, setTowerStatus] = useState(null); // { type: 'success' | 'error', text: string, details?: string[] }
 
   // Intersection Finder state
   const [intersectCaseIds, setIntersectCaseIds] = useState('');
@@ -387,7 +389,7 @@ export default function Surveillance() {
   const handleAddMobile = async (e) => {
     e.preventDefault();
     if (!selectedOffender || !mobileForm.value) {
-      alert('Offender search and mobile number are required');
+      toast.badRequest('Offender selection and mobile number are required.');
       return;
     }
     try {
@@ -395,21 +397,21 @@ export default function Surveillance() {
         offenderId: selectedOffender.id,
         ...mobileForm,
       });
-      alert('Mobile number link added to offender successfully!');
+      toast.success('Mobile number link added to offender successfully!');
       setShowMobileModal(false);
       setMobileForm({ value: '', contactType: 'MOBILE_PRIMARY', notes: '' });
       resetOffenderSearch();
       fetchMobiles();
       fetchDashboard();
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to add mobile tracking record');
+      toast.badRequest(err.response?.data?.message || 'Failed to add mobile tracking record');
     }
   };
 
   const handleAddImei = async (e) => {
     e.preventDefault();
     if (!selectedOffender || !imeiForm.imeiNumber) {
-      alert('Offender search and IMEI number are required');
+      toast.badRequest('Offender selection and IMEI number are required.');
       return;
     }
     try {
@@ -418,9 +420,9 @@ export default function Surveillance() {
         ...imeiForm,
       });
       if (res.data.data?.simSwapDetected) {
-        alert('⚠️ SIM SWAP DETECTED: Added IMEI record. Sim swap conflict has been flagged!');
+        toast.warning('SIM SWAP DETECTED: Added IMEI record. Sim swap conflict has been flagged!');
       } else {
-        alert('IMEI tracking record logged successfully!');
+        toast.success('IMEI tracking record logged successfully!');
       }
       setShowImeiModal(false);
       setImeiForm({
@@ -436,14 +438,14 @@ export default function Surveillance() {
       fetchImeis();
       fetchDashboard();
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to add IMEI record');
+      toast.badRequest(err.response?.data?.message || 'Failed to add IMEI record');
     }
   };
 
   const handleAddSocial = async (e) => {
     e.preventDefault();
     if (!selectedOffender || !socialForm.handleOrUrl) {
-      alert('Offender and handle/URL are required');
+      toast.badRequest('Offender and handle/URL are required.');
       return;
     }
     try {
@@ -451,21 +453,21 @@ export default function Surveillance() {
         offenderId: selectedOffender.id,
         ...socialForm,
       });
-      alert('Social media intelligence input logged!');
+      toast.success('Social media intelligence input logged!');
       setShowSocialModal(false);
       setSocialForm({ platform: 'Facebook', handleOrUrl: '', rating: 'UNVERIFIED', notes: '' });
       resetOffenderSearch();
       fetchSocialLogs();
       fetchDashboard();
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to log social intelligence');
+      toast.badRequest(err.response?.data?.message || 'Failed to log social intelligence');
     }
   };
 
   const handleAddMessaging = async (e) => {
     e.preventDefault();
     if (!selectedOffender || !messagingForm.inputText) {
-      alert('Offender and intelligence input notes are required');
+      toast.badRequest('Offender and intelligence input notes are required.');
       return;
     }
     try {
@@ -473,23 +475,43 @@ export default function Surveillance() {
         offenderId: selectedOffender.id,
         ...messagingForm,
       });
-      alert('Messaging intercept logged!');
+      toast.success('Messaging intercept logged!');
       setShowMessagingModal(false);
       setMessagingForm({ platform: 'WhatsApp', sourceType: 'TIP_OFF', disposition: 'Active', inputText: '' });
       resetOffenderSearch();
       fetchMessagingLogs();
       fetchDashboard();
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to log messaging intercept');
+      toast.badRequest(err.response?.data?.message || 'Failed to log messaging intercept');
     }
   };
 
   const handleTowerDumpSubmit = async (e) => {
     e.preventDefault();
+    setTowerStatus(null);
+
     if (!towerCaseId || !towerFile) {
-      alert('Case selection and data file are required');
+      setTowerStatus({
+        type: 'error',
+        text: 'Missing Required Fields',
+        details: ['Case selection and data file are required.'],
+      });
       return;
     }
+
+    const ext = towerFile.name.split('.').pop()?.toLowerCase() || '';
+    if (['xlsm', 'xlsb', 'xltm', 'xla', 'xlam', 'docm', 'pptm'].includes(ext)) {
+      const msg = `Macro-enabled file format (.${ext}) is blocked for security.`;
+      const details = [`Macro-enabled file format (.${ext}) is blocked for security. Please upload standard .csv or .xlsx files.`];
+      toast.badRequest(msg, details, 'Bad Request — Blocked File Type');
+      setTowerStatus({
+        type: 'error',
+        text: 'Security Alert: Blocked File Format',
+        details,
+      });
+      return;
+    }
+
     const fd = new FormData();
     fd.append('file', towerFile);
     fd.append('caseId', towerCaseId);
@@ -500,12 +522,22 @@ export default function Surveillance() {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       setTowerUploadResult(res.data.data);
-      alert(`Tower dump ingestion complete! Ingested ${res.data.data.inserted} log records.`);
+      setTowerStatus({
+        type: 'success',
+        text: 'Tower Dump Ingested Successfully',
+        details: [`Ingested ${res.data.data.inserted} log records. Cross-case correlation updated.`],
+      });
       setTowerFile(null);
       fetchCorrelationsAndCases();
       fetchDashboard();
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to ingest tower dump file');
+      const errMsg = err.response?.data?.message || 'Failed to ingest tower dump file';
+      const threats = err.response?.data?.threats || err.response?.data?.errors || [];
+      setTowerStatus({
+        type: 'error',
+        text: 'Ingestion Failed',
+        details: threats.length ? threats : [errMsg],
+      });
     } finally {
       setTowerUploading(false);
     }
@@ -976,9 +1008,60 @@ export default function Surveillance() {
                   <p className="text-xs text-garuda-400 mt-1">Upload CSV or XLSX tower dump dumps to automatically check intersection targets.</p>
                 </div>
 
-                <form onSubmit={handleTowerDumpSubmit} className="space-y-4 p-4 rounded-xl bg-garuda-900/40 border border-garuda-700/60">
+                {towerStatus && (
+                  <div
+                    className="p-3.5 rounded-2xl border text-xs animate-fade-in"
+                    style={{
+                      background: towerStatus.type === 'error' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)',
+                      borderColor: towerStatus.type === 'error' ? 'rgba(239, 68, 68, 0.3)' : 'rgba(16, 185, 129, 0.3)',
+                    }}
+                  >
+                    <div className="flex items-start gap-2.5">
+                      <div
+                        className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5"
+                        style={{
+                          background: towerStatus.type === 'error' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)',
+                          color: towerStatus.type === 'error' ? '#f87171' : '#34d399',
+                        }}
+                      >
+                        {towerStatus.type === 'error' ? (
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                          </svg>
+                        ) : (
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-bold" style={{ color: towerStatus.type === 'error' ? '#f87171' : '#34d399' }}>
+                          {towerStatus.text}
+                        </p>
+                        {towerStatus.details?.map((det, i) => (
+                          <p key={i} className="mt-1 text-garuda-300 font-mono text-[11px] leading-relaxed">
+                            {det}
+                          </p>
+                        ))}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setTowerStatus(null)}
+                        className="text-garuda-400 hover:text-white cursor-pointer bg-transparent border-none text-xs"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <form 
+                  onSubmit={handleTowerDumpSubmit} 
+                  className="space-y-4 p-5 rounded-2xl shadow-xs"
+                  style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}
+                >
                   <div>
-                    <label className="block text-xs font-medium mb-1 text-garuda-200">Associate with Case (FIR) *</label>
+                    <label className="block text-xs font-bold mb-1.5" style={{ color: 'var(--color-garuda-200)' }}>Associate with Case (FIR) *</label>
                     <CustomSelect
                       value={towerCaseId}
                       onChange={e => setTowerCaseId(e.target.value)}
@@ -986,23 +1069,49 @@ export default function Surveillance() {
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-medium mb-1 text-garuda-200">Upload Data File (CSV / XLSX) *</label>
-                    <input 
-                      type="file" 
-                      accept=".csv, .xlsx, .xls"
-                      onChange={e => setTowerFile(e.target.files[0])}
-                      className="input py-2 text-xs"
-                      required
-                    />
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-semibold" style={{ color: 'var(--color-garuda-200)' }}>Upload Data File (CSV / XLSX) *</label>
+                    <div 
+                      className="p-4 rounded-2xl transition-colors flex flex-col gap-2.5"
+                      style={{ 
+                        background: 'var(--color-garuda-900)', 
+                        border: '1.5px dashed var(--color-garuda-500)',
+                      }}
+                    >
+                      <input 
+                        type="file" 
+                        accept=".csv, .xlsx, .xls"
+                        onChange={e => setTowerFile(e.target.files[0])}
+                        className="w-full text-xs file:mr-3 file:py-1.5 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-amber-400 file:text-slate-950 hover:file:bg-amber-300 cursor-pointer"
+                        style={{ color: 'var(--color-garuda-300)' }}
+                        required
+                      />
+                      <div className="flex items-center gap-2 pt-1 flex-wrap">
+                        <span 
+                          className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold"
+                          style={{ background: 'var(--color-garuda-800)', color: 'var(--color-garuda-200)', border: '1px solid var(--color-garuda-700)' }}
+                        >
+                          CSV / XLSX
+                        </span>
+                        <span 
+                          className="px-2.5 py-0.5 rounded-full text-[10px] font-bold"
+                          style={{ background: 'rgba(16, 185, 129, 0.12)', color: '#059669', border: '1px solid rgba(16, 185, 129, 0.25)' }}
+                        >
+                          Macro Defense Active
+                        </span>
+                      </div>
+                    </div>
                   </div>
 
                   <button
                     type="submit"
                     disabled={towerUploading}
-                    className="btn btn-primary w-full text-xs font-semibold py-2.5 flex items-center justify-center gap-2"
+                    className="w-full text-xs font-bold py-2.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-black shadow-md cursor-pointer flex items-center justify-center gap-2 border-none transition-all active:scale-95 disabled:opacity-50"
                   >
-                    {towerUploading ? 'Processing File...' : 'Upload & Run Intersection check'}
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                    </svg>
+                    <span>{towerUploading ? 'Processing File...' : 'Upload & Run Intersection check'}</span>
                   </button>
                 </form>
 

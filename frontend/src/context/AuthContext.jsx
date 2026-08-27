@@ -13,13 +13,11 @@ export function AuthProvider({ children }) {
   const [sessionValidated, setSessionValidated] = useState(false);
   const validatingRef = useRef(false);
 
-  // ── SECURITY FIX #12: Rely on user state instead of localStorage token
   const isAuthenticated = !!user;
 
   /**
    * Validate session against the server.
    * Called on app mount and when the tab regains focus after idle.
-   * Handles Neon cold-start delays gracefully via axios retry interceptor.
    */
   const validateSession = useCallback(async () => {
     if (validatingRef.current) {
@@ -31,10 +29,11 @@ export function AuthProvider({ children }) {
     try {
       const res = await api.get('/auth/me');
       const serverUser = res.data.data;
-      // Sync user data from server (role/department/photo/password status may have changed)
       const userData = {
         username: serverUser.username,
-        fullName: serverUser.fullName || serverUser.full_name,
+        positionLabel: serverUser.positionLabel || null,
+        fullName: serverUser.fullName || 'Vacant',
+        officerId: serverUser.officerId || null,
         email: serverUser.email || null,
         phoneNumber: serverUser.phoneNumber || serverUser.phone_number || null,
         role: serverUser.role,
@@ -43,19 +42,16 @@ export function AuthProvider({ children }) {
         divisionId: serverUser.divisionId || serverUser.division_id || null,
         district: serverUser.district || null,
         badgeNumber: serverUser.badgeNumber || serverUser.badge_number || null,
-        photoUrl: serverUser.photoUrl || serverUser.photo_url || null,
         mustChangePassword: serverUser.mustChangePassword ?? false,
+        passwordExpiresAt: serverUser.passwordExpiresAt || null,
       };
       localStorage.setItem('garuda_user', JSON.stringify(userData));
       setUser(userData);
     } catch (err) {
-      // If 401/403 after retries, the token is truly invalid — logout
       if (err.response?.status === 401 || err.response?.status === 403) {
         localStorage.removeItem('garuda_user');
         setUser(null);
       }
-      // For network errors, axios retry interceptor will have already retried.
-      // If still failing, we let the ConnectionGuard handle it.
     } finally {
       validatingRef.current = false;
       setSessionValidated(true);
@@ -69,7 +65,9 @@ export function AuthProvider({ children }) {
       const serverUser = res.data.data;
       const userData = {
         username: serverUser.username,
-        fullName: serverUser.fullName || serverUser.full_name,
+        positionLabel: serverUser.positionLabel || null,
+        fullName: serverUser.fullName || 'Vacant',
+        officerId: serverUser.officerId || null,
         email: serverUser.email || null,
         phoneNumber: serverUser.phoneNumber || serverUser.phone_number || null,
         role: serverUser.role,
@@ -78,8 +76,8 @@ export function AuthProvider({ children }) {
         divisionId: serverUser.divisionId || serverUser.division_id || null,
         district: serverUser.district || null,
         badgeNumber: serverUser.badgeNumber || serverUser.badge_number || null,
-        photoUrl: serverUser.photoUrl || serverUser.photo_url || null,
         mustChangePassword: serverUser.mustChangePassword ?? false,
+        passwordExpiresAt: serverUser.passwordExpiresAt || null,
       };
       localStorage.setItem('garuda_user', JSON.stringify(userData));
       setUser(userData);
@@ -88,13 +86,21 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  const markPasswordChanged = useCallback(() => {
+  const markPasswordChanged = useCallback((updatedUserData) => {
     setUser((prev) => {
-      if (!prev) return null;
-      const updated = { ...prev, mustChangePassword: false };
+      const base = updatedUserData || prev;
+      if (!base) return null;
+      const updated = { ...base, mustChangePassword: false };
       localStorage.setItem('garuda_user', JSON.stringify(updated));
       return updated;
     });
+  }, []);
+
+  // Direct login setter after OTP verification
+  const setAuthenticatedUser = useCallback((userData) => {
+    localStorage.setItem('garuda_user', JSON.stringify(userData));
+    setUser(userData);
+    setSessionValidated(true);
   }, []);
 
   // Validate session on initial mount
@@ -124,10 +130,25 @@ export function AuthProvider({ children }) {
     try {
       const res = await api.post('/auth/login', { username, password });
       const data = res.data.data;
-      // Note: HttpOnly cookies are automatically set by the browser from the response
+
+      // ── 60-Day Expiry Redirection Trigger ──
+      if (data.passwordExpired) {
+        return {
+          success: false,
+          passwordExpired: true,
+          mustChangePassword: true,
+          username: data.username,
+          resetToken: data.resetToken,
+          maskedEmail: data.maskedEmail,
+          message: data.message || 'Your 60-day password cycle has expired. A verification code has been sent to your department email.',
+        };
+      }
+
       const userData = {
         username: data.username,
-        fullName: data.fullName,
+        positionLabel: data.positionLabel || null,
+        fullName: data.fullName || 'Vacant',
+        officerId: data.officerId || null,
         email: data.email || null,
         phoneNumber: data.phoneNumber || null,
         role: data.role,
@@ -136,8 +157,8 @@ export function AuthProvider({ children }) {
         divisionId: data.divisionId || null,
         district: data.district || null,
         badgeNumber: data.badgeNumber || null,
-        photoUrl: data.photoUrl || null,
         mustChangePassword: data.mustChangePassword ?? false,
+        passwordExpiresAt: data.passwordExpiresAt || null,
       };
       localStorage.setItem('garuda_user', JSON.stringify(userData));
       setUser(userData);
@@ -157,11 +178,9 @@ export function AuthProvider({ children }) {
     } catch {
       // ignore
     }
-    // Note: HttpOnly cookies are cleared by the backend response
     localStorage.removeItem('garuda_user');
     setUser(null);
     if (reason === 'idle') {
-      // Store a flag so the login page can show an informative message
       sessionStorage.setItem('garuda_idle_logout', 'true');
     }
   }, []);
@@ -169,12 +188,24 @@ export function AuthProvider({ children }) {
   // Auto-logout after 15 minutes of inactivity
   useIdleTimeout(
     () => logout('idle'),
-    15 * 60 * 1000, // 15 minutes
+    15 * 60 * 1000,
     isAuthenticated
   );
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated, loading, sessionValidated, login, logout, refreshUser, markPasswordChanged }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        isAuthenticated,
+        loading,
+        sessionValidated,
+        login,
+        logout,
+        refreshUser,
+        markPasswordChanged,
+        setAuthenticatedUser,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

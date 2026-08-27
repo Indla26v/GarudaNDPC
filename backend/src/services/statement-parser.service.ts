@@ -287,7 +287,17 @@ function parseSheetRows(rows: any[][]): ParseResult {
 
 /** Parse a CSV or XLSX buffer (xlsx handles both). */
 export function parseTabular(buffer: Buffer): ParseResult {
-  const wb = XLSX.read(buffer, { type: 'buffer', cellDates: true });
+  let wb: XLSX.WorkBook;
+  try {
+    wb = XLSX.read(buffer, { type: 'buffer', cellDates: true });
+  } catch (e: any) {
+    return {
+      transactions: [],
+      detectedColumns: [],
+      sampleRows: [],
+      errors: [`Corrupted or unreadable spreadsheet file: ${e.message || 'Decoding failed'}`],
+    };
+  }
 
   // ── SECURITY: Zip bomb / decompression bomb guard ──
   const zbCheck = guardZipBomb(wb, buffer.length);
@@ -310,8 +320,19 @@ export function parseTabular(buffer: Buffer): ParseResult {
 /** Parse a PDF buffer using best-effort text-line heuristics. */
 export async function parsePdf(buffer: Buffer): Promise<ParseResult> {
   const errors: string[] = [];
-  const data = await pdfParse(buffer);
-  const text = data.text || '';
+  let text = '';
+  try {
+    const data = await pdfParse(buffer);
+    text = data.text || '';
+  } catch (e: any) {
+    return {
+      transactions: [],
+      detectedColumns: [],
+      sampleRows: [],
+      errors: [`Corrupted or unreadable PDF document: ${e.message || 'Decoding failed'}`],
+    };
+  }
+
   const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
 
   const dateRe = /(\d{1,2}[-/][A-Za-z]{3}[-/]\d{2,4}|\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}[-/]\d{1,2}[-/]\d{1,2})/;
@@ -357,12 +378,21 @@ export async function parsePdf(buffer: Buffer): Promise<ParseResult> {
 
 /** Parse a CSV buffer as plain text (avoids xlsx's ambiguous US-date coercion). */
 export function parseCsv(buffer: Buffer): ParseResult {
-  const text = buffer.toString('utf8').replace(/^﻿/, '');
-  const rows = text
-    .split(/\r?\n/)
-    .filter((l) => l.trim() !== '')
-    .map(splitCsvLine);
-  return parseSheetRows(rows);
+  try {
+    const text = buffer.toString('utf8').replace(/^﻿/, '');
+    const rows = text
+      .split(/\r?\n/)
+      .filter((l) => l.trim() !== '')
+      .map(splitCsvLine);
+    return parseSheetRows(rows);
+  } catch (e: any) {
+    return {
+      transactions: [],
+      detectedColumns: [],
+      sampleRows: [],
+      errors: [`Corrupted or unreadable CSV file: ${e.message || 'Decoding failed'}`],
+    };
+  }
 }
 
 /** Entry point — dispatch by declared file type with security validation. */

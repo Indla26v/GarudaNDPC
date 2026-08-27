@@ -23,6 +23,7 @@ import financeRoutes from './routes/finance.routes';
 import surveillanceRoutes from './routes/surveillance.routes';
 import informerRoutes from './routes/informers.routes';
 import settingsRoutes from './routes/settings.routes';
+import masterDataRoutes from './routes/master-data.routes';
 import { warmUpConnection } from './config/prisma';
 import { startAbsconderAlertScheduler } from './utils/scheduler';
 
@@ -88,6 +89,7 @@ app.use('/api/uploads', (req, res, next) => {
 
 // ── Public routes ─────────────────────────────────────────────────────
 app.use('/api/auth', authRoutes);
+app.use('/api/master', masterDataRoutes);
 
 // ── Protected routes ──────────────────────────────────────────────────
 app.use('/api/offenders', offendersRoutes);
@@ -144,16 +146,36 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
     }
     return res.status(400).json({ message: `Upload error: ${err.message}` });
   }
-  
-  console.error('[Global Error]', err);
-  res.status(500).json({ message: err?.message || 'Internal Server Error' });
+
+  // Multer fileFilter custom rejection errors or upload validation errors
+  if (
+    err?.message &&
+    (err.message.includes('Invalid file type') ||
+      err.message.includes('Macro-enabled') ||
+      err.message.includes('File rejected') ||
+      err.message.includes('Upload error') ||
+      err.message.includes('File is empty') ||
+      err.message.includes('decompression bomb') ||
+      err.message.includes('Corrupted or unreadable'))
+  ) {
+    return res.status(400).json({ message: err.message });
+  }
+
+  const statusCode = err.status || err.statusCode || 500;
+  if (statusCode >= 500) {
+    console.error('[Global Error]', err);
+  }
+  res.status(statusCode).json({ message: err?.message || 'Internal Server Error' });
 });
 
 const PORT = process.env.PORT || 8081;
 
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-  startAbsconderAlertScheduler();
-});
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+    startAbsconderAlertScheduler();
+  });
+}
 
 export default app;
+

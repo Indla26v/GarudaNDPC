@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import apLogo from '../assets/Appolice(emblem).png';
 import garudaLogo from '../assets/Garuda_logo.png';
@@ -42,6 +42,16 @@ export default function Login() {
       } else {
         navigate('/dashboard');
       }
+    } else if (result.passwordExpired) {
+      navigate('/change-password', {
+        state: {
+          is60DayRenewal: true,
+          username: result.username,
+          resetToken: result.resetToken,
+          maskedEmail: result.maskedEmail,
+          message: result.message,
+        },
+      });
     } else {
       setError(result.message);
     }
@@ -49,7 +59,7 @@ export default function Login() {
 
   return (
     <div
-      className="min-h-screen flex items-center justify-center px-4"
+      className="min-h-screen flex items-center justify-center px-4 py-8"
       style={{ background: 'linear-gradient(135deg, var(--color-garuda-800) 0%, var(--color-garuda-600) 100%)' }}
     >
       <div className="w-full max-w-md animate-slide-up">
@@ -69,39 +79,51 @@ export default function Login() {
 
         {/* Login Card */}
         <div
-          className="rounded-xl p-8"
+          className="rounded-2xl p-8"
           style={{
             background: 'var(--color-garuda-800)',
             border: '1px solid var(--color-garuda-700)',
-            boxShadow: 'var(--shadow-elevated)',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5)',
           }}
         >
-          <h2 className="text-xl font-semibold mb-6" style={{ color: 'var(--color-garuda-100)' }}>Sign in to your account</h2>
+          <div className="mb-6">
+            <h2 className="text-xl font-bold tracking-tight" style={{ color: 'var(--color-garuda-100)' }}>
+              Position Login
+            </h2>
+            <p className="text-xs mt-1" style={{ color: 'var(--color-garuda-400)' }}>
+              Sign in with your official Police Station, Division, or District credentials
+            </p>
+          </div>
 
           {idleLogout && (
             <div
-              className="mb-4 px-4 py-3 rounded-lg text-sm animate-fade-in flex items-center gap-2"
-              style={{ background: 'rgba(234, 179, 8, 0.08)', color: '#b45309', border: '1px solid rgba(234, 179, 8, 0.25)' }}
+              className="mb-5 px-4 py-3 rounded-xl text-sm animate-fade-in flex items-center gap-2"
+              style={{ background: 'rgba(234, 179, 8, 0.1)', color: '#fbbf24', border: '1px solid rgba(234, 179, 8, 0.25)' }}
             >
               <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              Session expired due to 15 minutes of inactivity. Please sign in again.
+              Session expired due to inactivity. Please sign in again.
             </div>
           )}
 
           {error && (
             <div
-              className="mb-4 px-4 py-3 rounded-lg text-sm animate-fade-in"
-              style={{ background: 'rgba(220, 38, 38, 0.08)', color: 'var(--color-danger-500)', border: '1px solid rgba(220, 38, 38, 0.2)' }}
+              className="mb-5 px-4 py-3 rounded-xl text-sm animate-fade-in flex items-start gap-2"
+              style={{ background: 'rgba(220, 38, 38, 0.12)', color: '#f87171', border: '1px solid rgba(220, 38, 38, 0.3)' }}
             >
-              {error}
+              <svg className="w-4 h-4 mt-0.5 flex-shrink-0 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <span>{error}</span>
             </div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label htmlFor="login-username" className="block text-sm font-medium mb-1.5" style={{ color: 'var(--color-garuda-300)' }}>Username</label>
+              <label htmlFor="login-username" className="block text-xs font-semibold uppercase tracking-wider mb-1.5" style={{ color: 'var(--color-garuda-300)' }}>
+                Position Username
+              </label>
               <input
                 id="login-username"
                 name="username"
@@ -110,13 +132,25 @@ export default function Login() {
                 onChange={(e) => setUsername(e.target.value)}
                 required
                 autoFocus
-                className="input"
-                placeholder="Enter username"
+                className="input rounded-xl bg-slate-900/60 border-slate-700 text-white placeholder-slate-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                placeholder="e.g. sho-tpt-sadar or sp-tpt"
               />
             </div>
 
             <div>
-              <label htmlFor="login-password" className="block text-sm font-medium mb-1.5" style={{ color: 'var(--color-garuda-300)' }}>Password</label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label htmlFor="login-password" className="block text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--color-garuda-300)' }}>
+                  Password
+                </label>
+                <Link
+                  to="/forgot-password"
+                  id="forgot-password-link"
+                  className="text-xs hover:underline transition-colors font-medium"
+                  style={{ color: '#60a5fa' }}
+                >
+                  Forgot Password?
+                </Link>
+              </div>
               <div className="relative">
                 <input
                   id="login-password"
@@ -125,13 +159,13 @@ export default function Login() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="input pr-10"
-                  placeholder="Enter password"
+                  className="input rounded-xl pr-10 bg-slate-900/60 border-slate-700 text-white placeholder-slate-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  placeholder="Enter position password"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 focus:outline-none"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-200 focus:outline-none"
                   tabIndex="-1"
                 >
                   {showPassword ? (
@@ -152,14 +186,19 @@ export default function Login() {
               id="login-submit"
               type="submit"
               disabled={loading}
-              className="btn btn-primary btn-lg w-full"
+              className="w-full py-3 px-6 rounded-full font-semibold text-sm text-white transition-all transform active:translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+              style={{
+                background: 'linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)',
+                boxShadow: '0 4px 14px 0 rgba(37, 99, 235, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2)',
+                border: '1px solid #1e40af',
+              }}
             >
-              {loading ? 'Signing in...' : 'Sign In'}
+              {loading ? 'Authenticating...' : 'Sign In'}
             </button>
           </form>
 
-          <p className="text-xs text-center mt-6" style={{ color: 'var(--color-garuda-500)' }}>
-            Authorized personnel only. All access is monitored.
+          <p className="text-xs text-center mt-6 tracking-wide" style={{ color: 'var(--color-garuda-500)' }}>
+            Authorized Police Personnel Only &bull; Access Monitored &bull; 60-Day Security Rotation
           </p>
         </div>
       </div>

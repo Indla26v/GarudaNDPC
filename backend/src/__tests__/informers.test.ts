@@ -8,7 +8,7 @@ describe('Informers API', () => {
   let constableToken: string;
   let createdInformerId: string;
 
-  beforeAll(() => {
+  beforeAll(async () => {
     spToken = jwt.sign({
       userId: '2',
       role: 'SP',
@@ -19,13 +19,20 @@ describe('Informers API', () => {
     }, process.env.JWT_SECRET || 'test-secret-key-for-testing-only');
 
     constableToken = jwt.sign({
-      userId: '4',
+      userId: '5',
       role: 'CONSTABLE',
       department: 'POLICE',
       policeStationId: '1',
       district: 'Tirupati',
       divisionId: null,
     }, process.env.JWT_SECRET || 'test-secret-key-for-testing-only');
+
+    await prisma.intelligence_inputs.deleteMany({
+      where: { supply_route: 'Informer Test Route' }
+    });
+    await prisma.informers.deleteMany({
+      where: { OR: [{ phone: '9999999999' }, { code_name: 'INF-TEST-99' }] }
+    });
   });
 
   afterAll(async () => {

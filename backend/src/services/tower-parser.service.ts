@@ -125,7 +125,12 @@ export async function parseTowerDump(buffer: Buffer, fileType: string): Promise<
     return { logs: [], detectedColumns: [], errors: [`File rejected: ${scanResult.threats.join('; ')}`] };
   }
 
-  const wb = XLSX.read(buffer, { type: 'buffer', cellDates: true });
+  let wb: XLSX.WorkBook;
+  try {
+    wb = XLSX.read(buffer, { type: 'buffer', cellDates: true });
+  } catch (readErr: any) {
+    return { logs: [], detectedColumns: [], errors: [`Corrupted or unreadable file: ${readErr.message || 'Decoding failed'}`] };
+  }
 
   // ── SECURITY: Zip bomb / decompression bomb guard ──
   const zbCheck = guardZipBomb(wb, buffer.length);

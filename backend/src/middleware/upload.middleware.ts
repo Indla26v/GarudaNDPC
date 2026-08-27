@@ -73,18 +73,43 @@ export const uploadDocument = multer({
   }),
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB (standard website PDFs under 5MB, ideally under 2MB)
   fileFilter: (_req, file, cb) => {
-    // Block potentially dangerous scripts/HTML
-    if (file.mimetype.includes('html') || file.mimetype.includes('javascript') || file.mimetype.includes('svg') || path.extname(file.originalname).toLowerCase() === '.svg') {
-      return cb(new Error('Invalid file type.') as any, false);
+    const ext = path.extname(file.originalname).toLowerCase();
+
+    // ── SECURITY: Block macro-enabled Office formats ──
+    if (BLOCKED_MACRO_EXTENSIONS.has(ext)) {
+      return cb(new Error('Macro-enabled file formats are not allowed.') as any, false);
     }
 
-    const ok =
-      file.mimetype.startsWith('image/') ||
+    // Block potentially dangerous scripts/HTML/SVG
+    if (
+      file.mimetype.includes('html') ||
+      file.mimetype.includes('javascript') ||
+      file.mimetype.includes('svg') ||
+      ext === '.svg' ||
+      ext === '.html' ||
+      ext === '.htm' ||
+      ext === '.js' ||
+      ext === '.exe' ||
+      ext === '.bat' ||
+      ext === '.sh'
+    ) {
+      return cb(new Error('Invalid file type. Scripts, executables, and HTML files are not allowed.') as any, false);
+    }
+
+    const ALLOWED_DOC_EXTENSIONS = ['.pdf', '.doc', '.docx', '.jpg', '.jpeg', '.png', '.txt', '.webp'];
+    const okExt = ALLOWED_DOC_EXTENSIONS.includes(ext);
+    const okMime =
+      (file.mimetype.startsWith('image/') && !file.mimetype.includes('svg')) ||
       file.mimetype === 'application/pdf' ||
+      file.mimetype === 'text/plain' ||
       file.mimetype.includes('msword') ||
-      file.mimetype.includes('officedocument') ||
-      file.originalname.match(/\.(pdf|doc|docx|jpg|jpeg|png|txt|webp)$/i);
-    cb(null, !!ok);
+      file.mimetype.includes('officedocument');
+
+    if (okExt && okMime) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only PDF, DOC, DOCX, TXT, and image files (JPG, PNG, WEBP) are allowed.') as any, false);
+    }
   }
 });
 

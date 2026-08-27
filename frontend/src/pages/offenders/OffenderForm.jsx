@@ -2,7 +2,9 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import api from '../../api/axios';
 import CustomSelect from '../../components/CustomSelect';
+import LocationSelector from '../../components/LocationSelector';
 import { usePermissions } from '../../hooks/usePermissions';
+import { toast } from '../../context/ToastContext';
 import { OffenderCaseHistory, OffenderInterrogationPanel, ImeiPanel } from '../../components/OffenderPhase1Panels';
 import { IconWarning } from '../../components/Icons';
 
@@ -107,7 +109,7 @@ export default function OffenderForm() {
   const [form, setForm] = useState({
     slNo:'', psId:'', fullName:'', alias:'', fatherHusbandName:'',
     age:'', gender:'', category:'',
-    fullAddress:'', landmark:'', district:'', state:'',
+    fullAddress:'', landmark:'', district:'', state:'', mandal:'',
     occupation:'', monthlyIncome:'',
     addictionType:'', consumptionFrequency:'', sourceOfProcurement:'',
     testResult:'', modeOfPurchase:'', usualConsumptionSpot:'', sectionOfLaw:'',
@@ -158,7 +160,7 @@ export default function OffenderForm() {
         age: d.age||'', gender: d.gender||'', category: d.category||'',
         fullAddress: d.fullAddress || d.full_address || '',
         landmark: d.landmark || d.landmarkArea || d.landmark_area || '',
-        district: d.district||'', state: d.state||'',
+        district: d.district||'', state: d.state||'', mandal: d.mandal||'',
         occupation: d.occupation||'', monthlyIncome: d.monthlyIncome||'',
         addictionType: d.addictionType||'', consumptionFrequency: d.consumptionFrequency||'',
         sourceOfProcurement: d.sourceOfProcurement||'', testResult: d.testResult||'',
@@ -835,7 +837,8 @@ export default function OffenderForm() {
           fullAddress: form.fullAddress,
           landmarkArea: form.landmark || form.landmarkArea,
           district: form.district,
-          state: form.state
+          state: form.state,
+          mandal: form.mandal
         };
       } else if (sectionName === 'Phone & Email Contacts' || sectionName === 'Social Media & Messaging Profiles') {
         body = { contacts: combinedContacts };
@@ -979,8 +982,18 @@ export default function OffenderForm() {
   };
 
   const uploadFile = async (file) => {
+    const ext = file.name.split('.').pop()?.toLowerCase() || '';
+    if (!['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext)) {
+      const msg = 'Invalid image format. Only JPG, PNG, WEBP, and GIF files are allowed.';
+      toast.badRequest(msg, [`Selected file .${ext} is not a supported image format. Executable/script files are blocked.`], 'Bad Request — Invalid Image Format');
+      setError(msg);
+      return;
+    }
+
     if (file.size > 500 * 1024) {
-      setError(`Photo must be under 500 KB (ideally 200 KB - 500 KB). Selected file is ${(file.size / 1024).toFixed(0)} KB.`);
+      const msg = `Photo must be under 500 KB. Selected file is ${(file.size / 1024).toFixed(0)} KB.`;
+      toast.badRequest(msg, ['Maximum allowed photo size is 500 KB.'], 'Bad Request — File Too Large');
+      setError(msg);
       return;
     }
 
@@ -998,7 +1011,9 @@ export default function OffenderForm() {
         setError('Upload succeeded but no URL was returned');
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to upload photo');
+      const errMsg = err.response?.data?.message || 'Failed to upload photo';
+      const threats = err.response?.data?.threats || [];
+      setError(threats.length ? `${errMsg} (${threats.join('; ')})` : errMsg);
     } finally {
       setUploadingPhoto(false);
     }
@@ -1189,24 +1204,29 @@ export default function OffenderForm() {
                   <div className="flex flex-col gap-3 p-4 rounded-xl border w-full items-center justify-center" style={{ background: 'var(--color-garuda-700)', borderColor: 'var(--color-garuda-600)' }}>
                     {form.photoUrl ? (
                       <div className="flex flex-col items-center gap-3">
-                        <div className="relative w-48 h-48 rounded-lg overflow-hidden border border-slate-700 bg-slate-900">
+                        <div className="relative w-48 h-48 rounded-2xl overflow-hidden border border-slate-700 bg-slate-900 shadow-md">
                           <img src={form.photoUrl} alt="Subject Preview" className="w-full h-full object-cover" />
                           <button
                             type="button"
                             onClick={() => set('photoUrl', '')}
-                            className="absolute inset-0 bg-black/60 flex items-center justify-center text-xs text-red-400 font-bold opacity-0 hover:opacity-100 transition-opacity cursor-pointer border-none"
+                            className="absolute inset-0 bg-black/70 flex items-center justify-center text-xs text-red-400 font-bold opacity-0 hover:opacity-100 transition-opacity cursor-pointer border-none"
                           >
-                            Remove
+                            Remove Photo
                           </button>
                         </div>
-                        <div className="text-center">
-                          <p className="text-xs font-bold text-green-400">✓ Uploaded</p>
+                        <div className="text-center flex flex-col items-center">
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                            Photo Attached
+                          </span>
                           <p className="text-[10px] mt-1" style={{ color: 'var(--color-garuda-400)' }}>Hover image to remove</p>
                         </div>
                       </div>
                     ) : cameraActive ? (
-                      <div className="flex flex-col items-center gap-3">
-                        <div className="relative w-full aspect-video rounded-lg overflow-hidden border border-slate-700 bg-black">
+                      <div className="flex flex-col items-center gap-3 w-full">
+                        <div className="relative w-full aspect-video rounded-2xl overflow-hidden border border-slate-700 bg-black shadow-inner">
                           <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
                           {uploadingPhoto && (
                             <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center gap-2">
@@ -1216,11 +1236,15 @@ export default function OffenderForm() {
                         </div>
                         <div className="flex gap-2 w-full">
                           <button type="button" onClick={capturePhoto} disabled={uploadingPhoto}
-                            className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-bold border-none cursor-pointer flex items-center justify-center gap-1.5">
-                            📸 Capture
+                            className="flex-1 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full text-xs font-bold border-none cursor-pointer flex items-center justify-center gap-1.5 shadow-md">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                            Capture Photo
                           </button>
                           <button type="button" onClick={stopCamera} disabled={uploadingPhoto}
-                            className="px-4 py-2 rounded-lg text-xs font-semibold border-none cursor-pointer" style={{ background: 'var(--color-garuda-600)', color: 'var(--color-garuda-200)' }}>
+                            className="px-4 py-2 rounded-full text-xs font-semibold border-none cursor-pointer text-slate-300 hover:text-white bg-slate-700 hover:bg-slate-600">
                             Cancel
                           </button>
                         </div>
@@ -1228,15 +1252,22 @@ export default function OffenderForm() {
                     ) : (
                       <div className="flex flex-col gap-3 w-full">
                         <button type="button" onClick={startCamera} disabled={uploadingPhoto}
-                          className="w-full px-4 py-2.5 rounded-lg text-xs font-bold cursor-pointer flex items-center justify-center gap-2 transition-all border hover:scale-[1.02] active:scale-[0.98]"
-                          style={{ background: 'rgba(233,115,25,0.08)', color: '#e97319', borderColor: 'rgba(233,115,25,0.25)' }}>
-                          Capture
+                          className="w-full px-4 py-2.5 rounded-full text-xs font-bold cursor-pointer flex items-center justify-center gap-2 transition-all border hover:scale-[1.02] active:scale-[0.98]"
+                          style={{ background: 'rgba(233,115,25,0.1)', color: '#f97316', borderColor: 'rgba(233,115,25,0.3)' }}>
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                          Use Camera
                         </button>
                         <div className="text-center text-xs font-semibold" style={{ color: 'var(--color-garuda-400)' }}>or</div>
                         <div className="w-full">
-                          <label htmlFor="photo-upload-input" className="w-full px-4 py-2.5 rounded-lg text-xs font-bold cursor-pointer flex items-center justify-center gap-2 transition-all border text-center hover:scale-[1.02] active:scale-[0.98]"
+                          <label htmlFor="photo-upload-input" className="w-full px-4 py-2.5 rounded-full text-xs font-bold cursor-pointer flex items-center justify-center gap-2 transition-all border text-center hover:scale-[1.02] active:scale-[0.98] shadow-sm"
                             style={{ background: 'var(--color-garuda-600)', color: 'var(--color-garuda-100)', borderColor: 'var(--color-garuda-500)' }}>
-                            Upload
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                            </svg>
+                            Upload Photo File
                             <input 
                               id="photo-upload-input"
                               type="file" 
@@ -1246,8 +1277,8 @@ export default function OffenderForm() {
                               className="hidden" 
                             />
                           </label>
-                          <p className="text-[10px] text-center mt-1 font-medium" style={{ color: 'var(--color-garuda-400)' }}>
-                            JPG/PNG under 500KB (ideally 200–500 KB)
+                          <p className="text-[10px] text-center mt-1.5 font-medium" style={{ color: 'var(--color-garuda-400)' }}>
+                            JPG, PNG, WEBP max 500 KB (Stripped of EXIF)
                           </p>
                         </div>
                         {uploadingPhoto && <span className="text-xs animate-pulse text-center font-semibold" style={{ color: 'var(--color-garuda-400)' }}>Uploading…</span>}
@@ -1347,8 +1378,19 @@ export default function OffenderForm() {
               {renderField("Full Address", form.fullAddress, <textarea id="fullAddress" name="fullAddress" rows={3} className={inp} style={inputStyle} value={form.fullAddress} onChange={e => set('fullAddress', e.target.value)} />)}
             </div>
             {renderField("Landmark", form.landmark, <input id="landmark" name="landmark" className={inp} style={inputStyle} value={form.landmark} onChange={e => set('landmark', e.target.value)} />)}
-            {renderField("District", form.district, <input id="district" name="district" className={inp} style={inputStyle} value={form.district} onChange={e => set('district', e.target.value)} />)}
-            {renderField("State", form.state, <input id="state" name="state" className={inp} style={inputStyle} value={form.state} onChange={e => set('state', e.target.value)} />)}
+            <div className="md:col-span-2">
+              {renderField("State / District / Mandal", form.state || form.district || form.mandal, 
+                <LocationSelector
+                  state={form.state}
+                  district={form.district}
+                  mandal={form.mandal}
+                  showMandal={true}
+                  onChange={({ state, district, mandal }) => {
+                    setForm(prev => ({ ...prev, state, district, mandal }));
+                  }}
+                />
+              )}
+            </div>
           </div>
         </div>
 
@@ -1804,7 +1846,7 @@ export default function OffenderForm() {
               <button 
                 type="button" 
                 onClick={downloadPdfHistorySheet} 
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white border-none cursor-pointer bg-red-600 hover:bg-red-700 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-sm flex items-center gap-1.5"
+                className="px-4 py-2 rounded-full text-xs font-bold text-white border-none cursor-pointer bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-md flex items-center gap-2"
               >
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />

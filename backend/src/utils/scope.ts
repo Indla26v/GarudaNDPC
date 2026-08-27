@@ -51,10 +51,10 @@ class DistrictScopeStrategy implements ScopeStrategy {
   }
 }
 
-/** Subdivision-level strategy (SDPO). */
+/** Subdivision-level strategy (SDPO / DSP). */
 class SubdivisionScopeStrategy implements ScopeStrategy {
   appliesTo(user: ScopeUser): boolean {
-    return user.role === 'SDPO';
+    return user.role === 'SDPO' || user.role === 'DSP';
   }
 
   buildWhere(user: ScopeUser, entity: ScopeEntity): Record<string, any> {
@@ -64,7 +64,17 @@ class SubdivisionScopeStrategy implements ScopeStrategy {
       }
       return { police_stations: { sdpo: user.divisionId } };
     }
-    return {};
+    if (user.district) {
+      if (entity === 'enforcement') {
+        return { police_station: { district: user.district } };
+      }
+      return { police_stations: { district: user.district } };
+    }
+    // Fallback: If no division or district is assigned, scope to default district
+    if (entity === 'enforcement') {
+      return { police_station: { district: 'Tirupati' } };
+    }
+    return { police_stations: { district: 'Tirupati' } };
   }
 
   isStationLevel(): boolean {

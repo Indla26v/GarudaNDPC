@@ -7,7 +7,7 @@ describe('Operational Reports & Admin Settings API', () => {
 
   beforeAll(() => {
     spToken = jwt.sign({
-      userId: '2',
+      userId: '1',
       role: 'SP',
       department: 'POLICE',
       policeStationId: null,

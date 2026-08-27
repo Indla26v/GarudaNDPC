@@ -17,6 +17,7 @@ import { parseStatement } from '../services/statement-parser.service';
 import * as analysis from '../services/finance-analysis.service';
 import { broadcastEvent } from './sse.controller';
 import { handleControllerError } from '../utils/error-handler';
+import { validateMagicBytes, scanForMalware } from '../utils/file-security';
 
 // ── Helpers ────────────────────────────────────────────────────────────
 function txnScope(user: ScopeUser): any {
@@ -95,6 +96,28 @@ export const uploadStatement = async (req: AuthRequest, res: Response) => {
     const file = (req as any).file;
     if (!file) return res.status(400).json({ message: 'No file uploaded' });
 
+    const rawExt = (file.originalname.split('.').pop() || '').toUpperCase();
+    const fileType = rawExt === 'XLS' ? 'XLSX' : rawExt;
+
+    if (fileType === 'PDF' && file.size > 5 * 1024 * 1024) {
+      return res.status(400).json({ message: 'PDF statement files must be under 5MB (ideally under 2MB).' });
+    }
+
+    // ── SECURITY: Magic bytes validation ──
+    const mbCheck = validateMagicBytes(file.buffer, file.originalname);
+    if (!mbCheck.valid) {
+      return res.status(400).json({ message: mbCheck.reason });
+    }
+
+    // ── SECURITY: Malware / virus scan ──
+    const scanResult = scanForMalware(file.buffer, file.originalname);
+    if (!scanResult.clean) {
+      return res.status(400).json({
+        message: 'File rejected: potential security threat detected.',
+        threats: scanResult.threats,
+      });
+    }
+
     const { offenderId, statementMonth, bankName, accountNo, upiId, preview } = req.body;
     if (!offenderId) return res.status(400).json({ message: 'offenderId is required' });
     if (!statementMonth) return res.status(400).json({ message: 'statementMonth is required' });
@@ -104,19 +127,18 @@ export const uploadStatement = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ message: 'Offender not found or access denied' });
     }
 
-    const rawExt = (file.originalname.split('.').pop() || '').toUpperCase();
-    const fileType = rawExt === 'XLS' ? 'XLSX' : rawExt;
-
-    if (fileType === 'PDF' && file.size > 5 * 1024 * 1024) {
-      return res.status(400).json({ message: 'PDF statement files must be under 5MB (ideally under 2MB).' });
-    }
-
     const monthDate = new Date(statementMonth);
     if (isNaN(monthDate.getTime())) return res.status(400).json({ message: 'Invalid statementMonth' });
 
     // Preview mode — parse only, do not persist (drives the column-mapping UI)
     if (String(preview) === 'true') {
       const pre = await parseStatement(file.buffer, fileType);
+      if (pre.transactions.length === 0 && pre.errors.length > 0) {
+        return res.status(400).json({
+          message: pre.errors[0] || 'Statement could not be parsed.',
+          errors: pre.errors,
+        });
+      }
       return res.json(
         successResponse(
           {
@@ -129,6 +151,20 @@ export const uploadStatement = async (req: AuthRequest, res: Response) => {
           'Statement parsed (preview)'
         )
       );
+    }
+
+    let result;
+    try {
+      result = await parseStatement(file.buffer, fileType);
+    } catch (parseErr: any) {
+      return res.status(400).json({ message: 'Failed to parse statement: ' + parseErr.message });
+    }
+
+    if (result.transactions.length === 0 && result.errors.length > 0) {
+      return res.status(400).json({
+        message: result.errors[0] || 'No transactions could be extracted from the file.',
+        errors: result.errors,
+      });
     }
 
     const batch = await prisma.finance_upload_batches.create({
@@ -144,19 +180,6 @@ export const uploadStatement = async (req: AuthRequest, res: Response) => {
         status: 'PROCESSING',
       },
     });
-
-    let result;
-    try {
-      result = await parseStatement(file.buffer, fileType);
-    } catch (parseErr: any) {
-      await prisma.finance_upload_batches.update({
-        where: { id: batch.id },
-        data: { status: 'FAILED', error_log: `Parse error: ${parseErr.message}` },
-      });
-      return res
-        .status(422)
-        .json({ message: 'Failed to parse statement: ' + parseErr.message, batchId: batch.id.toString() });
-    }
 
     if (result.transactions.length > 0) {
       await prisma.transaction_records.createMany({

@@ -1,8 +1,8 @@
 /**
- * GARUDA — User Management Page (Admin Only)
+ * GARUDA NDPS — User & Position Management
  * 
- * Full CRUD for user accounts with role assignment, PS assignment,
- * machine generated passwords, and contact info validation.
+ * Position-based access control with personnel directory, transfer management,
+ * 60-day security expiry tracking, and complete audit history.
  */
 import { useState, useEffect, useMemo } from 'react';
 import api from '../../api/axios';
@@ -11,23 +11,38 @@ import CustomSelect from '../../components/CustomSelect';
 const ROLES = ['SP', 'ASP', 'SDPO', 'SHO', 'CONSTABLE'];
 
 const ROLE_LABELS = {
-  SP: 'SP', ASP: 'ASP', SDPO: 'SDPO (DSP)', SHO: 'SHO (CI/SI)', CONSTABLE: 'Constable',
+  SP: 'SP',
+  ASP: 'ASP',
+  SDPO: 'SDPO (DSP)',
+  SHO: 'SHO (CI/SI)',
+  CONSTABLE: 'Constable',
 };
 
-const DEPARTMENTS = [
-  'POLICE', 'CYBER_ANALYTICS', 'EXCISE',
+const OFFICER_RANKS = [
+  'SP',
+  'ASP',
+  'DSP',
+  'CI',
+  'SI',
+  'ASI',
+  'HC',
+  'PC',
 ];
 
+const DEPARTMENTS = ['POLICE', 'CYBER_ANALYTICS', 'EXCISE'];
+
 const DEPT_LABELS = {
-  POLICE: 'Police', CYBER_ANALYTICS: 'Cyber Analytics (STF)', EXCISE: 'Excise Officer',
+  POLICE: 'Police',
+  CYBER_ANALYTICS: 'Cyber Analytics (STF)',
+  EXCISE: 'Excise Officer',
 };
 
 const ROLE_BADGES = {
-  SP:        'bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800',
-  ASP:       'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800',
-  SDPO:      'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800',
-  SHO:       'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800',
-  CONSTABLE: 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-600',
+  SP:        'text-purple-600 dark:text-purple-400 font-extrabold border border-purple-300/60 dark:border-purple-800/60',
+  ASP:       'text-indigo-600 dark:text-indigo-400 font-extrabold border border-indigo-300/60 dark:border-indigo-800/60',
+  SDPO:      'text-blue-600 dark:text-blue-400 font-extrabold border border-blue-300/60 dark:border-blue-800/60',
+  SHO:       'text-emerald-600 dark:text-emerald-400 font-extrabold border border-emerald-300/60 dark:border-emerald-800/60',
+  CONSTABLE: 'text-slate-600 dark:text-slate-400 font-bold border border-slate-300/60 dark:border-slate-700/60',
 };
 
 const AP_DISTRICTS = [
@@ -59,7 +74,6 @@ const AP_DISTRICTS = [
   "YSR Kadapa"
 ];
 
-// Helper: Cryptographically secure machine password generator compliant with password policy
 function generateSecurePassword() {
   const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
   const lower = 'abcdefghijkmnpqrstuvwxyz';
@@ -87,995 +101,1526 @@ function generateSecurePassword() {
   return passwordArr.join('');
 }
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PHONE_REGEX = /^(?:\+91|0)?[6-9]\d{9}$/;
-
 export default function UserManagement() {
+  const [activeTab, setActiveTab] = useState('positions'); // 'positions' | 'officers'
   const [users, setUsers] = useState([]);
+  const [officers, setOfficers] = useState([]);
   const [stations, setStations] = useState([]);
   const [loading, setLoading] = useState(true);
-  
-  // Filter and Search States
-  const [selectedState, setSelectedState] = useState('');
-  const [selectedDistrict, setSelectedDistrict] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
 
-  // Form States
-  const [showForm, setShowForm] = useState(false);
-  const [editUser, setEditUser] = useState(null);
-  const [modalKey, setModalKey] = useState(0);
-  const [isUsernameFocused, setIsUsernameFocused] = useState(false);
-  const [form, setForm] = useState({
+  // Search & Filter
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedRole, setSelectedRole] = useState('');
+  const [selectedDistrict, setSelectedDistrict] = useState('');
+
+  // Modals
+  const [showPositionModal, setShowPositionModal] = useState(false);
+  const [editPosition, setEditPosition] = useState(null);
+  const [positionForm, setPositionForm] = useState({
     username: '',
     password: '',
-    fullName: '',
+    positionLabel: '',
     email: '',
     phoneNumber: '',
     role: 'CONSTABLE',
     policeStationId: '',
-    department: 'POLICE',
-    badgeNumber: '',
     district: '',
     divisionId: '',
+    department: 'POLICE',
     isActive: true,
   });
+
+  const [showOfficerModal, setShowOfficerModal] = useState(false);
+  const [editOfficer, setEditOfficer] = useState(null);
+  const [officerForm, setOfficerForm] = useState({
+    fullName: '',
+    badgeNumber: '',
+    rank: 'PC',
+    isActive: true,
+  });
+
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [assignTargetPosition, setAssignTargetPosition] = useState(null);
+  const [assignForm, setAssignForm] = useState({
+    officerId: '',
+    transferOrderNo: '',
+    notes: '',
+  });
+
+  const [showRelieveModal, setShowRelieveModal] = useState(false);
+  const [relieveTargetPosition, setRelieveTargetPosition] = useState(null);
+  const [relieveNotes, setRelieveNotes] = useState('');
+
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [historyTitle, setHistoryTitle] = useState('');
+  const [historyList, setHistoryList] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
+  const [selectedPositionDetail, setSelectedPositionDetail] = useState(null);
+
   const [showPassword, setShowPassword] = useState(false);
   const [copiedPassword, setCopiedPassword] = useState(false);
-  const [formError, setFormError] = useState('');
-  const [formViolations, setFormViolations] = useState([]);
+  const [actionError, setActionError] = useState('');
+  const [actionSuccess, setActionSuccess] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const uniqueDistricts = useMemo(() => {
-    const dbDistricts = stations.map(s => s.district).filter(Boolean);
-    return [...new Set([...AP_DISTRICTS, ...dbDistricts])].sort();
-  }, [stations]);
-
-  const uniqueSdpos = useMemo(() => {
-    return [...new Set(stations.map(s => s.sdpo).filter(Boolean))].sort();
-  }, [stations]);
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  // Proactively purge browser autofill if browser injects saved admin username (e.g. 'sp') on modal open
-  useEffect(() => {
-    if (showForm && !editUser && !isUsernameFocused) {
-      const clearAutofill = () => {
-        setForm(prev => {
-          if (!isUsernameFocused && prev.username && !editUser) {
-            return { ...prev, username: '' };
-          }
-          return prev;
-        });
-      };
-      const t1 = setTimeout(clearAutofill, 30);
-      const t2 = setTimeout(clearAutofill, 100);
-      const t3 = setTimeout(clearAutofill, 250);
-      const t4 = setTimeout(clearAutofill, 500);
-      return () => {
-        clearTimeout(t1);
-        clearTimeout(t2);
-        clearTimeout(t3);
-        clearTimeout(t4);
-      };
-    }
-  }, [showForm, editUser, isUsernameFocused]);
-
   const fetchData = async () => {
+    setLoading(true);
     try {
-      const [usersRes, psRes] = await Promise.all([
-        api.get('/admin/users', { params: { size: 500 } }),
+      const [uRes, oRes, psRes] = await Promise.all([
+        api.get('/admin/users?size=500'),
+        api.get('/admin/officers?size=500'),
         api.get('/police-stations'),
       ]);
-      setUsers(usersRes.data.data.content || []);
-      setStations(psRes.data.data || []);
+
+      const uData = uRes.data?.data?.content || uRes.data?.data || [];
+      const oData = oRes.data?.data?.content || oRes.data?.data || [];
+      const psData = psRes.data?.data?.content || psRes.data?.data || [];
+
+      setUsers(Array.isArray(uData) ? uData : []);
+      setOfficers(Array.isArray(oData) ? oData : []);
+      setStations(Array.isArray(psData) ? psData : []);
     } catch (err) {
-      console.error(err);
+      console.error('Failed to fetch user management data:', err);
+      setUsers([]);
+      setOfficers([]);
+      setStations([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleOpenAddModal = () => {
-    setEditUser(null);
-    setModalKey(prev => prev + 1);
-    setIsUsernameFocused(false);
-    const generated = generateSecurePassword();
-    setForm({
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const uniqueDistricts = useMemo(() => {
+    if (!Array.isArray(stations)) return [...AP_DISTRICTS].sort();
+    const dbDistricts = stations.map(s => s?.district).filter(Boolean);
+    return [...new Set([...AP_DISTRICTS, ...dbDistricts])].sort();
+  }, [stations]);
+
+  const uniqueSdpos = useMemo(() => {
+    if (!Array.isArray(stations)) return [];
+    return [...new Set(stations.map(s => s?.sdpo).filter(Boolean))].sort();
+  }, [stations]);
+
+  // Filtered Positions
+  const filteredPositions = useMemo(() => {
+    if (!Array.isArray(users)) return [];
+    return users.filter(u => {
+      if (!u) return false;
+      const q = (searchQuery || '').toLowerCase().trim();
+      const matchesSearch = !q ||
+        (u.username && u.username.toLowerCase().includes(q)) ||
+        (u.positionLabel && u.positionLabel.toLowerCase().includes(q)) ||
+        (u.fullName && u.fullName.toLowerCase().includes(q)) ||
+        (u.officerName && u.officerName.toLowerCase().includes(q)) ||
+        (u.badgeNumber && u.badgeNumber.toLowerCase().includes(q)) ||
+        (u.email && u.email.toLowerCase().includes(q));
+
+      const matchesRole = !selectedRole || u.role === selectedRole;
+      const matchesDistrict = !selectedDistrict || u.district === selectedDistrict ||
+        (Array.isArray(stations) && stations.find(s => String(s?.id) === String(u.policeStationId))?.district === selectedDistrict);
+
+      return matchesSearch && matchesRole && matchesDistrict;
+    });
+  }, [users, searchQuery, selectedRole, selectedDistrict, stations]);
+
+  // PS-Wise Grouped Positions for Card Layout
+  const groupedByStation = useMemo(() => {
+    if (!Array.isArray(filteredPositions)) return [];
+
+    const stationMap = new Map();
+    // Initialize map with all available stations
+    (stations || []).forEach(st => {
+      if (!st) return;
+      stationMap.set(String(st.id), {
+        id: String(st.id),
+        name: st.name,
+        district: st.district,
+        sdpo: st.sdpo,
+        code: st.code,
+        positions: [],
+      });
+    });
+
+    const hqGroup = {
+      id: 'hq-leadership',
+      name: 'District Leadership & Special Units (HQ / STF / Excise)',
+      district: 'District HQ',
+      sdpo: 'Headquarters',
+      isHQ: true,
+      positions: [],
+    };
+
+    filteredPositions.forEach(pos => {
+      if (pos.policeStationId && stationMap.has(String(pos.policeStationId))) {
+        stationMap.get(String(pos.policeStationId)).positions.push(pos);
+      } else {
+        hqGroup.positions.push(pos);
+      }
+    });
+
+    const result = [];
+    if (hqGroup.positions.length > 0) {
+      result.push(hqGroup);
+    }
+
+    Array.from(stationMap.values()).forEach(group => {
+      if (group.positions.length > 0) {
+        // Sort positions within station: SHO first, then Constables by label/username
+        group.positions.sort((a, b) => {
+          if (a.role === 'SHO' && b.role !== 'SHO') return -1;
+          if (b.role === 'SHO' && a.role !== 'SHO') return 1;
+          return (a.positionLabel || a.username || '').localeCompare(b.positionLabel || b.username || '');
+        });
+        result.push(group);
+      }
+    });
+
+    return result;
+  }, [filteredPositions, stations]);
+
+  // Filtered Officers
+  const filteredOfficers = useMemo(() => {
+    if (!Array.isArray(officers)) return [];
+    return officers.filter(o => {
+      if (!o) return false;
+      const q = (searchQuery || '').toLowerCase().trim();
+      const posLabel = o.currentPosition?.positionLabel || o.currentPosition?.username || '';
+      const matchesSearch = !q ||
+        (o.fullName && o.fullName.toLowerCase().includes(q)) ||
+        (o.badgeNumber && o.badgeNumber.toLowerCase().includes(q)) ||
+        (o.rank && o.rank.toLowerCase().includes(q)) ||
+        (posLabel && posLabel.toLowerCase().includes(q));
+
+      const matchesRank = !selectedRole || o.rank === selectedRole;
+      return matchesSearch && matchesRank;
+    });
+  }, [officers, searchQuery, selectedRole]);
+
+  // ── Position Handlers ──
+  const openNewPosition = (presetStationId = '', presetDistrict = '', presetDivisionId = '') => {
+    setEditPosition(null);
+    const station = Array.isArray(stations) ? stations.find(s => String(s?.id) === String(presetStationId)) : null;
+    setPositionForm({
       username: '',
-      password: generated,
-      fullName: '',
+      password: generateSecurePassword(),
+      positionLabel: '',
       email: '',
       phoneNumber: '',
-      role: 'CONSTABLE',
-      policeStationId: '',
+      role: presetStationId ? 'CONSTABLE' : 'CONSTABLE',
+      policeStationId: presetStationId ? String(presetStationId) : '',
+      district: presetDistrict || station?.district || '',
+      divisionId: presetDivisionId || station?.sdpo || '',
       department: 'POLICE',
-      badgeNumber: '',
-      district: '',
-      divisionId: '',
       isActive: true,
     });
-    setShowPassword(true);
-    setCopiedPassword(false);
-    setFormError('');
-    setFormViolations([]);
-    setShowForm(true);
+    setActionError('');
+    setShowPositionModal(true);
   };
 
-  const handleRegeneratePassword = () => {
-    const newPass = generateSecurePassword();
-    setForm(prev => ({ ...prev, password: newPass }));
-    setCopiedPassword(false);
+  const openEditPosition = (pos) => {
+    setEditPosition(pos);
+    setPositionForm({
+      username: pos.username,
+      password: '',
+      positionLabel: pos.positionLabel || '',
+      email: pos.email || '',
+      phoneNumber: pos.phoneNumber || '',
+      role: pos.role,
+      policeStationId: pos.policeStationId ? String(pos.policeStationId) : '',
+      district: pos.district || '',
+      divisionId: pos.divisionId || '',
+      department: pos.department || 'POLICE',
+      isActive: pos.isActive,
+    });
+    setActionError('');
+    setShowPositionModal(true);
   };
 
-  const handleCopyPassword = () => {
-    if (form.password) {
-      navigator.clipboard.writeText(form.password);
-      setCopiedPassword(true);
-      setTimeout(() => setCopiedPassword(false), 2000);
-    }
-  };
-
-  // Live password policy checks
-  const passwordChecks = useMemo(() => {
-    const p = form.password;
-    return [
-      { label: '10-18 characters', pass: p.length >= 10 && p.length <= 18 },
-      { label: 'Uppercase (A-Z)', pass: /[A-Z]/.test(p) },
-      { label: 'Lowercase (a-z)', pass: /[a-z]/.test(p) },
-      { label: 'Digit (0-9)', pass: /[0-9]/.test(p) },
-      { label: 'Special char (!@#$%...)', pass: /[!@#$%^&*()_+\-=\[\]{}|;:'",.<>?\/\\`~]/.test(p) },
-      { label: 'No spaces', pass: !/\s/.test(p) },
-    ];
-  }, [form.password]);
-
-  const isEmailValid = useMemo(() => {
-    if (!form.email || !form.email.trim()) return false;
-    return EMAIL_REGEX.test(form.email.trim());
-  }, [form.email]);
-
-  const isPhoneValid = useMemo(() => {
-    if (!form.phoneNumber || !form.phoneNumber.trim()) return false;
-    const clean = form.phoneNumber.trim().replace(/[\s\-]/g, '');
-    return PHONE_REGEX.test(clean);
-  }, [form.phoneNumber]);
-
-  const handleSubmit = async (e) => {
+  const handleSavePosition = async (e) => {
     e.preventDefault();
-    setFormError('');
-    setFormViolations([]);
-
-    // Client-side validations
-    if (!form.email || !form.email.trim() || !isEmailValid) {
-      setFormError('Please enter a valid email address');
-      return;
-    }
-
-    if (!form.phoneNumber || !form.phoneNumber.trim() || !isPhoneValid) {
-      setFormError('Please enter a valid 10-digit mobile number');
-      return;
-    }
-
     setSaving(true);
+    setActionError('');
+
     try {
       const payload = {
-        fullName: form.fullName.trim(),
-        email: form.email ? form.email.trim() : null,
-        phoneNumber: form.phoneNumber ? form.phoneNumber.trim().replace(/[\s\-]/g, '') : null,
-        role: form.role,
-        department: form.department,
-        badgeNumber: form.badgeNumber ? form.badgeNumber.trim() : null,
-        policeStationId: (form.role !== 'SP' && form.role !== 'ASP' && form.role !== 'SDPO') ? (form.policeStationId || null) : null,
-        district: (form.role === 'SP' || form.role === 'ASP') ? (form.district || null) : null,
-        divisionId: (form.role === 'SDPO') ? (form.divisionId || null) : null,
-        isActive: form.isActive,
-        ...(form.password && { password: form.password }),
+        username: positionForm.username.trim(),
+        positionLabel: positionForm.positionLabel.trim() || undefined,
+        email: positionForm.email ? positionForm.email.trim() : null,
+        phoneNumber: positionForm.phoneNumber ? positionForm.phoneNumber.trim().replace(/[\s\-]/g, '') : null,
+        role: positionForm.role,
+        department: positionForm.department,
+        policeStationId: positionForm.policeStationId ? positionForm.policeStationId : null,
+        district: positionForm.district || null,
+        divisionId: positionForm.divisionId || null,
+        isActive: positionForm.isActive,
       };
 
-      if (editUser) {
-        await api.put(`/admin/users/${editUser.id}`, payload);
+      if (!editPosition) {
+        payload.password = positionForm.password;
+        await api.post('/admin/users', payload);
+        setActionSuccess('Position seat created successfully');
       } else {
-        await api.post('/admin/users', {
-          ...payload,
-          username: form.username.trim(),
-          password: form.password,
-        });
+        if (positionForm.password) {
+          payload.password = positionForm.password;
+        }
+        await api.put(`/admin/users/${editPosition.id}`, payload);
+        setActionSuccess('Position seat updated successfully');
       }
-      setShowForm(false);
-      setEditUser(null);
-      await fetchData();
+
+      setShowPositionModal(false);
+      fetchData();
     } catch (err) {
-      setFormError(err.response?.data?.message || 'Failed to save user');
-      if (err.response?.data?.violations) {
-        setFormViolations(err.response.data.violations);
-      }
+      setActionError(err.response?.data?.message || 'Failed to save position');
     } finally {
       setSaving(false);
     }
   };
 
-  const handleEdit = (user) => {
-    setEditUser(user);
-    setModalKey(prev => prev + 1);
-    setIsUsernameFocused(true);
-    setForm({
-      username: user.username,
-      password: '',
-      fullName: user.fullName,
-      email: user.email || '',
-      phoneNumber: user.phoneNumber || '',
-      role: user.role,
-      department: user.department || 'POLICE',
-      badgeNumber: user.badgeNumber || '',
-      policeStationId: user.policeStationId || '',
-      district: user.district || '',
-      divisionId: user.divisionId || '',
-      isActive: user.isActive !== undefined ? user.isActive : true,
+  // ── Officer Handlers ──
+  const openNewOfficer = () => {
+    setEditOfficer(null);
+    setOfficerForm({
+      fullName: '',
+      badgeNumber: '',
+      rank: 'PC',
+      isActive: true,
     });
-    setShowPassword(false);
-    setCopiedPassword(false);
-    setFormError('');
-    setFormViolations([]);
-    setShowForm(true);
+    setActionError('');
+    setShowOfficerModal(true);
   };
 
-  const handleDeactivate = async (userId) => {
-    if (!window.confirm('Are you sure you want to deactivate this user?')) return;
+  const openEditOfficer = (officer) => {
+    setEditOfficer(officer);
+    setOfficerForm({
+      fullName: officer.fullName,
+      badgeNumber: officer.badgeNumber || '',
+      rank: officer.rank,
+      isActive: officer.isActive,
+    });
+    setActionError('');
+    setShowOfficerModal(true);
+  };
+
+  const handleSaveOfficer = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    setActionError('');
+
     try {
-      await api.delete(`/admin/users/${userId}`);
-      await fetchData();
+      const payload = {
+        fullName: officerForm.fullName.trim(),
+        badgeNumber: officerForm.badgeNumber ? officerForm.badgeNumber.trim() : null,
+        rank: officerForm.rank,
+        isActive: officerForm.isActive,
+      };
+
+      if (!editOfficer) {
+        await api.post('/admin/officers', payload);
+        setActionSuccess('Officer record created successfully');
+      } else {
+        await api.put(`/admin/officers/${editOfficer.id}`, payload);
+        setActionSuccess('Officer record updated successfully');
+      }
+
+      setShowOfficerModal(false);
+      fetchData();
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to deactivate user');
+      setActionError(err.response?.data?.message || 'Failed to save officer');
+    } finally {
+      setSaving(false);
     }
   };
 
-  const handleActivate = async (userId) => {
-    if (!window.confirm('Are you sure you want to reactivate this user?')) return;
+  // ── Assignment & Transfer Handlers ──
+  const openAssignModal = (pos) => {
+    setAssignTargetPosition(pos);
+    setAssignForm({
+      officerId: '',
+      transferOrderNo: '',
+      notes: '',
+    });
+    setActionError('');
+    setShowAssignModal(true);
+  };
+
+  const handleAssignOfficer = async (e) => {
+    e.preventDefault();
+    if (!assignForm.officerId) {
+      setActionError('Please select an officer');
+      return;
+    }
+
+    setSaving(true);
+    setActionError('');
     try {
-      await api.post(`/admin/users/${userId}/activate`);
-      await fetchData();
+      await api.post(`/admin/positions/${assignTargetPosition.id}/assign`, {
+        officerId: assignForm.officerId,
+        transferOrderNo: assignForm.transferOrderNo ? assignForm.transferOrderNo.trim() : undefined,
+        notes: assignForm.notes ? assignForm.notes.trim() : undefined,
+      });
+
+      setActionSuccess('Officer assigned successfully');
+      setShowAssignModal(false);
+      fetchData();
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to activate user');
+      setActionError(err.response?.data?.message || 'Failed to assign officer');
+    } finally {
+      setSaving(false);
     }
   };
 
-  // Derived filter options
-  const uniqueStates = useMemo(() => {
-    const states = new Set(stations.map(s => s.state).filter(Boolean));
-    states.add("Andhra Pradesh");
-    return [...states].sort();
-  }, [stations]);
-
-  const availableDistricts = useMemo(() => {
-    if (!selectedState) return [];
-    if (selectedState === "Andhra Pradesh") {
-      const dbDistricts = stations.filter(s => s.state === "Andhra Pradesh").map(s => s.district).filter(Boolean);
-      return [...new Set([...AP_DISTRICTS, ...dbDistricts])].sort();
-    }
-    return [...new Set(stations.filter(s => s.state === selectedState).map(s => s.district).filter(Boolean))].sort();
-  }, [stations, selectedState]);
-
-  // Reset district if state changes
-  useEffect(() => {
-    setSelectedDistrict('');
-  }, [selectedState]);
-
-  const clearFilters = () => {
-    setSelectedState('');
-    setSelectedDistrict('');
-    setSearchQuery('');
+  const openRelieveModal = (pos) => {
+    setRelieveTargetPosition(pos);
+    setRelieveNotes('');
+    setActionError('');
+    setShowRelieveModal(true);
   };
 
-  const filteredStationsWithUsers = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
-    
-    if (!query) {
-      if (!selectedState || !selectedDistrict) return [];
-      
-      const psList = stations
-        .filter(s => s.state === selectedState && s.district === selectedDistrict)
-        .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
-        .map(station => ({
-          ...station,
-          users: users.filter(u => u.policeStationId === station.id),
-        }));
-      
-      const unassignedUsers = users.filter(u => {
-        if (u.policeStationId) return false;
-        if (u.district) {
-          return u.district === selectedDistrict;
-        }
-        if (u.divisionId) {
-          const matchingStation = stations.find(s => s.sdpo === u.divisionId);
-          if (matchingStation) {
-            return matchingStation.district === selectedDistrict;
-          }
-          return u.divisionId.toLowerCase().includes(selectedDistrict.toLowerCase());
-        }
-        return selectedDistrict === 'Tirupati';
+  const handleRelieveOfficer = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    setActionError('');
+    try {
+      await api.post(`/admin/positions/${relieveTargetPosition.id}/relieve`, {
+        notes: relieveNotes ? relieveNotes.trim() : undefined,
       });
-      if (unassignedUsers.length > 0) {
-        psList.unshift({
-          id: 'hq',
-          name: 'Headquarters / Specialized Units (HQ)',
-          psCode: 'HQ',
-          users: unassignedUsers,
-        });
-      }
-      return psList;
+
+      setActionSuccess('Officer relieved. Seat is now vacant.');
+      setShowRelieveModal(false);
+      fetchData();
+    } catch (err) {
+      setActionError(err.response?.data?.message || 'Failed to relieve officer');
+    } finally {
+      setSaving(false);
     }
+  };
 
-    const matchedStationsMap = new Map();
-
-    const matchingUnassigned = users.filter(u => {
-      if (u.policeStationId) return false;
-      const nameMatch = u.fullName?.toLowerCase().includes(query) || u.username?.toLowerCase().includes(query) || u.email?.toLowerCase().includes(query) || u.phoneNumber?.includes(query);
-      const stationMatch = 'headquarters'.includes(query) || 'hq'.includes(query) || 'specialized'.includes(query);
-      return nameMatch || stationMatch;
-    });
-
-    stations.forEach(station => {
-      const stationMatch = station.name?.toLowerCase().includes(query) || station.psCode?.toLowerCase().includes(query);
-      const stationUsers = users.filter(u => u.policeStationId === station.id);
-      
-      const matchingUsers = stationUsers.filter(u => {
-        if (stationMatch) return true;
-        return u.fullName?.toLowerCase().includes(query) || u.username?.toLowerCase().includes(query) || u.email?.toLowerCase().includes(query) || u.phoneNumber?.includes(query);
-      });
-
-      if (stationMatch || matchingUsers.length > 0) {
-        matchedStationsMap.set(station.id.toString(), {
-          ...station,
-          users: stationMatch ? stationUsers : matchingUsers,
-        });
-      }
-    });
-
-    const psList = Array.from(matchedStationsMap.values())
-      .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-      
-    if (matchingUnassigned.length > 0) {
-      psList.unshift({
-        id: 'hq',
-        name: 'Headquarters / Specialized Units',
-        psCode: 'HQ',
-        users: matchingUnassigned,
-      });
+  // ── Posting History Modal ──
+  const viewPositionHistory = async (pos) => {
+    setHistoryTitle(`Posting History — ${pos.positionLabel || pos.username}`);
+    setShowHistoryModal(true);
+    setHistoryLoading(true);
+    try {
+      const res = await api.get(`/admin/positions/${pos.id}/history`);
+      setHistoryList(res.data?.data || []);
+    } catch (err) {
+      console.error('Failed to load history:', err);
+    } finally {
+      setHistoryLoading(false);
     }
-    return psList;
-  }, [users, stations, searchQuery, selectedState, selectedDistrict]);
+  };
+
+  const viewOfficerHistory = async (officer) => {
+    setHistoryTitle(`Career Posting History — ${officer.fullName} (${officer.rank})`);
+    setShowHistoryModal(true);
+    setHistoryLoading(true);
+    try {
+      const res = await api.get(`/admin/officers/${officer.id}`);
+      setHistoryList(res.data?.data?.postingHistories || []);
+    } catch (err) {
+      console.error('Failed to load history:', err);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
+    <div className="space-y-6">
+      {/* Top Banner & Tab Selector */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
-            System Administration
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+            User & Position Management
           </h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 font-medium">
-            Officer user management, credentials setup, and unit assignments
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
+            Manage fixed organizational seats, officer directory, personnel transfers, and 60-day security lifecycles
           </p>
         </div>
-        <button
-          type="button"
-          onClick={handleOpenAddModal}
-          className="px-4 py-2.5 text-xs font-black bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-xl shadow-xs transition-all flex items-center gap-1.5 whitespace-nowrap self-start sm:self-auto cursor-pointer"
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
-          </svg>
-          + Add Officer
-        </button>
+
+        {/* 3D Segmented Pill Tabs */}
+        <div className="flex items-center p-1.5 rounded-full bg-slate-200 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 shadow-inner">
+          <button
+            type="button"
+            onClick={() => setActiveTab('positions')}
+            className={`px-5 py-2 rounded-full font-bold text-xs uppercase tracking-wider transition-all cursor-pointer ${
+              activeTab === 'positions'
+                ? 'text-white shadow-md transform -translate-y-0.5'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+            style={activeTab === 'positions' ? {
+              background: 'linear-gradient(180deg, #FE9A00 0%, #E08500 100%)',
+              boxShadow: '0 3px 10px 0 rgba(254, 154, 0, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.3)',
+              border: '1px solid #CC7700',
+            } : {}}
+          >
+            Positions / Seats ({users.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('officers')}
+            className={`px-5 py-2 rounded-full font-bold text-xs uppercase tracking-wider transition-all cursor-pointer ${
+              activeTab === 'officers'
+                ? 'text-white shadow-md transform -translate-y-0.5'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+            style={activeTab === 'officers' ? {
+              background: 'linear-gradient(180deg, #FE9A00 0%, #E08500 100%)',
+              boxShadow: '0 3px 10px 0 rgba(254, 154, 0, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.3)',
+              border: '1px solid #CC7700',
+            } : {}}
+          >
+            Officer Directory ({officers.length})
+          </button>
+        </div>
       </div>
 
-      <>
-      {/* User Form Modal */}
-      {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-4 animate-fade-in">
-          <div className="absolute inset-0" onClick={() => { setShowForm(false); setEditUser(null); }}></div>
-          <div
-            className="rounded-2xl p-6 sm:p-8 relative w-full max-w-2xl max-h-[92vh] overflow-y-auto shadow-2xl z-10 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800"
-          >
-            {/* Modal Header */}
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4 mb-5">
-              <div>
-                <h2 className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-                  {editUser ? 'Edit Officer Profile' : 'Add New Officer'}
-                </h2>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 font-medium">
-                  {editUser ? `Update credentials or station assignment for @${editUser.username}` : 'Create an officer account with machine-generated secure credentials.'}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => { setShowForm(false); setEditUser(null); }}
-                className="text-slate-400 hover:text-slate-700 dark:hover:text-white p-1 rounded-lg transition-colors cursor-pointer"
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>            {/* Form */}
-            <form onSubmit={handleSubmit} autoComplete="new-password" aria-autocomplete="none" className="space-y-4">
-              {/* Offscreen decoy trap to absorb browser autofill heuristics */}
-              <div style={{ position: 'fixed', top: '-9999px', left: '-9999px', opacity: 0, pointerEvents: 'none', height: 0, width: 0, overflow: 'hidden' }} aria-hidden="true">
-                <input type="text" name="chrome_decoy_username" tabIndex={-1} autoComplete="username" defaultValue="" />
-                <input type="password" name="chrome_decoy_password" tabIndex={-1} autoComplete="current-password" defaultValue="" />
-              </div>
-
-              {/* Row 1: Full Name & Username */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-bold block mb-1.5 text-slate-700 dark:text-slate-300">
-                    Full Name <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="officer_full_name_field"
-                    value={form.fullName}
-                    onChange={(e) => setForm({ ...form, fullName: e.target.value })}
-                    required
-                    autoComplete="off"
-                    placeholder="Officer's official name"
-                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-normal text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-800 focus:border-amber-500 focus:outline-none transition-all"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold block mb-1.5 text-slate-700 dark:text-slate-300">
-                    Username <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    key={`user_input_${modalKey}`}
-                    id={`officer_username_${modalKey}`}
-                    name={`officer_user_id_${modalKey}`}
-                    type="text"
-                    value={form.username}
-                    onChange={(e) => setForm({ ...form, username: e.target.value.toLowerCase().replace(/\s/g, '') })}
-                    onFocus={() => setIsUsernameFocused(true)}
-                    onClick={() => setIsUsernameFocused(true)}
-                    disabled={!!editUser}
-                    required={!editUser}
-                    autoComplete="one-time-code"
-                    autoCapitalize="none"
-                    autoCorrect="off"
-                    spellCheck="false"
-                    data-lpignore="true"
-                    data-1p-ignore="true"
-                    placeholder="e.g. j.doe or pc_tirupati"
-                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-normal text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-800 focus:border-amber-500 focus:outline-none transition-all"
-                  />
-                </div>
-              </div>
-
-              {/* Row 2: Email Address & Mobile Number */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-bold block mb-1.5 text-slate-700 dark:text-slate-300">
-                    Email Address <span className="text-rose-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="email"
-                      value={form.email}
-                      onChange={(e) => setForm({ ...form, email: e.target.value })}
-                      required
-                      placeholder="officer@appolice.gov.in"
-                      className={`w-full px-4 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border ${form.email && !isEmailValid ? 'border-rose-500 focus:border-rose-500' : 'border-slate-200 dark:border-slate-700'} text-sm font-normal text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-800 focus:border-amber-500 focus:outline-none transition-all`}
-                    />
-                    {form.email && (
-                      <span className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-xs">
-                        {isEmailValid ? (
-                          <span className="text-emerald-600 dark:text-emerald-400 font-bold" title="Valid email format">✓</span>
-                        ) : (
-                          <span className="text-rose-500 font-bold" title="Invalid email format">✕</span>
-                        )}
-                      </span>
-                    )}
-                  </div>
-                  {form.email && !isEmailValid && (
-                    <p className="text-[11px] text-rose-500 mt-1 font-medium">Please enter a valid email format</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold block mb-1.5 text-slate-700 dark:text-slate-300">
-                    Mobile Number <span className="text-rose-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="tel"
-                      value={form.phoneNumber}
-                      onChange={(e) => setForm({ ...form, phoneNumber: e.target.value })}
-                      required
-                      placeholder="10-digit mobile (e.g. 9876543210)"
-                      maxLength={13}
-                      className={`w-full px-4 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border ${form.phoneNumber && !isPhoneValid ? 'border-rose-500 focus:border-rose-500' : 'border-slate-200 dark:border-slate-700'} text-sm font-normal text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-800 focus:border-amber-500 focus:outline-none transition-all`}
-                    />
-                    {form.phoneNumber && (
-                      <span className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-xs">
-                        {isPhoneValid ? (
-                          <span className="text-emerald-600 dark:text-emerald-400 font-bold" title="Valid 10-digit mobile number">✓</span>
-                        ) : (
-                          <span className="text-rose-500 font-bold" title="Must be a valid 10-digit mobile number">✕</span>
-                        )}
-                      </span>
-                    )}
-                  </div>
-                  {form.phoneNumber && !isPhoneValid && (
-                    <p className="text-[11px] text-rose-500 mt-1 font-medium">Must be a valid 10-digit mobile number</p>
-                  )}
-                </div>
-              </div>
-
-              {/* Row 3: Rank/Role & Department */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-bold block mb-1.5 text-slate-700 dark:text-slate-300">Rank / Role <span className="text-rose-500">*</span></label>
-                  <CustomSelect
-                    value={form.role}
-                    onChange={(e) => setForm({ ...form, role: e.target.value })}
-                    options={ROLES.map(r => ({ value: r, label: ROLE_LABELS[r] || r }))}
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold block mb-1.5 text-slate-700 dark:text-slate-300">Department / Unit <span className="text-rose-500">*</span></label>
-                  <CustomSelect
-                    value={form.department}
-                    onChange={(e) => setForm({ ...form, department: e.target.value })}
-                    options={DEPARTMENTS.map(d => ({ value: d, label: DEPT_LABELS[d] || d }))}
-                  />
-                </div>
-              </div>
-
-              {/* Row 4: Badge Number & Police Station / District Assignment */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-bold block mb-1.5 text-slate-700 dark:text-slate-300">
-                    Badge / General No. <span className="text-slate-400 font-normal">(Optional)</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={form.badgeNumber}
-                    onChange={(e) => setForm({ ...form, badgeNumber: e.target.value })}
-                    placeholder="e.g. PC-1044 or SI-99"
-                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-normal text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-800 focus:border-amber-500 focus:outline-none transition-all"
-                  />
-                </div>
-
-                <div>
-                  {(form.role === 'SP' || form.role === 'ASP') && (
-                    <>
-                      <label className="text-xs font-bold block mb-1.5 text-slate-700 dark:text-slate-300">Assigned District</label>
-                      <CustomSelect
-                        value={form.district}
-                        onChange={(e) => setForm({ ...form, district: e.target.value })}
-                        options={[{ value: '', label: '— Select District —' }, ...uniqueDistricts.map(d => ({ value: d, label: d }))]}
-                      />
-                    </>
-                  )}
-
-                  {form.role === 'SDPO' && (
-                    <>
-                      <label className="text-xs font-bold block mb-1.5 text-slate-700 dark:text-slate-300">SDPO Station / Subdivision</label>
-                      <CustomSelect
-                        value={form.divisionId}
-                        onChange={(e) => setForm({ ...form, divisionId: e.target.value })}
-                        options={[{ value: '', label: '— Select SDPO Subdivision —' }, ...uniqueSdpos.map(s => ({ value: s, label: s }))]}
-                      />
-                    </>
-                  )}
-
-                  {form.role !== 'SP' && form.role !== 'ASP' && form.role !== 'SDPO' && (
-                    <>
-                      <label className="text-xs font-bold block mb-1.5 text-slate-700 dark:text-slate-300">Assigned Police Station</label>
-                      <CustomSelect
-                        value={form.policeStationId}
-                        onChange={(e) => setForm({ ...form, policeStationId: e.target.value })}
-                        options={[{ value: '', label: '— Select Police Station —' }, ...stations.map(s => ({ value: String(s.id), label: `${s.name} (${s.psCode})` }))]}
-                      />
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {/* Edit Only: Account Status */}
-              {editUser && (
-                <div>
-                  <label className="text-xs font-bold block mb-1.5 text-slate-700 dark:text-slate-300">Account Status</label>
-                  <CustomSelect
-                    value={form.isActive ? 'active' : 'inactive'}
-                    onChange={(e) => setForm({ ...form, isActive: e.target.value === 'active' })}
-                    options={[
-                      { value: 'active', label: 'Active (Can login)' },
-                      { value: 'inactive', label: 'Inactive (Login disabled)' },
-                    ]}
-                  />
-                </div>
-              )}
-
-              {/* Password & Credentials Section */}
-              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                    Password {editUser ? <span className="text-slate-400 font-normal">(leave blank to keep)</span> : <span className="text-rose-500">*</span>}
-                  </label>
-                  {!editUser && (
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={handleRegeneratePassword}
-                        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium text-slate-700 dark:text-slate-200 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 transition-colors border border-slate-200 dark:border-slate-700 cursor-pointer"
-                        title="Generate a new secure machine password"
-                      >
-                        <svg className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                        </svg>
-                        Regenerate
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleCopyPassword}
-                        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium text-slate-700 dark:text-slate-200 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 transition-colors border border-slate-200 dark:border-slate-700 cursor-pointer"
-                        title="Copy password to clipboard"
-                      >
-                        {copiedPassword ? (
-                          <span className="text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
-                            ✓ Copied
-                          </span>
-                        ) : (
-                          <>
-                            <svg className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                            </svg>
-                            Copy
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                <div className="relative">
-                  <input
-                    id="officer-new-password"
-                    name="officer_new_password"
-                    type={showPassword ? 'text' : 'password'}
-                    value={form.password}
-                    onChange={(e) => setForm({ ...form, password: e.target.value })}
-                    required={!editUser}
-                    autoComplete="new-password"
-                    placeholder={editUser ? 'Enter new password to reset' : 'Machine generated password'}
-                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-normal text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-800 focus:border-amber-500 focus:outline-none transition-all pr-11"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
-                    tabIndex="-1"
-                  >
-                    {showPassword ? (
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                      </svg>
-                    ) : (
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                      </svg>
-                    )}
-                  </button>
-                </div>
-
-                {/* Password Policy Indicators */}
-                {form.password.length > 0 && (
-                  <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">Password requirements</span>
-                      {!editUser && (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-slate-200/60 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
-                          Auto-generated
-                        </span>
-                      )}
-                    </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-3 gap-y-1.5 text-xs">
-                      {passwordChecks.map((check, i) => (
-                        <div key={i} className="flex items-center gap-2">
-                          <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${check.pass ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'}`} />
-                          <span className={check.pass ? 'text-slate-700 dark:text-slate-300 font-medium' : 'text-slate-400 dark:text-slate-500'}>
-                            {check.label}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Modal Buttons */}
-              <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => { setShowForm(false); setEditUser(null); }}
-                  className="px-5 py-2.5 rounded-full text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 transition-all cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={saving || !isEmailValid || !isPhoneValid || !form.fullName.trim() || (!editUser && !form.username.trim()) || (!editUser && !form.password)}
-                  className="px-6 py-2.5 rounded-full text-xs font-black bg-amber-500 hover:bg-amber-600 text-slate-950 shadow-md shadow-amber-500/20 transition-all cursor-pointer disabled:opacity-50"
-                >
-                  {saving ? 'Saving...' : editUser ? 'Update Officer' : 'Create Officer'}
-                </button>
-              </div>
-            </form>
-
-            {formError && (
-              <div className="mt-4 p-3 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800/60 space-y-1">
-                <p className="text-sm font-bold text-red-600 dark:text-red-400">{formError}</p>
-                {formViolations.length > 0 && (
-                  <ul className="text-xs space-y-0.5 pl-4 list-disc text-red-500 dark:text-red-300">
-                    {formViolations.map((v, i) => <li key={i}>{v}</li>)}
-                  </ul>
-                )}
-              </div>
-            )}
+      {/* Success Notification Alert */}
+      {actionSuccess && (
+        <div
+          className="p-4 rounded-2xl text-xs font-semibold flex items-center justify-between bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 animate-fade-in"
+        >
+          <div className="flex items-center gap-2">
+            <svg className="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+            </svg>
+            <span>{actionSuccess}</span>
           </div>
+          <button
+            type="button"
+            onClick={() => setActionSuccess('')}
+            className="text-emerald-400 hover:text-emerald-300 font-bold"
+          >
+            ✕
+          </button>
         </div>
       )}
 
-      {/* Search Bar */}
-      <div className="p-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-xs flex items-center gap-3">
-        <div className="relative flex-1">
-          <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-            <svg className="h-4 w-4 fill-current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
+      {/* Control Bar: Filters + View Mode + Action Buttons */}
+      <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col lg:flex-row items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+          {/* Search */}
+          <div className="relative flex-1 sm:w-64">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={activeTab === 'positions' ? "Search seats, username, label..." : "Search officers, badge, rank..."}
+              className="w-full pl-9 pr-4 py-2 rounded-xl text-xs font-semibold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:border-[#FE9A00]"
+            />
+            <svg className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
-          </span>
-          <input
-            type="text"
-            placeholder="Search officers by name, username, email, phone, or police station..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full text-xs pl-9 pr-8 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500/50 outline-none"
+          </div>
+
+          {/* Role / Rank Filter */}
+          <CustomSelect
+            id="role-rank-filter"
+            value={selectedRole}
+            onChange={(e) => setSelectedRole(e.target.value)}
+            placeholder={activeTab === 'positions' ? 'All Roles' : 'All Ranks'}
+            className="w-36 sm:w-40"
+            options={[
+              { value: '', label: activeTab === 'positions' ? 'All Roles' : 'All Ranks' },
+              ...(activeTab === 'positions' ? ROLES : OFFICER_RANKS).map(r => ({ value: r, label: r }))
+            ]}
           />
-          {searchQuery && (
+
+          {/* District Filter (Positions Only) */}
+          {activeTab === 'positions' && (
+            <CustomSelect
+              id="district-filter"
+              value={selectedDistrict}
+              onChange={(e) => setSelectedDistrict(e.target.value)}
+              placeholder="All Districts"
+              className="w-44 sm:w-52"
+              options={[
+                { value: '', label: 'All Districts' },
+                ...uniqueDistricts.map(d => ({ value: d, label: d }))
+              ]}
+            />
+          )}
+        </div>
+
+        {/* Action Button (Pill-shaped 3D in #FE9A00) */}
+        <div>
+          {activeTab === 'positions' ? (
             <button
-              onClick={() => setSearchQuery('')}
-              className="absolute inset-y-0 right-0 pr-3 flex items-center text-xs font-bold text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer"
+              type="button"
+              onClick={() => openNewPosition()}
+              className="px-5 py-2.5 rounded-full font-bold text-xs uppercase tracking-wider text-white transition-all transform active:translate-y-0.5 shadow-md flex items-center gap-2 cursor-pointer"
+              style={{
+                background: 'linear-gradient(180deg, #FE9A00 0%, #E08500 100%)',
+                boxShadow: '0 4px 14px 0 rgba(254, 154, 0, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.3)',
+                border: '1px solid #CC7700',
+              }}
             >
-              Clear
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+              </svg>
+              Create Position Seat
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={openNewOfficer}
+              className="px-5 py-2.5 rounded-full font-bold text-xs uppercase tracking-wider text-white transition-all transform active:translate-y-0.5 shadow-md flex items-center gap-2 cursor-pointer"
+              style={{
+                background: 'linear-gradient(180deg, #10b981 0%, #059669 100%)',
+                boxShadow: '0 4px 14px 0 rgba(16, 185, 129, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.2)',
+                border: '1px solid #047857',
+              }}
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+              </svg>
+              Add Officer Record
             </button>
           )}
         </div>
       </div>
 
-      {/* Cascading Filters */}
-      <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-xs flex flex-col md:flex-row gap-4 items-end">
-        <div className="flex-1 w-full">
-          <CustomSelect
-            label="Select State"
-            value={selectedState}
-            onChange={(e) => setSelectedState(e.target.value)}
-            placeholder="— Select a State —"
-            options={[
-              { value: '', label: '— Select a State —' },
-              ...uniqueStates.map(state => ({ value: state, label: state }))
-            ]}
-          />
-        </div>
-
-        <div className="flex-1 w-full">
-          <CustomSelect
-            label="Select District"
-            value={selectedDistrict}
-            onChange={(e) => setSelectedDistrict(e.target.value)}
-            disabled={!selectedState}
-            placeholder="— Select a District —"
-            options={[
-              { value: '', label: '— Select a District —' },
-              ...availableDistricts.map(district => ({ value: district, label: district }))
-            ]}
-          />
-        </div>
-
-        <div>
-          <button
-            onClick={clearFilters}
-            className="px-4 py-2 text-xs font-bold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-xl transition-colors cursor-pointer h-[38px]"
-          >
-            Clear Filters
-          </button>
-        </div>
-      </div>
-
-      {/* Main Content Area */}
+      {/* Main Content Area: Cards View or Table View */}
       {loading ? (
-        <div className="columns-1 lg:columns-2 xl:columns-3 gap-6">
-          {[1, 2, 3, 4].map(idx => (
-            <div 
-              key={idx} 
-              className="rounded-xl overflow-hidden flex flex-col break-inside-avoid mb-6 animate-pulse bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
-            >
-              <div className="px-5 py-4 flex justify-between items-center border-b bg-slate-100 dark:bg-slate-750 border-slate-200 dark:border-slate-700">
-                <div className="w-1/3 h-5 bg-slate-200 dark:bg-slate-700 rounded"></div>
-                <div className="w-1/6 h-5 bg-slate-200 dark:bg-slate-700 rounded"></div>
-              </div>
-              <div className="flex-1 p-5 space-y-3">
-                <div className="h-4 bg-slate-200 dark:bg-slate-700/60 rounded w-3/4"></div>
-                <div className="h-4 bg-slate-200 dark:bg-slate-700/60 rounded w-1/2"></div>
-                <div className="h-4 bg-slate-200 dark:bg-slate-700/60 rounded w-5/6"></div>
-              </div>
-            </div>
-          ))}
+        <div className="py-20 text-center text-slate-400 text-xs font-semibold rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+          Loading directory data...
         </div>
-      ) : !searchQuery.trim() && (!selectedState || !selectedDistrict) ? (
-        // Empty State (No selection)
-        <div 
-          className="flex flex-col items-center justify-center p-12 rounded-2xl text-center bg-white dark:bg-slate-800/60 border border-dashed border-slate-200 dark:border-slate-700"
-        >
-          <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4 bg-slate-100 dark:bg-slate-700/50">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="text-slate-400 dark:text-slate-500" xmlns="http://www.w3.org/2000/svg">
-              <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM11 19.93C7.05 19.43 4.07 15.95 4.07 12C4.07 11.83 4.08 11.66 4.09 11.5H11V19.93ZM13 19.93V11.5H19.91C19.92 11.66 19.93 11.83 19.93 12C19.93 15.95 16.95 19.43 13 19.93ZM19.74 9.5H13V4.26C16.39 5.05 19.04 7.54 19.74 9.5ZM11 4.26V9.5H4.26C4.96 7.54 7.61 5.05 11 4.26Z" fill="currentColor"/>
-            </svg>
-          </div>
-          <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200">Please select a State and District, or use the search bar above</h3>
-          <p className="text-sm mt-1.5 text-slate-500 dark:text-slate-400">Use the filters above to navigate through stations and officers.</p>
-        </div>
-      ) : filteredStationsWithUsers.length === 0 ? (
-        // Empty State (No stations/officers found)
-        <div 
-          className="flex flex-col items-center justify-center p-12 rounded-2xl text-center bg-white dark:bg-slate-800/60 border border-dashed border-slate-200 dark:border-slate-700"
-        >
-          <div className="text-4xl mb-3 text-slate-400 dark:text-slate-500">
-            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          </div>
-          <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200">No police stations or officers matched your search</h3>
-        </div>
-      ) : (
-        // Masonry Grid of Police Stations
-        <div className="columns-1 md:columns-2 lg:columns-3 gap-6">
-          {filteredStationsWithUsers.map(station => (
-            <div 
-              key={station.id} 
-              className="break-inside-avoid inline-block w-full mb-6 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xs hover:border-slate-300 dark:hover:border-slate-600 transition-all overflow-hidden flex flex-col"
-            >
-              {/* Card Header */}
-              <div className="bg-amber-500 px-5 py-3.5 flex justify-between items-center gap-3">
-                <div className="min-w-0 flex items-center gap-2">
-                  <h3 className="text-sm font-black text-slate-950 truncate">
-                    {station.name}
-                  </h3>
-                  <span className="text-[11px] font-mono font-extrabold text-slate-950 bg-black/15 px-2 py-0.5 rounded-md">
-                    {station.psCode}
-                  </span>
-                </div>
-                <div className="text-xs font-black text-slate-950 bg-white/30 backdrop-blur-xs px-2.5 py-1 rounded-full whitespace-nowrap border border-black/10">
-                  {station.users.length} Officer{station.users.length !== 1 ? 's' : ''}
-                </div>
+      ) : activeTab === 'positions' ? (
+        /* ── PS-WISE CARDS VIEW (VERTICAL MASONRY 3-COLUMN FLOW) ── */
+        <div className="columns-1 md:columns-2 lg:columns-3 gap-5 space-y-5">
+            {groupedByStation.length === 0 ? (
+              <div className="col-span-full py-16 text-center text-slate-400 text-xs font-semibold rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                No police station units found matching your search.
               </div>
+            ) : (
+              groupedByStation.map((group) => {
+                const vacantCount = group.positions.filter(p => !p.currentOfficer && (!p.officerName || p.officerName === 'Vacant')).length;
+                const totalSeats = group.positions.length;
 
-              {/* Card Body / Officer List */}
-              <div className="divide-y divide-slate-100 dark:divide-slate-750">
-                {station.users.map((u) => (
-                  <div 
-                    key={u.id}
-                    className="p-4 hover:bg-slate-50/60 dark:hover:bg-slate-700/30 transition-colors flex flex-col gap-2"
+                return (
+                  <div
+                    key={group.id}
+                    className="break-inside-avoid w-full rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-md transition-all flex flex-col overflow-hidden"
                   >
-                    {/* Top Row: Name + Username + Status */}
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="min-w-0 flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-bold text-slate-800 dark:text-slate-100">
-                          {u.fullName}
-                        </span>
-                        <span className="text-xs font-mono text-slate-400">
-                          @{u.username}
-                        </span>
-                      </div>
-
-                      {/* Status */}
-                      <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400">
-                        <span className={`w-2 h-2 rounded-full ${u.isActive ? 'bg-emerald-500' : 'bg-slate-400'}`} />
-                        <span>{u.isActive ? 'Active' : 'Inactive'}</span>
+                    {/* Station Card Header (#FE9A00 Background, Black Typography) */}
+                    <div
+                      className="p-3.5 border-b border-[#CC7700]/30 flex items-start justify-between gap-2.5 text-slate-950 shadow-xs"
+                      style={{
+                        background: 'linear-gradient(135deg, #FE9A00 0%, #E68A00 100%)',
+                      }}
+                    >
+                      <div className="flex items-start gap-2.5 min-w-0">
+                        <div className="w-8 h-8 rounded-xl bg-black/10 text-slate-950 flex items-center justify-center font-bold text-xs border border-black/15 shadow-xs flex-shrink-0 mt-0.5 backdrop-blur-xs">
+                          {group.isHQ ? (
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                            </svg>
+                          ) : (
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                            </svg>
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <h3 className="text-xs font-black text-slate-950 truncate" title={group.name}>
+                            {group.name}
+                          </h3>
+                          <p className="text-[10.5px] text-slate-900/80 truncate mt-0.5 font-bold">
+                            {group.district} {group.sdpo ? `• SDPO: ${group.sdpo}` : ''}
+                          </p>
+                        </div>
                       </div>
                     </div>
 
-                    {/* Contact details row (Email & Phone) */}
-                    {(u.email || u.phoneNumber || u.badgeNumber) && (
-                      <div className="flex items-center gap-3 flex-wrap text-xs text-slate-500 dark:text-slate-400">
-                        {u.badgeNumber && (
-                          <span className="font-mono bg-slate-100 dark:bg-slate-750 px-1.5 py-0.5 rounded text-[11px] text-slate-700 dark:text-slate-300">
-                            Badge: {u.badgeNumber}
-                          </span>
-                        )}
-                        {u.phoneNumber && (
-                          <span className="flex items-center gap-1 text-[11px] text-slate-600 dark:text-slate-300">
-                            <svg className="w-3.5 h-3.5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                            </svg>
-                            {u.phoneNumber}
-                          </span>
-                        )}
-                        {u.email && (
-                          <span className="flex items-center gap-1 text-[11px] text-slate-600 dark:text-slate-300 truncate max-w-[200px]" title={u.email}>
-                            <svg className="w-3.5 h-3.5 text-sky-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                            </svg>
-                            <span className="truncate">{u.email}</span>
-                          </span>
-                        )}
-                      </div>
-                    )}
+                    {/* Station Personnel / Position Rows List */}
+                    <div className="p-3.5 space-y-2 flex-1">
+                      {group.positions.length === 0 ? (
+                        <div className="py-6 text-center text-slate-400 text-[11px]">
+                          No positions configured
+                        </div>
+                      ) : (
+                        group.positions.map((pos) => {
+                          const isOccupied = pos.currentOfficer || (pos.officerName && pos.officerName !== 'Vacant');
+                          const officerName = pos.currentOfficer?.fullName || (pos.officerName !== 'Vacant' ? pos.officerName : null);
+                          const officerRank = pos.currentOfficer?.rank || pos.role;
+                          const isSHO = pos.role === 'SHO';
 
-                    {/* Middle Row: Badges and Action Links */}
-                    <div className="flex items-center justify-between gap-2 flex-wrap pt-1">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className={`text-[11px] font-extrabold tracking-wider px-2.5 py-0.5 rounded-md border ${ROLE_BADGES[u.role] || ROLE_BADGES.CONSTABLE}`}>
-                          {u.role}
-                        </span>
-                        <span className="text-[11px] font-medium text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-750 border border-slate-200/60 dark:border-slate-700 px-2 py-0.5 rounded-md">
-                          {DEPT_LABELS[u.department] || u.department}
-                        </span>
-                        {u.district && (
-                          <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-750 border border-slate-200/60 dark:border-slate-700 px-2 py-0.5 rounded-md">
-                            Dist: {u.district}
-                          </span>
-                        )}
-                        {u.divisionId && (
-                          <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-750 border border-slate-200/60 dark:border-slate-700 px-2 py-0.5 rounded-md">
-                            SDPO: {u.divisionId}
-                          </span>
-                        )}
-                        {u.mustChangePassword && (
-                          <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 px-2 py-0.5 rounded-md">
-                            Pending 1st Login
-                          </span>
-                        )}
-                      </div>
+                          return (
+                            <div
+                              key={pos.id}
+                              onClick={() => setSelectedPositionDetail(pos)}
+                              className={`p-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-2.5 group hover:border-[#FE9A00]/50 hover:shadow-xs ${
+                                isSHO
+                                  ? 'bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-200/60 dark:border-emerald-800/40 hover:bg-emerald-50 dark:hover:bg-emerald-950/30'
+                                  : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200/70 dark:border-slate-700/60 hover:bg-white dark:hover:bg-slate-800'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                {/* Role Tag (No Background Color) */}
+                                <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-extrabold flex-shrink-0 ${
+                                  ROLE_BADGES[pos.role] || 'text-slate-600 dark:text-slate-400 border border-slate-300 dark:border-slate-700'
+                                }`}>
+                                  {pos.role}
+                                </span>
 
-                      {/* Action Links */}
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => handleEdit(u)}
-                          className="text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer"
-                        >
-                          Edit
-                        </button>
-                        {u.isActive ? (
-                          <button
-                            onClick={() => handleDeactivate(u.id)}
-                            className="text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400 transition-colors cursor-pointer"
-                          >
-                            Deactivate
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => handleActivate(u.id)}
-                            className="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 transition-colors cursor-pointer"
-                          >
-                            Reactivate
-                          </button>
-                        )}
-                      </div>
+                                {/* User details */}
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                                      {isOccupied ? officerName : 'Vacant Seat'}
+                                    </span>
+                                    {isOccupied && officerRank && (
+                                      <span className="text-[10px] text-[#FE9A00] font-bold">
+                                        ({officerRank})
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="text-[10.5px] text-slate-400 font-mono truncate">
+                                    @{pos.username}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Right: Expiry status dot & manage chevron */}
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                {pos.daysUntilExpiry !== null && pos.daysUntilExpiry !== undefined ? (
+                                  pos.daysUntilExpiry <= 0 || pos.isPasswordExpired ? (
+                                    <span className="w-2 h-2 rounded-full bg-red-500" title="Password Expired" />
+                                  ) : pos.daysUntilExpiry <= 10 ? (
+                                    <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" title={`Expires in ${pos.daysUntilExpiry}d`} />
+                                  ) : (
+                                    <span className="w-2 h-2 rounded-full bg-emerald-500" title={`Active (${pos.daysUntilExpiry}d)`} />
+                                  )
+                                ) : null}
+
+                                <div className="w-6 h-6 rounded-full flex items-center justify-center bg-slate-200/60 dark:bg-slate-700 text-slate-500 group-hover:bg-[#FE9A00] group-hover:text-white transition-colors">
+                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                                  </svg>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
                     </div>
                   </div>
-                ))}
+                );
+              })
+            )}
+          </div>
+        ) : (
+          /* ── OFFICERS TABLE ── */
+        <div className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 uppercase tracking-wider font-bold border-b border-slate-200 dark:border-slate-800">
+                <tr>
+                  <th className="px-4 py-3.5">Officer Name</th>
+                  <th className="px-4 py-3.5">Rank & Badge</th>
+                  <th className="px-4 py-3.5">Current Posting</th>
+                  <th className="px-4 py-3.5">Status</th>
+                  <th className="px-4 py-3.5 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
+                {filteredOfficers.map((officer) => (
+                  <tr key={officer.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/30 transition-colors">
+                    <td className="px-4 py-3.5">
+                      <div className="font-bold text-slate-900 dark:text-white">
+                        {officer.fullName}
+                      </div>
+                    </td>
 
-                {station.users.length === 0 && (
-                  <div className="p-6 text-center text-xs font-medium text-slate-400">
-                    No officers currently assigned to this station.
+                    <td className="px-4 py-3.5">
+                      <div className="flex items-center gap-1.5">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800">
+                          {officer.rank}
+                        </span>
+                        <span className="text-slate-500 dark:text-slate-400 font-mono">
+                          {officer.badgeNumber || '—'}
+                        </span>
+                      </div>
+                    </td>
+
+                    <td className="px-4 py-3.5">
+                      {officer.currentPosition ? (
+                        <div>
+                          <div className="font-bold text-slate-800 dark:text-slate-200">
+                            {officer.currentPosition.positionLabel || officer.currentPosition.label || officer.currentPosition.username}
+                          </div>
+                          <div className="text-[11px] text-slate-400 font-mono mt-0.5">
+                            @{officer.currentPosition.username}
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-500">
+                          Unassigned / On Reserve
+                        </span>
+                      )}
+                    </td>
+
+                    <td className="px-4 py-3.5">
+                      {officer.isActive ? (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                          Active Service
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-400">
+                          Inactive
+                        </span>
+                      )}
+                    </td>
+
+                    <td className="px-4 py-3.5 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => viewOfficerHistory(officer)}
+                          title="View Career History"
+                          className="p-1.5 rounded-full text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 bg-slate-100 dark:bg-slate-800 cursor-pointer"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => openEditOfficer(officer)}
+                          title="Edit Officer Profile"
+                          className="p-1.5 rounded-full text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 bg-slate-100 dark:bg-slate-800 cursor-pointer"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL: Position Seat Details & Management ── */}
+      {selectedPositionDetail && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in">
+          <div className="w-full max-w-lg rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden animate-slide-up flex flex-col max-h-[90vh]">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-bold border ${ROLE_BADGES[selectedPositionDetail.role] || 'text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-700'}`}>
+                    {selectedPositionDetail.role}
+                  </span>
+                  <h2 className="text-base font-bold text-slate-900 dark:text-white">
+                    {selectedPositionDetail.positionLabel || selectedPositionDetail.username}
+                  </h2>
+                </div>
+                <p className="text-xs font-mono text-slate-400 mt-0.5">
+                  @{selectedPositionDetail.username}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedPositionDetail(null)}
+                className="w-8 h-8 rounded-full flex items-center justify-center bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-4 overflow-y-auto">
+              {/* Incumbent Officer Card */}
+              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block">
+                  Current Incumbent Officer
+                </span>
+                {selectedPositionDetail.currentOfficer || (selectedPositionDetail.officerName && selectedPositionDetail.officerName !== 'Vacant') ? (
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-full bg-[#FE9A00] text-white font-bold text-sm flex items-center justify-center flex-shrink-0 shadow-xs">
+                        {selectedPositionDetail.currentOfficer?.fullName
+                          ? selectedPositionDetail.currentOfficer.fullName.split(' ').filter(Boolean).map(n => n[0]).join('').toUpperCase().slice(0, 2)
+                          : 'OF'}
+                      </div>
+                      <div className="min-w-0">
+                        <h4 className="text-sm font-bold text-slate-900 dark:text-white truncate">
+                          {selectedPositionDetail.currentOfficer?.fullName || selectedPositionDetail.officerName}
+                        </h4>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mt-0.5">
+                          <span className="font-bold text-[#FE9A00]">
+                            {selectedPositionDetail.currentOfficer?.rank || selectedPositionDetail.role}
+                          </span>
+                          {(selectedPositionDetail.currentOfficer?.badgeNumber || selectedPositionDetail.badgeNumber) && (
+                            <span>&bull; Badge: {selectedPositionDetail.currentOfficer?.badgeNumber || selectedPositionDetail.badgeNumber}</span>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const target = selectedPositionDetail;
+                          setSelectedPositionDetail(null);
+                          openRelieveModal(target);
+                        }}
+                        className="px-3.5 py-1.5 rounded-full text-xs font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 hover:bg-amber-100 border border-amber-200 dark:border-amber-900/40 cursor-pointer"
+                      >
+                        Relieve
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const target = selectedPositionDetail;
+                          setSelectedPositionDetail(null);
+                          openAssignModal(target);
+                        }}
+                        className="px-3.5 py-1.5 rounded-full text-xs font-bold text-[#FE9A00] bg-[#FE9A00]/10 hover:bg-[#FE9A00]/20 border border-[#FE9A00]/30 cursor-pointer"
+                      >
+                        Transfer
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                      Vacant Seat (No officer appointed)
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const target = selectedPositionDetail;
+                        setSelectedPositionDetail(null);
+                        openAssignModal(target);
+                      }}
+                      className="px-4 py-1.5 rounded-full text-xs font-bold text-white transition-all transform active:translate-y-0.5 shadow-sm cursor-pointer"
+                      style={{
+                        background: 'linear-gradient(180deg, #FE9A00 0%, #E08500 100%)',
+                        boxShadow: '0 2px 8px 0 rgba(254, 154, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.2)',
+                        border: '1px solid #CC7700',
+                      }}
+                    >
+                      Assign Officer
+                    </button>
                   </div>
                 )}
               </div>
+
+              {/* Department Contact Details */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+                    Department Email
+                  </span>
+                  <span className="text-xs font-mono font-semibold text-slate-800 dark:text-slate-200 truncate block">
+                    {selectedPositionDetail.email || 'None set'}
+                  </span>
+                </div>
+
+                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+                    Department Phone
+                  </span>
+                  <span className="text-xs font-mono font-semibold text-slate-800 dark:text-slate-200 block">
+                    {selectedPositionDetail.phoneNumber || 'None set'}
+                  </span>
+                </div>
+              </div>
+
+              {/* 60-Day Security Expiration */}
+              <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 flex items-center justify-between gap-3">
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                    60-Day Password Security
+                  </span>
+                  <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 mt-0.5 block">
+                    {selectedPositionDetail.daysUntilExpiry !== null && selectedPositionDetail.daysUntilExpiry !== undefined
+                      ? selectedPositionDetail.daysUntilExpiry <= 0
+                        ? 'Password has expired (OTP required on login)'
+                        : `Password rotation due in ${selectedPositionDetail.daysUntilExpiry} days`
+                      : 'Standard rotation policy'}
+                  </span>
+                </div>
+
+                {selectedPositionDetail.daysUntilExpiry !== null && selectedPositionDetail.daysUntilExpiry !== undefined ? (
+                  selectedPositionDetail.daysUntilExpiry <= 0 || selectedPositionDetail.isPasswordExpired ? (
+                    <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-red-500/10 text-red-500 border border-red-500/20">
+                      Expired
+                    </span>
+                  ) : selectedPositionDetail.daysUntilExpiry <= 10 ? (
+                    <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                      Expires in {selectedPositionDetail.daysUntilExpiry}d
+                    </span>
+                  ) : (
+                    <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                      Active ({selectedPositionDetail.daysUntilExpiry}d)
+                    </span>
+                  )
+                ) : null}
+              </div>
+
+              {/* Modal Actions */}
+              <div className="grid grid-cols-2 gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const target = selectedPositionDetail;
+                    setSelectedPositionDetail(null);
+                    viewPositionHistory(target);
+                  }}
+                  className="py-2.5 px-4 rounded-full font-bold text-xs uppercase tracking-wider text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Posting History
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const target = selectedPositionDetail;
+                    setSelectedPositionDetail(null);
+                    openEditPosition(target);
+                  }}
+                  className="py-2.5 px-4 rounded-full font-bold text-xs uppercase tracking-wider text-white transition-all transform active:translate-y-0.5 shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
+                  style={{
+                    background: 'linear-gradient(180deg, #FE9A00 0%, #E08500 100%)',
+                    boxShadow: '0 4px 12px 0 rgba(254, 154, 0, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.2)',
+                    border: '1px solid #CC7700',
+                  }}
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                  Edit Seat Settings
+                </button>
+              </div>
             </div>
-          ))}
+          </div>
         </div>
       )}
-      </>
+
+      {/* ── MODAL: Position Create / Edit ── */}
+      {showPositionModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in">
+          <div className="w-full max-w-lg rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden animate-slide-up">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800">
+              <h2 className="text-base font-bold text-slate-900 dark:text-white">
+                {editPosition ? 'Edit Position Seat' : 'Create New Position Seat'}
+              </h2>
+              <button
+                type="button"
+                onClick={() => setShowPositionModal(false)}
+                className="w-8 h-8 rounded-full flex items-center justify-center bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
+              >
+                ✕
+              </button>
+            </div>
+
+            {actionError && (
+              <div className="mx-6 mt-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-semibold">
+                {actionError}
+              </div>
+            )}
+
+            <form onSubmit={handleSavePosition} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Position Identifier / Username
+                </label>
+                <input
+                  type="text"
+                  value={positionForm.username}
+                  onChange={(e) => setPositionForm({ ...positionForm, username: e.target.value.toLowerCase().replace(/\s+/g, '-') })}
+                  placeholder="e.g. const-tpt-east-2 or sho-tirupati-east"
+                  className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono font-bold text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
+                  required
+                  disabled={Boolean(editPosition)}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Descriptive Position Label
+                </label>
+                <input
+                  type="text"
+                  value={positionForm.positionLabel}
+                  onChange={(e) => setPositionForm({ ...positionForm, positionLabel: e.target.value })}
+                  placeholder="e.g. Constable #2 (Tirupati East PS)"
+                  className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <CustomSelect
+                  id="position-role"
+                  label="Seat Role"
+                  value={positionForm.role}
+                  onChange={(e) => setPositionForm({ ...positionForm, role: e.target.value })}
+                  options={ROLES.map(r => ({ value: r, label: ROLE_LABELS[r] || r }))}
+                  triggerClassName="rounded-xl"
+                  className="w-full"
+                />
+
+                <CustomSelect
+                  id="position-department"
+                  label="Department"
+                  value={positionForm.department}
+                  onChange={(e) => setPositionForm({ ...positionForm, department: e.target.value })}
+                  options={DEPARTMENTS.map(d => ({ value: d, label: DEPT_LABELS[d] || d }))}
+                  triggerClassName="rounded-xl"
+                  className="w-full"
+                />
+              </div>
+
+              <CustomSelect
+                id="position-station"
+                label="Police Station (For SHO & Constable Seats)"
+                value={positionForm.policeStationId}
+                onChange={(e) => setPositionForm({ ...positionForm, policeStationId: e.target.value })}
+                placeholder="None / Higher Headquarters"
+                options={[
+                  { value: '', label: 'None / Higher Headquarters' },
+                  ...stations.map(s => ({ value: String(s.id), label: `${s.name} (${s.district})` }))
+                ]}
+                triggerClassName="rounded-xl"
+                className="w-full"
+              />
+
+              <div className="grid grid-cols-2 gap-3">
+                <CustomSelect
+                  id="position-district"
+                  label="District"
+                  value={positionForm.district}
+                  onChange={(e) => setPositionForm({ ...positionForm, district: e.target.value })}
+                  placeholder="Select District"
+                  options={[
+                    { value: '', label: 'Select District' },
+                    ...uniqueDistricts.map(d => ({ value: d, label: d }))
+                  ]}
+                  triggerClassName="rounded-xl"
+                  className="w-full"
+                />
+
+                <CustomSelect
+                  id="position-division"
+                  label="Subdivision (SDPO)"
+                  value={positionForm.divisionId}
+                  onChange={(e) => setPositionForm({ ...positionForm, divisionId: e.target.value })}
+                  placeholder="Select Subdivision"
+                  options={[
+                    { value: '', label: 'Select Subdivision' },
+                    ...uniqueSdpos.map(s => ({ value: s, label: s }))
+                  ]}
+                  triggerClassName="rounded-xl"
+                  className="w-full"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Department Email
+                  </label>
+                  <input
+                    type="email"
+                    value={positionForm.email}
+                    onChange={(e) => setPositionForm({ ...positionForm, email: e.target.value })}
+                    placeholder="sho.tirupatieast@appolice.gov.in"
+                    className="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Department Phone
+                  </label>
+                  <input
+                    type="text"
+                    value={positionForm.phoneNumber}
+                    onChange={(e) => setPositionForm({ ...positionForm, phoneNumber: e.target.value })}
+                    placeholder="9440796000"
+                    className="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Password Generator for New Seat */}
+              {!editPosition && (
+                <div className="p-3.5 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                      Initial Secure Password
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setPositionForm({ ...positionForm, password: generateSecurePassword() })}
+                      className="text-xs font-bold text-[#FE9A00] hover:text-[#E08500] cursor-pointer"
+                    >
+                      Regenerate
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2 font-mono font-bold text-sm bg-white dark:bg-slate-900 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white">
+                    <span className="flex-1">{positionForm.password}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(positionForm.password);
+                        setCopiedPassword(true);
+                        setTimeout(() => setCopiedPassword(false), 2000);
+                      }}
+                      className="text-xs text-[#FE9A00] font-bold hover:underline"
+                    >
+                      {copiedPassword ? 'Copied' : 'Copy'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="w-full py-3 px-6 rounded-full font-bold text-xs uppercase tracking-wider text-white transition-all transform active:translate-y-0.5 shadow-md cursor-pointer disabled:opacity-50"
+                  style={{
+                    background: 'linear-gradient(180deg, #FE9A00 0%, #E08500 100%)',
+                    boxShadow: '0 4px 14px 0 rgba(254, 154, 0, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.3)',
+                    border: '1px solid #CC7700',
+                  }}
+                >
+                  {saving ? 'Saving...' : editPosition ? 'Save Changes' : 'Create Position Seat'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL: Officer Create / Edit ── */}
+      {showOfficerModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in">
+          <div className="w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden animate-slide-up">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800">
+              <h2 className="text-base font-bold text-slate-900 dark:text-white">
+                {editOfficer ? 'Edit Officer Record' : 'Add New Officer'}
+              </h2>
+              <button
+                type="button"
+                onClick={() => setShowOfficerModal(false)}
+                className="w-8 h-8 rounded-full flex items-center justify-center bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
+              >
+                ✕
+              </button>
+            </div>
+
+            {actionError && (
+              <div className="mx-6 mt-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-semibold">
+                {actionError}
+              </div>
+            )}
+
+            <form onSubmit={handleSaveOfficer} className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Full Name
+                </label>
+                <input
+                  type="text"
+                  value={officerForm.fullName}
+                  onChange={(e) => setOfficerForm({ ...officerForm, fullName: e.target.value })}
+                  placeholder="e.g. K. Srinivasulu"
+                  className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <CustomSelect
+                  id="officer-rank-select"
+                  label="Rank"
+                  value={officerForm.rank}
+                  onChange={(e) => setOfficerForm({ ...officerForm, rank: e.target.value })}
+                  options={OFFICER_RANKS.map(r => ({ value: r, label: r }))}
+                  triggerClassName="rounded-xl"
+                  className="w-full"
+                />
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Badge Number / ID
+                  </label>
+                  <input
+                    type="text"
+                    value={officerForm.badgeNumber}
+                    onChange={(e) => setOfficerForm({ ...officerForm, badgeNumber: e.target.value })}
+                    placeholder="e.g. AP-TPT-4402"
+                    className="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={saving || !officerForm.fullName.trim()}
+                  className="w-full py-3 px-6 rounded-full font-bold text-xs uppercase tracking-wider text-white transition-all transform active:translate-y-0.5 shadow-md cursor-pointer disabled:opacity-50"
+                  style={{
+                    background: 'linear-gradient(180deg, #10b981 0%, #059669 100%)',
+                    boxShadow: '0 4px 14px 0 rgba(16, 185, 129, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2)',
+                    border: '1px solid #047857',
+                  }}
+                >
+                  {saving ? 'Saving...' : editOfficer ? 'Save Officer' : 'Add Officer Record'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL: Assign Officer to Position (Transfer In) ── */}
+      {showAssignModal && assignTargetPosition && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in">
+          <div className="w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden animate-slide-up">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800">
+              <div>
+                <h2 className="text-base font-bold text-slate-900 dark:text-white">
+                  Assign Officer to Position
+                </h2>
+                <p className="text-xs text-slate-400 mt-0.5 font-mono">
+                  {assignTargetPosition.positionLabel || assignTargetPosition.username}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAssignModal(false)}
+                className="w-8 h-8 rounded-full flex items-center justify-center bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
+              >
+                ✕
+              </button>
+            </div>
+
+            {actionError && (
+              <div className="mx-6 mt-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-semibold">
+                {actionError}
+              </div>
+            )}
+
+            <form onSubmit={handleAssignOfficer} className="p-6 space-y-4">
+              <CustomSelect
+                id="assign-officer-select"
+                label="Select Incoming Officer"
+                value={assignForm.officerId}
+                onChange={(e) => setAssignForm({ ...assignForm, officerId: e.target.value })}
+                placeholder="Choose an Officer..."
+                options={[
+                  { value: '', label: 'Choose an Officer...' },
+                  ...(Array.isArray(officers) ? officers : []).map(o => ({
+                    value: String(o.id),
+                    label: `${o.fullName} (${o.rank}) ${o.currentPosition ? `— at ${o.currentPosition.positionLabel || o.currentPosition.label || o.currentPosition.username}` : '— [Reserve]'}`
+                  }))
+                ]}
+                triggerClassName="rounded-xl"
+                className="w-full"
+              />
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Transfer Order Number (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={assignForm.transferOrderNo}
+                  onChange={(e) => setAssignForm({ ...assignForm, transferOrderNo: e.target.value })}
+                  placeholder="e.g. D.O. No. 442/2026/SP-TPT"
+                  className="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Transfer Notes (Optional)
+                </label>
+                <textarea
+                  value={assignForm.notes}
+                  onChange={(e) => setAssignForm({ ...assignForm, notes: e.target.value })}
+                  placeholder="e.g. Regular rotational transfer"
+                  rows={2}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none"
+                />
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={saving || !assignForm.officerId}
+                  className="w-full py-3 px-6 rounded-full font-bold text-xs uppercase tracking-wider text-white transition-all transform active:translate-y-0.5 shadow-md cursor-pointer disabled:opacity-50"
+                  style={{
+                    background: 'linear-gradient(180deg, #FE9A00 0%, #E08500 100%)',
+                    boxShadow: '0 4px 14px 0 rgba(254, 154, 0, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.3)',
+                    border: '1px solid #CC7700',
+                  }}
+                >
+                  {saving ? 'Assigning...' : 'Confirm Transfer & Assignment'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL: Relieve Officer (Vacate Seat) ── */}
+      {showRelieveModal && relieveTargetPosition && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in">
+          <div className="w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden animate-slide-up">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800">
+              <h2 className="text-base font-bold text-slate-900 dark:text-white">
+                Relieve Officer from Seat
+              </h2>
+              <button
+                type="button"
+                onClick={() => setShowRelieveModal(false)}
+                className="w-8 h-8 rounded-full flex items-center justify-center bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
+              >
+                ✕
+              </button>
+            </div>
+
+            {actionError && (
+              <div className="mx-6 mt-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-semibold">
+                {actionError}
+              </div>
+            )}
+
+            <form onSubmit={handleRelieveOfficer} className="p-6 space-y-4">
+              <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500 text-xs font-medium space-y-1">
+                <p className="font-bold">Are you sure you want to relieve this officer?</p>
+                <p className="text-slate-600 dark:text-slate-300">
+                  Officer: <strong className="text-slate-900 dark:text-white">{relieveTargetPosition.currentOfficer?.fullName}</strong>
+                </p>
+                <p className="text-slate-600 dark:text-slate-300">
+                  Seat: <strong className="text-slate-900 dark:text-white">{relieveTargetPosition.positionLabel || relieveTargetPosition.username}</strong>
+                </p>
+                <p className="text-[11px] text-slate-500 mt-2">
+                  This will vacate the position seat while maintaining the full historical audit trail.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Relieve Reason / Notes
+                </label>
+                <textarea
+                  value={relieveNotes}
+                  onChange={(e) => setRelieveNotes(e.target.value)}
+                  placeholder="e.g. Transferred to another division / On deputation"
+                  rows={2}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none"
+                />
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="w-full py-3 px-6 rounded-full font-bold text-xs uppercase tracking-wider text-white transition-all transform active:translate-y-0.5 shadow-md cursor-pointer disabled:opacity-50"
+                  style={{
+                    background: 'linear-gradient(180deg, #d97706 0%, #b45309 100%)',
+                    boxShadow: '0 4px 14px 0 rgba(217, 119, 6, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2)',
+                    border: '1px solid #92400e',
+                  }}
+                >
+                  {saving ? 'Processing...' : 'Confirm Relieve'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL: Posting History Timeline ── */}
+      {showHistoryModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in">
+          <div className="w-full max-w-xl rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden animate-slide-up flex flex-col max-h-[85vh]">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800">
+              <h2 className="text-base font-bold text-slate-900 dark:text-white">
+                {historyTitle}
+              </h2>
+              <button
+                type="button"
+                onClick={() => setShowHistoryModal(false)}
+                className="w-8 h-8 rounded-full flex items-center justify-center bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto flex-1">
+              {historyLoading ? (
+                <div className="py-12 text-center text-slate-400 text-xs font-semibold">
+                  Loading posting timeline...
+                </div>
+              ) : historyList.length === 0 ? (
+                <div className="py-12 text-center text-slate-400 text-xs font-semibold">
+                  No posting history records found.
+                </div>
+              ) : (
+                <div className="space-y-4 relative border-l-2 border-slate-200 dark:border-slate-700 ml-3 pl-4">
+                  {historyList.map((hist, idx) => (
+                    <div key={hist.id || idx} className="relative group">
+                      {/* Timeline Dot */}
+                      <div className={`absolute -left-[23px] top-1.5 w-3 h-3 rounded-full border-2 ${
+                        hist.relievedAt ? 'bg-slate-400 border-slate-200 dark:border-slate-800' : 'bg-emerald-500 border-emerald-200 dark:border-emerald-900 animate-pulse'
+                      }`} />
+
+                      <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-slate-900 dark:text-white text-xs">
+                            {hist.officerName || hist.positionLabel || (hist.officer?.fullName || hist.position?.position_label)}
+                          </span>
+                          {!hist.relievedAt && (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                              Current Posting
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                          Period: {new Date(hist.appointedAt).toLocaleDateString()} &mdash; {hist.relievedAt ? new Date(hist.relievedAt).toLocaleDateString() : 'Present'}
+                        </div>
+
+                        {hist.transferOrderNo && (
+                          <div className="text-[11px] text-blue-600 dark:text-blue-400 font-mono">
+                            Order No: {hist.transferOrderNo}
+                          </div>
+                        )}
+
+                        {hist.notes && (
+                          <div className="text-[11px] text-slate-600 dark:text-slate-300 italic pt-0.5">
+                            "{hist.notes}"
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -223,6 +223,7 @@ export const getOffenderById = async (req: AuthRequest, res: Response) => {
       landmarkArea: o.landmark_area,
       district: o.district,
       state: o.state,
+      mandal: o.mandal,
       occupation: o.occupation,
       monthlyIncome: o.monthly_income,
       photoUrl: o.photo_url,
@@ -312,6 +313,7 @@ export const createOffender = async (req: AuthRequest, res: Response) => {
     if (!isValidText(data.landmark || data.landmarkArea || data.landmark_area)) return res.status(400).json({ message: 'Landmark contains invalid special characters' });
     if (!isValidText(data.district)) return res.status(400).json({ message: 'District contains invalid special characters' });
     if (!isValidText(data.state)) return res.status(400).json({ message: 'State contains invalid special characters' });
+    if (data.mandal && !isValidText(data.mandal)) return res.status(400).json({ message: 'Mandal contains invalid special characters' });
     if (!isValidText(data.voterId || (data.identityDocs && data.identityDocs.voterId))) return res.status(400).json({ message: 'Voter ID contains invalid special characters' });
     
     const pan = data.panCard ?? data.identityDocs?.panCard;
@@ -512,6 +514,7 @@ export const createOffender = async (req: AuthRequest, res: Response) => {
       landmark_area: data.landmarkArea || data.landmark_area || null,
       district: data.district,
       state: data.state,
+      mandal: data.mandal || null,
       occupation: data.occupation,
       monthly_income: data.monthlyIncome || data.monthly_income || null,
       photo_url: data.photoUrl || data.photo_url || null,
@@ -618,6 +621,7 @@ export const updateOffender = async (req: AuthRequest, res: Response) => {
       if (data.landmarkArea !== undefined && !isValidText(data.landmarkArea)) return res.status(400).json({ message: 'Landmark contains invalid special characters' });
       if (data.district !== undefined && !isValidText(data.district)) return res.status(400).json({ message: 'District contains invalid special characters' });
       if (data.state !== undefined && !isValidText(data.state)) return res.status(400).json({ message: 'State contains invalid special characters' });
+      if (data.mandal !== undefined && data.mandal && !isValidText(data.mandal)) return res.status(400).json({ message: 'Mandal contains invalid special characters' });
     }
 
     // Validate Drug Profile
@@ -800,6 +804,7 @@ export const updateOffender = async (req: AuthRequest, res: Response) => {
          }
          if (data.district !== undefined) updateDataObj.district = data.district ? String(data.district).slice(0, 200) : null;
          if (data.state !== undefined) updateDataObj.state = data.state ? String(data.state).slice(0, 200) : null;
+         if (data.mandal !== undefined) updateDataObj.mandal = data.mandal ? String(data.mandal).slice(0, 200) : null;
        }
 
        if (isSec('Drug Profile')) {

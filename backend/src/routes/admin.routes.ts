@@ -22,11 +22,21 @@ import { requirePermission } from '../middleware/authorize.middleware';
 import { importDprExcel, previewDprExcel, confirmDprImport } from '../controllers/import.controller';
 import { uploadExcel } from '../middleware/upload.middleware';
 
+import {
+  getOfficers,
+  getOfficerById,
+  createOfficer,
+  updateOfficer,
+  assignOfficerToPosition,
+  relieveOfficerFromPosition,
+  getPositionPostingHistory,
+} from '../controllers/transfer.controller';
+
 const router = Router();
 
 router.use(authenticate);
 
-// All routes require ADMIN — User Management
+// All routes require ADMIN — Position & User Management
 router.get('/users', requirePermission('USER_MANAGEMENT'), getUsers);
 router.get('/users/:id', requirePermission('USER_MANAGEMENT'), getUserById);
 router.post('/users', requirePermission('USER_MANAGEMENT'), createUser);
@@ -34,6 +44,15 @@ router.put('/users/:id', requirePermission('USER_MANAGEMENT'), updateUser);
 router.post('/users/:id/activate', requirePermission('USER_MANAGEMENT'), activateUser);
 router.delete('/users/:id', requirePermission('USER_MANAGEMENT'), deactivateUser);
 router.delete('/offenders/:id', requirePermission('USER_MANAGEMENT'), deleteOffenderDirect);
+
+// ── Officer Directory & Transfers (SP/Admin) ──────────────────────────
+router.get('/officers', requirePermission('USER_MANAGEMENT'), getOfficers);
+router.get('/officers/:id', requirePermission('USER_MANAGEMENT'), getOfficerById);
+router.post('/officers', requirePermission('USER_MANAGEMENT'), createOfficer);
+router.put('/officers/:id', requirePermission('USER_MANAGEMENT'), updateOfficer);
+router.post('/positions/:id/assign', requirePermission('USER_MANAGEMENT'), assignOfficerToPosition);
+router.post('/positions/:id/relieve', requirePermission('USER_MANAGEMENT'), relieveOfficerFromPosition);
+router.get('/positions/:id/history', requirePermission('USER_MANAGEMENT'), getPositionPostingHistory);
 
 // Audit Logs — ADMIN only
 router.get('/audit-logs', requirePermission('AUDIT_LOGS'), getAuditLogs);

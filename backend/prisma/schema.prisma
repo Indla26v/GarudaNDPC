@@ -490,13 +490,14 @@ model users {
   id                   BigInt                 @id @default(autoincrement())
   username             String                 @unique @db.VarChar(50)
   password_hash        String                 @db.VarChar(255)
-  full_name            String                 @db.VarChar(200)
+  full_name            String?                @db.VarChar(200)
+  badge_number         String?                @db.VarChar(50)
+  position_label       String?                @db.VarChar(200)
   email                String?                @db.VarChar(255)
   phone_number         String?                @db.VarChar(20)
   role                 user_role
   department           department_type        @default(POLICE)
-  badge_number         String?                @db.VarChar(50)
-  photo_url            String?
+  current_officer_id   BigInt?                @unique
   police_station_id    BigInt?
   division_id          String?                @db.VarChar(100)
   district             String?                @db.VarChar(100)
@@ -506,7 +507,7 @@ model users {
   last_login           DateTime?              @db.Timestamp(6)
   failed_login_count   Int                    @default(0)
   locked_until         DateTime?              @db.Timestamp(6)
-  password_changed_at  DateTime?              @db.Timestamp(6)
+  password_changed_at  DateTime?              @default(now()) @db.Timestamp(6)
   created_at           DateTime               @default(now()) @db.Timestamp(6)
   audit_logs           audit_logs[]
   cases                cases[]
@@ -516,6 +517,9 @@ model users {
   surveillance_records surveillance_records[]
   police_stations      police_stations?       @relation(fields: [police_station_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   team                 teams?                 @relation(fields: [team_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  current_officer      officers?              @relation("current_occupant", fields: [current_officer_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  posting_histories    posting_history[]      @relation("position_history")
+  created_postings     posting_history[]      @relation("history_creator")
 
   // Deletion request relations
   deletion_requests_flagged   deletion_requests[] @relation("flagged_by_user")
@@ -551,11 +555,44 @@ model users {
   social_media_intel_created        social_media_intel[]        @relation("social_created_by")
   messaging_intel_created           messaging_intel[]           @relation("messaging_created_by")
   password_history                  password_history[]
+  password_resets                   password_resets[]
 
   @@index([police_station_id], map: "idx_users_ps")
   @@index([role], map: "idx_users_role")
   @@index([department], map: "idx_users_dept")
   @@index([team_id], map: "idx_users_team")
+  @@index([current_officer_id], map: "idx_users_current_officer")
+}
+
+model officers {
+  id               BigInt             @id @default(autoincrement())
+  full_name        String             @db.VarChar(200)
+  badge_number     String?            @db.VarChar(50)
+  rank             user_role
+  is_active        Boolean            @default(true)
+  created_at       DateTime           @default(now()) @db.Timestamp(6)
+  current_position users?             @relation("current_occupant")
+  posting_histories posting_history[]
+
+  @@index([rank], map: "idx_officers_rank")
+}
+
+model posting_history {
+  id                BigInt    @id @default(autoincrement())
+  officer_id        BigInt
+  position_id       BigInt
+  appointed_at      DateTime  @default(now()) @db.Timestamp(6)
+  relieved_at       DateTime? @db.Timestamp(6)
+  transfer_order_no String?   @db.VarChar(200)
+  notes             String?
+  created_by        BigInt?
+  created_at        DateTime  @default(now()) @db.Timestamp(6)
+  officer           officers  @relation(fields: [officer_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  position          users     @relation("position_history", fields: [position_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  creator           users?    @relation("history_creator", fields: [created_by], references: [id], onDelete: SetNull, onUpdate: NoAction)
+
+  @@index([officer_id], map: "idx_ph_officer")
+  @@index([position_id], map: "idx_ph_position")
 }
 
 // ============================================================
@@ -1508,4 +1545,55 @@ model password_history {
   users         users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([user_id], map: "idx_pw_history_user")
+}
+
+// ============================================================
+// Password Resets (Forgot Password with OTP / Token)
+// ============================================================
+
+model password_resets {
+  id          BigInt   @id @default(autoincrement())
+  user_id     BigInt
+  email       String   @db.VarChar(255)
+  otp_hash    String   @db.VarChar(255)
+  reset_token String?  @unique @db.VarChar(255)
+  expires_at  DateTime @db.Timestamp(6)
+  used        Boolean  @default(false)
+  attempts    Int      @default(0)
+  created_at  DateTime @default(now()) @db.Timestamp(6)
+  users       users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id], map: "idx_pr_user")
+  @@index([email], map: "idx_pr_email")
+  @@index([reset_token], map: "idx_pr_token")
+}
+
+// ============================================================
+// Master Data — States, Districts, Mandals (Government Reference)
+// ============================================================
+
+model mst_states {
+  state_code Int            @id
+  state_name String         @unique @db.VarChar(100)
+  state_ut   String         @db.VarChar(10)
+  districts  mst_districts[]
+}
+
+model mst_districts {
+  district_code Int           @id
+  state_code    Int
+  district_name String        @db.VarChar(200)
+  state         mst_states    @relation(fields: [state_code], references: [state_code], onDelete: Cascade, onUpdate: NoAction)
+  mandals       mst_mandals[]
+
+  @@index([state_code], map: "idx_mst_dist_state")
+}
+
+model mst_mandals {
+  mandal_code   Int           @id
+  district_code Int
+  mandal_name   String        @db.VarChar(200)
+  district      mst_districts @relation(fields: [district_code], references: [district_code], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([district_code], map: "idx_mst_mandal_dist")
 }

@@ -8,6 +8,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { usePermissions } from '../../hooks/usePermissions';
 import api from '../../api/axios';
+import { toast } from '../../context/ToastContext';
 import CustomSelect from '../../components/CustomSelect';
 import VehicleCheckForm from '../../components/enforcement/forms/VehicleCheckForm';
 import {
@@ -135,8 +136,23 @@ export default function FieldStaff() {
   }, [activeTab]);
 
   const handlePhotoUpload = async (e) => {
-    const file = e.target.files[0];
+    const file = e.target.files?.[0];
     if (!file) return;
+
+    const ext = file.name.split('.').pop()?.toLowerCase() || '';
+    if (!['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext)) {
+      const msg = 'Invalid image format. Only JPG, PNG, WEBP, and GIF files are allowed.';
+      toast.badRequest(msg, [`Format .${ext} is blocked for security. Executable and script files are not allowed.`], 'Bad Request — Invalid Format');
+      if (e.target) e.target.value = null;
+      return;
+    }
+
+    if (file.size > 500 * 1024) {
+      const msg = `Photo must be under 500 KB. Selected size is ${(file.size / 1024).toFixed(0)} KB.`;
+      toast.badRequest(msg, ['Maximum allowed photo size is 500 KB.'], 'Bad Request — Photo Too Large');
+      if (e.target) e.target.value = null;
+      return;
+    }
 
     const fd = new FormData();
     fd.append('file', file);
@@ -148,11 +164,13 @@ export default function FieldStaff() {
       });
       if (res.data.success) {
         setQuickForm(prev => ({ ...prev, relevantFiles: res.data.data.url }));
-        alert('Photo attached successfully!');
+        toast.success('Photo attached successfully!');
       }
     } catch (err) {
       console.error(err);
-      alert('Failed to upload photo file');
+      const errMsg = err.response?.data?.message || 'Failed to upload photo file';
+      const threats = err.response?.data?.threats || [];
+      toast.badRequest(errMsg, threats, 'Bad Request — Upload Failed');
     } finally {
       setUploadingPhoto(false);
     }

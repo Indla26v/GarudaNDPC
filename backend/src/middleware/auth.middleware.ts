@@ -18,11 +18,15 @@ if (!JWT_SECRET) {
 export interface AuthenticatedUser {
   userId: number;
   username: string;
+  positionLabel?: string | null;
   role: string;
   department: string | null;
   policeStationId: number | null;
   district: string | null;
   divisionId: string | null;
+  officerId?: number | null;
+  officerName?: string | null;
+  officerBadge?: string | null;
 }
 
 export interface AuthRequest extends Request {
@@ -53,6 +57,7 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
       select: {
         id: true,
         username: true,
+        position_label: true,
         role: true,
         department: true,
         police_station_id: true,
@@ -60,6 +65,13 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
         division_id: true,
         is_active: true,
         locked_until: true,
+        current_officer: {
+          select: {
+            id: true,
+            full_name: true,
+            badge_number: true,
+          }
+        }
       },
     });
 
@@ -74,11 +86,15 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
     req.user = {
       userId: Number(dbUser.id),
       username: dbUser.username,
+      positionLabel: dbUser.position_label || decoded.positionLabel || null,
       role: dbUser.role,
       department: dbUser.department,
       policeStationId: dbUser.police_station_id ? Number(dbUser.police_station_id) : null,
       district: dbUser.district || decoded.district || null,
       divisionId: dbUser.division_id || decoded.divisionId || null,
+      officerId: dbUser.current_officer ? Number(dbUser.current_officer.id) : (decoded.officerId || null),
+      officerName: dbUser.current_officer?.full_name || decoded.officerName || 'Vacant',
+      officerBadge: dbUser.current_officer?.badge_number || decoded.officerBadge || null,
     };
     next();
   } catch (err) {

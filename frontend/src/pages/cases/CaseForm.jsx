@@ -5,7 +5,9 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../api/axios';
 import CustomSelect from '../../components/CustomSelect';
+import LocationSelector from '../../components/LocationSelector';
 import { usePermissions } from '../../hooks/usePermissions';
+import { toast } from '../../context/ToastContext';
 import { IconWarning } from '../../components/Icons';
 
 export const ARREST_STATUS_META = {
@@ -300,16 +302,28 @@ export default function CaseForm() {
     try {
       const newUploaded = [];
       for (const file of files) {
-        const isImg = file.type.startsWith('image/');
-        const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
-
-        if (isImg && file.size > 500 * 1024) {
-          setError(`Image file "${file.name}" exceeds 500 KB limit. Selected size: ${(file.size / 1024).toFixed(0)} KB`);
+        const ext = file.name.split('.').pop()?.toLowerCase() || '';
+        if (['xlsm', 'xlsb', 'xltm', 'xla', 'xlam', 'docm', 'pptm', 'exe', 'bat', 'sh', 'js', 'html'].includes(ext)) {
+          const msg = `File "${file.name}" rejected: Executables, scripts, and macro-enabled files are not allowed.`;
+          toast.badRequest(msg, [`Format .${ext} is blocked for security. Please upload standard PDF or image files.`], 'Bad Request — Blocked File');
+          setError(msg);
           continue;
         }
 
-        if (file.size > 5 * 1024 * 1024) {
-          setError(`File "${file.name}" exceeds 5 MB limit (ideally under 2 MB). Selected size: ${(file.size / (1024 * 1024)).toFixed(2)} MB`);
+        const isImage = file.type.startsWith('image/') || ['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext);
+        const isPdf = file.type === 'application/pdf' || ext === 'pdf';
+
+        if (isImage && file.size > 500 * 1024) {
+          const msg = `Image "${file.name}" exceeds 500 KB limit. Selected size: ${(file.size / 1024).toFixed(0)} KB`;
+          toast.badRequest(msg, ['Maximum allowed image size is 500 KB.'], 'Bad Request — Image Too Large');
+          setError(msg);
+          continue;
+        }
+
+        if (isPdf && file.size > 5 * 1024 * 1024) {
+          const msg = `PDF "${file.name}" exceeds 5 MB limit. Selected size: ${(file.size / (1024 * 1024)).toFixed(2)} MB`;
+          toast.badRequest(msg, ['Maximum allowed PDF size is 5 MB.'], 'Bad Request — PDF Too Large');
+          setError(msg);
           continue;
         }
 
@@ -329,7 +343,9 @@ export default function CaseForm() {
       }
       setUploadedFiles(prev => [...prev, ...newUploaded]);
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to upload case files');
+      const errMsg = err.response?.data?.message || 'Failed to upload case files';
+      const threats = err.response?.data?.threats || [];
+      setError(threats.length ? `${errMsg} (${threats.join('; ')})` : errMsg);
     } finally {
       setFileUploading(false);
       e.target.value = null;
@@ -1046,31 +1062,65 @@ export default function CaseForm() {
               {sectionErrors['Relevant PDF Files']}
             </div>
           )}
-          <div id="section-files" className="rounded-xl p-6 space-y-4" style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}>
-            <div className="flex justify-between items-center pb-2 border-b" style={{ borderColor: 'var(--color-garuda-700)' }}>
-              <h3 className="font-semibold" style={{ color: 'var(--color-garuda-200)' }}>Relevant PDF Files</h3>
+          <div id="section-files" className="rounded-2xl p-6 space-y-4 shadow-sm" style={{ background: 'var(--color-garuda-800)', border: '1px solid var(--color-garuda-700)' }}>
+            <div className="flex justify-between items-center pb-3 border-b" style={{ borderColor: 'var(--color-garuda-700)' }}>
+              <div className="flex items-center gap-2.5">
+                <h3 className="font-bold text-sm" style={{ color: 'var(--color-garuda-100)' }}>Relevant Case Documents & Seizure Scans</h3>
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold" style={{ background: 'rgba(16, 185, 129, 0.12)', color: '#059669', border: '1px solid rgba(16, 185, 129, 0.25)' }}>
+                  Security Verified
+                </span>
+              </div>
               {isEdit && (
                 <button
                   type="button"
                   onClick={() => handleSubmit(null, false, 'Relevant PDF Files')}
-                  className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white border-none cursor-pointer transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-sm"
-                  style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)' }}
+                  className="px-5 py-2 rounded-full text-xs font-bold text-white border-none cursor-pointer transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-sm"
+                  style={{ background: 'linear-gradient(135deg, var(--color-accent-500), var(--color-accent-600))' }}
                 >
                   Update Section
                 </button>
               )}
             </div>
 
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center gap-3">
+            <div className="flex flex-col gap-4">
+              <div 
+                className="p-5 rounded-2xl transition-all duration-200 flex flex-col sm:flex-row items-center justify-between gap-4"
+                style={{ 
+                  background: 'var(--color-garuda-900)', 
+                  border: '1.5px dashed var(--color-garuda-500)',
+                }}
+              >
+                <div className="flex items-center gap-3.5">
+                  <div 
+                    className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0"
+                    style={{ background: 'rgba(234, 88, 12, 0.1)', color: 'var(--color-accent-500)', border: '1px solid rgba(234, 88, 12, 0.2)' }}
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold" style={{ color: 'var(--color-garuda-100)' }}>
+                      Attach FIR Scans, Panchnama & Seizure Reports
+                    </p>
+                    <p className="text-xs mt-0.5" style={{ color: 'var(--color-garuda-400)' }}>
+                      PDFs up to 5MB, Images up to 500KB. Executables, scripts, and macro files are blocked.
+                    </p>
+                  </div>
+                </div>
+
                 <label
-                  className="btn btn-secondary text-sm flex items-center gap-2 cursor-pointer"
-                  style={{ background: 'var(--color-garuda-900)', borderColor: 'var(--color-garuda-600)', color: 'var(--color-garuda-100)' }}
+                  className="px-6 py-2.5 rounded-full text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-sm hover:shadow-md active:scale-95 flex-shrink-0"
+                  style={{ 
+                    background: 'linear-gradient(135deg, var(--color-accent-500), var(--color-accent-600))',
+                    color: '#ffffff',
+                    border: 'none',
+                  }}
                 >
-                  <svg className="w-4 h-4 text-accent-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
                   </svg>
-                  {fileUploading ? 'Uploading...' : 'Choose Files'}
+                  <span>{fileUploading ? 'Uploading...' : 'Attach Files'}</span>
                   <input
                     type="file"
                     multiple
@@ -1079,28 +1129,30 @@ export default function CaseForm() {
                     className="hidden"
                   />
                 </label>
-                <span className="text-xs" style={{ color: 'var(--color-garuda-400)' }}>
-                  Upload scans, FIR copies, or seizure reports (PDFs up to 5MB, Images up to 500KB — ideally under 2MB / 200–500 KB).
-                </span>
               </div>
 
               {uploadedFiles.length > 0 && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-1">
                   {uploadedFiles.map((file, i) => (
                     <div
                       key={i}
-                      className="flex items-center justify-between p-2.5 rounded-lg border text-xs"
-                      style={{ background: 'var(--color-garuda-900)', borderColor: 'var(--color-garuda-600)' }}
+                      className="flex items-center justify-between p-3.5 rounded-2xl shadow-xs transition-all"
+                      style={{ background: 'var(--color-garuda-900)', border: '1px solid var(--color-garuda-700)' }}
                     >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <svg className="w-4 h-4 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div 
+                          className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                          style={{ background: 'var(--color-garuda-800)', color: 'var(--color-garuda-300)', border: '1px solid var(--color-garuda-700)' }}
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                        </div>
                         <a
                           href={file.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="font-medium truncate hover:text-accent-400 transition-colors"
+                          className="font-semibold text-xs truncate hover:underline"
                           style={{ color: 'var(--color-garuda-100)' }}
                         >
                           {file.name}
@@ -1109,7 +1161,12 @@ export default function CaseForm() {
                       <button
                         type="button"
                         onClick={() => removeFile(i)}
-                        className="text-red-400 hover:text-red-500 font-bold px-2 py-1 bg-transparent border-none cursor-pointer text-xs"
+                        className="font-bold px-3.5 py-1.5 rounded-full cursor-pointer text-xs transition-all hover:scale-105 active:scale-95"
+                        style={{ 
+                          background: 'rgba(239, 68, 68, 0.08)',
+                          color: '#dc2626',
+                          border: '1px solid rgba(239, 68, 68, 0.25)',
+                        }}
                       >
                         Remove
                       </button>
@@ -1266,6 +1323,9 @@ function AddAccusedModal({ isOpen, onClose, onSaved, stations, currentPsId }) {
     psId: currentPsId || '',
     aadhaarNo: '',
     phone: '',
+    state: '',
+    district: '',
+    mandal: '',
     fullAddress: '',
     photoUrl: '',
     arrestStatus: 'POLICE_CUSTODY'
@@ -1292,6 +1352,9 @@ function AddAccusedModal({ isOpen, onClose, onSaved, stations, currentPsId }) {
         aadhaarNo: '',
         countryCode: '+91',
         phone: '',
+        state: '',
+        district: '',
+        mandal: '',
         fullAddress: '',
         photoUrl: '',
         arrestStatus: 'POLICE_CUSTODY'
@@ -1353,8 +1416,18 @@ function AddAccusedModal({ isOpen, onClose, onSaved, stations, currentPsId }) {
   };
 
   const uploadFile = async (file) => {
-    if (file.size > 5 * 1024 * 1024) {
-      setError('Photo file size must be under 5MB');
+    const ext = file.name.split('.').pop()?.toLowerCase() || '';
+    if (!['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext)) {
+      const msg = 'Invalid photo format. Only JPG, PNG, WEBP, and GIF images are allowed.';
+      toast.badRequest(msg, [`File .${ext} is not allowed. Executable/script files are blocked.`], 'Bad Request — Invalid Format');
+      setError(msg);
+      return;
+    }
+
+    if (file.size > 500 * 1024) {
+      const msg = `Photo must be under 500 KB. Selected size: ${(file.size / 1024).toFixed(0)} KB`;
+      toast.badRequest(msg, ['Maximum allowed photo size is 500 KB.'], 'Bad Request — File Too Large');
+      setError(msg);
       return;
     }
 
@@ -1373,7 +1446,9 @@ function AddAccusedModal({ isOpen, onClose, onSaved, stations, currentPsId }) {
         setError('Upload succeeded but no URL was returned');
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to upload photo');
+      const errMsg = err.response?.data?.message || 'Failed to upload photo';
+      const threats = err.response?.data?.threats || [];
+      setError(threats.length ? `${errMsg}: ${threats.join(', ')}` : errMsg);
     } finally {
       setUploading(false);
     }
@@ -1389,31 +1464,7 @@ function AddAccusedModal({ isOpen, onClose, onSaved, stations, currentPsId }) {
   const handlePhotoUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-
-    if (file.size > 5 * 1024 * 1024) {
-      setError('Photo file size must be under 5MB');
-      return;
-    }
-
-    const formData = new FormData();
-    formData.append('photo', file);
-
-    setUploading(true);
-    setError('');
-    try {
-      const res = await api.post('/offenders/upload', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-      if (res.data.data?.url) {
-        setModalForm(prev => ({ ...prev, photoUrl: res.data.data.url }));
-      } else {
-        setError('Upload succeeded but no URL was returned');
-      }
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to upload photo');
-    } finally {
-      setUploading(false);
-    }
+    await uploadFile(file);
   };
 
   const handleSubmit = async (e) => {
@@ -1455,6 +1506,9 @@ function AddAccusedModal({ isOpen, onClose, onSaved, stations, currentPsId }) {
         category: modalForm.category || null,
         psId: parseInt(modalForm.psId, 10),
         aadhaarNo: modalForm.aadhaarNo.trim() || null,
+        state: modalForm.state.trim() || null,
+        district: modalForm.district.trim() || null,
+        mandal: modalForm.mandal.trim() || null,
         fullAddress: modalForm.fullAddress.trim() || null,
         photoUrl: modalForm.photoUrl || null,
         contacts: modalForm.phone.trim()
@@ -1530,7 +1584,7 @@ function AddAccusedModal({ isOpen, onClose, onSaved, stations, currentPsId }) {
                 onChange={handleChange}
                 required
                 placeholder="Full Legal Name"
-                className="w-full px-3.5 py-2 text-xs font-bold rounded-xl outline-none transition-all focus:ring-2 focus:ring-amber-500/30"
+                className="w-full h-10 px-4 py-2 text-xs font-semibold rounded-full outline-none transition-all focus:ring-2 focus:ring-amber-500/30"
                 style={{ background: 'var(--color-garuda-900, #0f172a)', border: '1px solid var(--color-garuda-600, #475569)', color: 'var(--color-garuda-100, #f1f5f9)' }}
               />
             </div>
@@ -1542,6 +1596,7 @@ function AddAccusedModal({ isOpen, onClose, onSaved, stations, currentPsId }) {
                 value={modalForm.psId}
                 onChange={handleChange}
                 placeholder="Select PS"
+                className="w-full"
                 options={stations.map((s) => ({
                   value: String(s.id),
                   label: `${s.name}${s.ps_code || s.psCode ? ` (${s.ps_code || s.psCode})` : ''}`
@@ -1556,7 +1611,7 @@ function AddAccusedModal({ isOpen, onClose, onSaved, stations, currentPsId }) {
                 value={modalForm.alias}
                 onChange={handleChange}
                 placeholder="Known Alias / Nickname"
-                className="w-full px-3.5 py-2 text-xs font-bold rounded-xl outline-none transition-all focus:ring-2 focus:ring-amber-500/30"
+                className="w-full h-10 px-4 py-2 text-xs font-semibold rounded-full outline-none transition-all focus:ring-2 focus:ring-amber-500/30"
                 style={{ background: 'var(--color-garuda-900, #0f172a)', border: '1px solid var(--color-garuda-600, #475569)', color: 'var(--color-garuda-100, #f1f5f9)' }}
               />
             </div>
@@ -1568,7 +1623,7 @@ function AddAccusedModal({ isOpen, onClose, onSaved, stations, currentPsId }) {
                 value={modalForm.fatherHusbandName}
                 onChange={handleChange}
                 placeholder="Father or Husband Name"
-                className="w-full px-3.5 py-2 text-xs font-bold rounded-xl outline-none transition-all focus:ring-2 focus:ring-amber-500/30"
+                className="w-full h-10 px-4 py-2 text-xs font-semibold rounded-full outline-none transition-all focus:ring-2 focus:ring-amber-500/30"
                 style={{ background: 'var(--color-garuda-900, #0f172a)', border: '1px solid var(--color-garuda-600, #475569)', color: 'var(--color-garuda-100, #f1f5f9)' }}
               />
             </div>
@@ -1581,7 +1636,7 @@ function AddAccusedModal({ isOpen, onClose, onSaved, stations, currentPsId }) {
                 value={modalForm.age}
                 onChange={handleChange}
                 placeholder="Age in years"
-                className="w-full px-3.5 py-2 text-xs font-bold rounded-xl outline-none transition-all focus:ring-2 focus:ring-amber-500/30"
+                className="w-full h-10 px-4 py-2 text-xs font-semibold rounded-full outline-none transition-all focus:ring-2 focus:ring-amber-500/30"
                 style={{ background: 'var(--color-garuda-900, #0f172a)', border: '1px solid var(--color-garuda-600, #475569)', color: 'var(--color-garuda-100, #f1f5f9)' }}
               />
             </div>
@@ -1593,6 +1648,7 @@ function AddAccusedModal({ isOpen, onClose, onSaved, stations, currentPsId }) {
                 value={modalForm.gender}
                 onChange={handleChange}
                 placeholder="Select Gender"
+                className="w-full"
                 options={[
                   { value: 'MALE', label: 'Male' },
                   { value: 'FEMALE', label: 'Female' },
@@ -1608,6 +1664,7 @@ function AddAccusedModal({ isOpen, onClose, onSaved, stations, currentPsId }) {
                 value={modalForm.category}
                 onChange={handleChange}
                 placeholder="Select Category"
+                className="w-full"
                 options={[
                   { value: 'CONSUMER', label: 'Consumer' },
                   { value: 'LOCAL_PEDDLER', label: 'Local Peddler' },
@@ -1627,20 +1684,21 @@ function AddAccusedModal({ isOpen, onClose, onSaved, stations, currentPsId }) {
                 value={modalForm.aadhaarNo}
                 onChange={handleChange}
                 placeholder="12-digit Aadhaar"
-                className="w-full px-3.5 py-2 text-xs font-bold rounded-xl outline-none transition-all focus:ring-2 focus:ring-amber-500/30"
+                className="w-full h-10 px-4 py-2 text-xs font-semibold rounded-full outline-none transition-all focus:ring-2 focus:ring-amber-500/30"
                 style={{ background: 'var(--color-garuda-900, #0f172a)', border: '1px solid var(--color-garuda-600, #475569)', color: 'var(--color-garuda-100, #f1f5f9)' }}
               />
             </div>
 
-            <div>
+            <div className="min-w-0">
               <label className="block text-xs font-bold mb-1.5" style={{ color: 'var(--color-garuda-300, #cbd5e1)' }}>Mobile Number</label>
-              <div className="flex gap-2">
-                <div className="w-24 flex-shrink-0">
+              <div className="flex items-center gap-2 min-w-0 w-full">
+                <div className="w-20 shrink-0">
                   <CustomSelect
                     name="countryCode"
                     value={modalForm.countryCode || '+91'}
                     onChange={handleChange}
                     options={COUNTRY_CODES.map(cc => ({ value: cc.code, label: cc.code }))}
+                    className="w-full"
                   />
                 </div>
                 <input 
@@ -1652,20 +1710,21 @@ function AddAccusedModal({ isOpen, onClose, onSaved, stations, currentPsId }) {
                     setModalForm(prev => ({ ...prev, phone: val }));
                   }} 
                   placeholder="Primary phone number" 
-                  className="flex-1 px-3.5 py-2 text-xs font-bold rounded-xl outline-none transition-all focus:ring-2 focus:ring-amber-500/30" 
+                  className="flex-1 min-w-0 w-full h-10 px-4 py-2 text-xs font-semibold rounded-full outline-none transition-all focus:ring-2 focus:ring-amber-500/30" 
                   style={{ background: 'var(--color-garuda-900, #0f172a)', border: '1px solid var(--color-garuda-600, #475569)', color: 'var(--color-garuda-100, #f1f5f9)' }} 
                   maxLength={COUNTRY_CODES.find(cc => cc.code === (modalForm.countryCode || '+91'))?.length || 10}
                 />
               </div>
             </div>
 
-            <div>
+            <div className="min-w-0">
               <label className="block text-xs font-bold mb-1.5" style={{ color: 'var(--color-garuda-300, #cbd5e1)' }}>Arrest Status</label>
               <CustomSelect
                 name="arrestStatus"
                 value={modalForm.arrestStatus}
                 onChange={handleChange}
                 placeholder="Select Arrest Status"
+                className="w-full"
                 options={Object.entries(ARREST_STATUS_META).map(([key, meta]) => ({
                   value: key,
                   label: meta.label || meta.desc
@@ -1675,8 +1734,8 @@ function AddAccusedModal({ isOpen, onClose, onSaved, stations, currentPsId }) {
 
             <div className="md:col-span-2">
               <label className="block text-xs font-bold mb-1.5" style={{ color: 'var(--color-garuda-300, #cbd5e1)' }}>Photograph</label>
-              <div className="flex items-center gap-4 p-3.5 rounded-xl border transition-colors" style={{ background: 'var(--color-garuda-900, #0f172a)', borderColor: 'var(--color-garuda-600, #475569)' }}>
-                <div className="relative w-16 h-16 rounded-xl overflow-hidden border border-slate-700 bg-slate-900 flex-shrink-0 flex items-center justify-center text-slate-400 shadow-inner">
+              <div className="flex items-center gap-4 p-3.5 rounded-2xl border transition-colors" style={{ background: 'var(--color-garuda-900, #0f172a)', borderColor: 'var(--color-garuda-600, #475569)' }}>
+                <div className="relative w-16 h-16 rounded-2xl overflow-hidden border border-slate-700 bg-slate-900 flex-shrink-0 flex items-center justify-center text-slate-400 shadow-inner">
                   {modalForm.photoUrl ? (
                     <>
                       <img src={modalForm.photoUrl} alt="Preview" className="w-full h-full object-cover" />
@@ -1711,7 +1770,7 @@ function AddAccusedModal({ isOpen, onClose, onSaved, stations, currentPsId }) {
                         type="button"
                         onClick={capturePhoto}
                         disabled={uploading}
-                        className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white rounded-xl font-bold text-xs border-none cursor-pointer shadow-sm active:scale-95 transition-all"
+                        className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white rounded-full font-bold text-xs border-none cursor-pointer shadow-sm active:scale-95 transition-all"
                       >
                         Capture
                       </button>
@@ -1719,7 +1778,7 @@ function AddAccusedModal({ isOpen, onClose, onSaved, stations, currentPsId }) {
                         type="button"
                         onClick={stopCamera}
                         disabled={uploading}
-                        className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl font-bold text-xs border border-slate-700 cursor-pointer shadow-sm active:scale-95 transition-all"
+                        className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-full font-bold text-xs border border-slate-700 cursor-pointer shadow-sm active:scale-95 transition-all"
                       >
                         Cancel
                       </button>
@@ -1731,13 +1790,13 @@ function AddAccusedModal({ isOpen, onClose, onSaved, stations, currentPsId }) {
                           type="button"
                           onClick={startCamera}
                           disabled={uploading}
-                          className="px-4 py-2 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white rounded-xl font-bold text-xs border-none cursor-pointer shadow-sm active:scale-95 transition-all"
+                          className="px-5 py-2.5 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white rounded-full font-bold text-xs border-none cursor-pointer shadow-sm active:scale-95 transition-all"
                         >
                           Capture
                         </button>
                       )}
                       <label
-                        className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl font-bold text-xs cursor-pointer flex items-center justify-center border border-slate-700 shadow-sm active:scale-95 transition-all select-none"
+                        className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-full font-bold text-xs cursor-pointer flex items-center justify-center border border-slate-700 shadow-sm active:scale-95 transition-all select-none"
                       >
                         Upload
                         <input
@@ -1755,6 +1814,19 @@ function AddAccusedModal({ isOpen, onClose, onSaved, stations, currentPsId }) {
             </div>
 
             <div className="md:col-span-2">
+              <LocationSelector
+                state={modalForm.state}
+                district={modalForm.district}
+                mandal={modalForm.mandal}
+                showMandal={true}
+                className="w-full"
+                onChange={({ state, district, mandal }) => {
+                  setModalForm(prev => ({ ...prev, state, district, mandal }));
+                }}
+              />
+            </div>
+
+            <div className="md:col-span-2">
               <label className="block text-xs font-bold mb-1.5" style={{ color: 'var(--color-garuda-300, #cbd5e1)' }}>Full Address</label>
               <textarea
                 name="fullAddress"
@@ -1762,7 +1834,7 @@ function AddAccusedModal({ isOpen, onClose, onSaved, stations, currentPsId }) {
                 onChange={handleChange}
                 rows={2}
                 placeholder="Enter physical address details"
-                className="w-full px-3.5 py-2.5 rounded-xl text-xs font-medium outline-none resize-none transition-all focus:ring-2 focus:ring-amber-500/30"
+                className="w-full px-4 py-3 rounded-2xl text-xs font-medium outline-none resize-none transition-all focus:ring-2 focus:ring-amber-500/30"
                 style={{ background: 'var(--color-garuda-900, #0f172a)', border: '1px solid var(--color-garuda-600, #475569)', color: 'var(--color-garuda-100, #f1f5f9)' }}
               />
             </div>
@@ -1772,7 +1844,7 @@ function AddAccusedModal({ isOpen, onClose, onSaved, stations, currentPsId }) {
             <button
               type="button"
               onClick={onClose}
-              className="px-5 py-2.5 rounded-xl text-xs font-bold cursor-pointer transition-all border border-slate-700"
+              className="px-6 py-2.5 rounded-full text-xs font-bold cursor-pointer transition-all border border-slate-700 hover:bg-slate-700"
               style={{ background: 'var(--color-garuda-700, #334155)', color: 'var(--color-garuda-300, #cbd5e1)' }}
             >
               Cancel
@@ -1780,7 +1852,7 @@ function AddAccusedModal({ isOpen, onClose, onSaved, stations, currentPsId }) {
             <button
               type="submit"
               disabled={saving || uploading}
-              className="px-6 py-2.5 rounded-xl text-xs font-bold text-white cursor-pointer shadow-lg hover:shadow-orange-500/20 active:scale-95 transition-all"
+              className="px-7 py-2.5 rounded-full text-xs font-bold text-white cursor-pointer shadow-lg hover:shadow-orange-500/20 active:scale-95 transition-all"
               style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)', border: 'none', opacity: (saving || uploading) ? 0.6 : 1 }}
             >
               {saving ? 'Registering...' : 'Register & Add'}

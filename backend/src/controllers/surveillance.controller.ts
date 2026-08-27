@@ -604,17 +604,24 @@ export const getCorrelations = async (req: AuthRequest, res: Response) => {
 export const uploadTowerDump = async (req: AuthRequest, res: Response) => {
   try {
     const user: ScopeUser = req.user! || {};
-    const file = (req as any).file;
     const { caseId } = req.body;
+    const file = (req as any).file;
     if (!file) return res.status(400).json({ message: 'No file uploaded' });
     if (!caseId) return res.status(400).json({ message: 'caseId is required' });
-
-    const caseRow = await prisma.cases.findFirst({ where: { id: BigInt(caseId), ...getCaseWhere(user) }, select: { id: true } });
-    if (!caseRow) return res.status(404).json({ message: 'Case not found or access denied' });
 
     const rawExt = (file.originalname.split('.').pop() || '').toUpperCase();
     const fileType = rawExt === 'XLS' ? 'XLSX' : rawExt;
     const result = await parseTowerDump(file.buffer, fileType);
+
+    if (result.logs.length === 0 && result.errors.length > 0) {
+      return res.status(400).json({
+        message: result.errors[0] || 'Corrupted or unreadable tower dump file.',
+        errors: result.errors,
+      });
+    }
+
+    const caseRow = await prisma.cases.findFirst({ where: { id: BigInt(caseId), ...getCaseWhere(user) }, select: { id: true } });
+    if (!caseRow) return res.status(404).json({ message: 'Case not found or access denied' });
 
     if (result.logs.length > 0) {
       await prisma.tower_match_logs.createMany({

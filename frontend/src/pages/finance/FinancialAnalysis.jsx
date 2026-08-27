@@ -6,6 +6,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { usePermissions } from '../../hooks/usePermissions';
 import api from '../../api/axios';
+import { toast } from '../../context/ToastContext';
 import CustomSelect from '../../components/CustomSelect';
 import {
   IconFinance, IconDollar, IconBuilding, IconNetwork, IconFieldStaff, IconPackage,
@@ -44,6 +45,7 @@ export default function FinancialAnalysis() {
   // -------------------------------------------------------------
   const [batches, setBatches] = useState([]);
   const [uploadFile, setUploadFile] = useState(null);
+  const [uploadStatus, setUploadStatus] = useState(null); // { type: 'success' | 'error', text: string, details?: string[] }
   const [uploadForm, setUploadForm] = useState({
     statementMonth: '',
     bankName: '',
@@ -541,14 +543,39 @@ export default function FinancialAnalysis() {
   // -------------------------------------------------------------
   const handleUploadSubmit = async (e) => {
     e.preventDefault();
+    setUploadStatus(null);
+
     if (!selectedOffender || !uploadFile || !uploadForm.statementMonth) {
-      alert('Offender, statement file, and month are required');
+      setUploadStatus({
+        type: 'error',
+        text: 'Missing Required Fields',
+        details: ['Suspect accused, statement file, and statement month are all required.'],
+      });
       return;
     }
 
-    const isPdf = uploadFile.type === 'application/pdf' || uploadFile.name.toLowerCase().endsWith('.pdf');
+    const ext = uploadFile.name.split('.').pop()?.toLowerCase() || '';
+    if (['xlsm', 'xlsb', 'xltm', 'xla', 'xlam', 'docm', 'pptm'].includes(ext)) {
+      const msg = `Macro-enabled file format (.${ext}) is blocked for security.`;
+      const details = [`Macro-enabled file format (.${ext}) is blocked for security. Please upload standard .csv, .xlsx, or .pdf files.`];
+      toast.badRequest(msg, details, 'Bad Request — Blocked Format');
+      setUploadStatus({
+        type: 'error',
+        text: 'Security Alert: Blocked File Format',
+        details,
+      });
+      return;
+    }
+
+    const isPdf = uploadFile.type === 'application/pdf' || ext === 'pdf';
     if (isPdf && uploadFile.size > 5 * 1024 * 1024) {
-      alert(`PDF statement file must be under 5 MB (ideally under 2 MB). Selected size is ${(uploadFile.size / (1024 * 1024)).toFixed(2)} MB.`);
+      const msg = `PDF statement files must be under 5MB. Selected file is ${(uploadFile.size / (1024 * 1024)).toFixed(2)}MB.`;
+      toast.badRequest(msg, ['Maximum allowed PDF size is 5MB.'], 'Bad Request — File Too Large');
+      setUploadStatus({
+        type: 'error',
+        text: 'File Size Exceeded',
+        details: [msg],
+      });
       return;
     }
 
@@ -571,9 +598,17 @@ export default function FinancialAnalysis() {
       
       if (uploadForm.preview) {
         setPreviewResult(res.data.data);
-        alert('Statement parsing preview complete! Review mapped headers below.');
+        setUploadStatus({
+          type: 'success',
+          text: 'Statement Preview Ready',
+          details: [`Successfully parsed ${res.data.data.parsedCount} transactions. Review mapped headers below.`],
+        });
       } else {
-        alert('Statement uploaded and analyzed successfully! Checked cross-case correlations.');
+        setUploadStatus({
+          type: 'success',
+          text: 'Statement Uploaded Successfully',
+          details: [`Ingested ${res.data.data.totalRecords} transactions and ran automated cross-case analysis.`],
+        });
         setUploadFile(null);
         setUploadForm({ statementMonth: '', bankName: '', accountNo: '', upiId: '', preview: false });
         resetOffenderSearch();
@@ -581,7 +616,13 @@ export default function FinancialAnalysis() {
         fetchDashboard();
       }
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to process statement upload');
+      const errMsg = err.response?.data?.message || 'Failed to process statement upload';
+      const threats = err.response?.data?.threats || err.response?.data?.errors || [];
+      setUploadStatus({
+        type: 'error',
+        text: 'Upload Rejected',
+        details: threats.length ? threats : [errMsg],
+      });
     } finally {
       setUploadLoading(false);
     }
@@ -590,6 +631,7 @@ export default function FinancialAnalysis() {
   const handleCommitPreview = async () => {
     if (!selectedOffender || !uploadFile || !uploadForm.statementMonth) return;
     setUploadForm(prev => ({ ...prev, preview: false }));
+    setUploadStatus(null);
     
     // Trigger upload with preview = false
     const fd = new FormData();
@@ -603,10 +645,14 @@ export default function FinancialAnalysis() {
 
     setUploadLoading(true);
     try {
-      await api.post('/finance/upload-statement', fd, {
+      const res = await api.post('/finance/upload-statement', fd, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-      alert('Statement committed and analyzed successfully!');
+      setUploadStatus({
+        type: 'success',
+        text: 'Statement Committed Successfully',
+        details: [`Ingested ${res.data.data.totalRecords} transactions and completed financial profiling.`],
+      });
       setUploadFile(null);
       setUploadForm({ statementMonth: '', bankName: '', accountNo: '', upiId: '', preview: false });
       setPreviewResult(null);
@@ -614,7 +660,13 @@ export default function FinancialAnalysis() {
       fetchBatches();
       fetchDashboard();
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to commit statement');
+      const errMsg = err.response?.data?.message || 'Failed to commit statement';
+      const threats = err.response?.data?.threats || err.response?.data?.errors || [];
+      setUploadStatus({
+        type: 'error',
+        text: 'Commit Failed',
+        details: threats.length ? threats : [errMsg],
+      });
     } finally {
       setUploadLoading(false);
     }
@@ -722,6 +774,53 @@ export default function FinancialAnalysis() {
                   <p className="text-xs text-garuda-400">Parse CSV, XLSX, or PDF statement files to run cross-case analysis.</p>
                 </div>
 
+                {uploadStatus && (
+                  <div
+                    className="p-3.5 rounded-2xl border text-xs animate-fade-in"
+                    style={{
+                      background: uploadStatus.type === 'error' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)',
+                      borderColor: uploadStatus.type === 'error' ? 'rgba(239, 68, 68, 0.3)' : 'rgba(16, 185, 129, 0.3)',
+                    }}
+                  >
+                    <div className="flex items-start gap-2.5">
+                      <div
+                        className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5"
+                        style={{
+                          background: uploadStatus.type === 'error' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)',
+                          color: uploadStatus.type === 'error' ? '#f87171' : '#34d399',
+                        }}
+                      >
+                        {uploadStatus.type === 'error' ? (
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                          </svg>
+                        ) : (
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-bold" style={{ color: uploadStatus.type === 'error' ? '#f87171' : '#34d399' }}>
+                          {uploadStatus.text}
+                        </p>
+                        {uploadStatus.details?.map((det, i) => (
+                          <p key={i} className="mt-1 text-garuda-300 font-mono text-[11px] leading-relaxed">
+                            {det}
+                          </p>
+                        ))}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setUploadStatus(null)}
+                        className="text-garuda-400 hover:text-white cursor-pointer bg-transparent border-none text-xs"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 <form onSubmit={handleUploadSubmit} className="space-y-4 p-4 rounded-xl bg-garuda-900/40 border border-garuda-700">
                   <div>
                     <label className="block text-xs font-semibold mb-1 text-garuda-200">Select Suspect Accused *</label>
@@ -803,15 +902,46 @@ export default function FinancialAnalysis() {
                     </div>
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-semibold mb-1 text-garuda-200">Select statement file (Excel, CSV, or PDF under 5MB) *</label>
-                    <input 
-                      type="file" 
-                      accept=".csv, .xlsx, .xls, .pdf"
-                      onChange={e => setUploadFile(e.target.files[0])}
-                      className="input py-2 text-xs"
-                      required
-                    />
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-semibold" style={{ color: 'var(--color-garuda-200)' }}>
+                      Bank Statement File (Excel, CSV, or PDF) *
+                    </label>
+                    <div 
+                      className="p-4 rounded-2xl transition-colors flex flex-col gap-2.5"
+                      style={{ 
+                        background: 'var(--color-garuda-900)', 
+                        border: '1.5px dashed var(--color-garuda-500)',
+                      }}
+                    >
+                      <input 
+                        type="file" 
+                        accept=".csv, .xlsx, .xls, .pdf"
+                        onChange={e => setUploadFile(e.target.files[0])}
+                        className="w-full text-xs file:mr-3 file:py-1.5 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-amber-400 file:text-slate-950 hover:file:bg-amber-300 cursor-pointer"
+                        style={{ color: 'var(--color-garuda-300)' }}
+                        required
+                      />
+                      <div className="flex items-center gap-2 pt-1 flex-wrap">
+                        <span 
+                          className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold"
+                          style={{ background: 'var(--color-garuda-800)', color: 'var(--color-garuda-200)', border: '1px solid var(--color-garuda-700)' }}
+                        >
+                          CSV / XLSX / XLS
+                        </span>
+                        <span 
+                          className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold"
+                          style={{ background: 'var(--color-garuda-800)', color: 'var(--color-garuda-200)', border: '1px solid var(--color-garuda-700)' }}
+                        >
+                          PDF ≤ 5MB
+                        </span>
+                        <span 
+                          className="px-2.5 py-0.5 rounded-full text-[10px] font-bold"
+                          style={{ background: 'rgba(16, 185, 129, 0.12)', color: '#059669', border: '1px solid rgba(16, 185, 129, 0.25)' }}
+                        >
+                          Security Verified
+                        </span>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="flex items-center gap-2">
@@ -822,7 +952,7 @@ export default function FinancialAnalysis() {
                       onChange={e => setUploadForm({ ...uploadForm, preview: e.target.checked })}
                       className="rounded border-garuda-600 bg-garuda-800 text-orange-500 focus:ring-0 w-4 h-4"
                     />
-                    <label htmlFor="checkbox-preview" className="text-xs font-semibold text-garuda-300 select-none">
+                    <label htmlFor="checkbox-preview" className="text-xs font-semibold text-garuda-300 select-none cursor-pointer">
                       Preview only (Dry-run parser checking columns)
                     </label>
                   </div>
@@ -830,9 +960,12 @@ export default function FinancialAnalysis() {
                   <button
                     type="submit"
                     disabled={uploadLoading}
-                    className="btn btn-primary w-full text-xs font-semibold py-2.5 flex items-center justify-center gap-2"
+                    className="w-full text-xs font-bold py-2.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-black shadow-md cursor-pointer flex items-center justify-center gap-2 border-none transition-all active:scale-95 disabled:opacity-50"
                   >
-                    {uploadLoading ? 'Uploading statement...' : 'Upload Bank Statement'}
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                    </svg>
+                    <span>{uploadLoading ? 'Uploading statement...' : 'Upload Bank Statement'}</span>
                   </button>
                 </form>
               </div>

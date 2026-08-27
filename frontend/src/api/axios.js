@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { toast } from '../context/ToastContext';
 
 let activeRequests = 0;
 const listeners = new Set();
@@ -118,6 +119,18 @@ api.interceptors.response.use(
           window.location.href = '/login';
         }
       }
+    }
+
+    // ── Bad Request / Ingestion Failure Auto-Toast ───────────────────
+    const status = error.response?.status;
+    if (
+      (status === 400 || status === 413 || status === 415 || status === 422) &&
+      !originalRequest?.headers?.['X-Skip-Toast']
+    ) {
+      const data = error.response?.data;
+      const reason = data?.message || data?.error || (status === 413 ? 'File exceeds maximum upload size limit' : status === 415 ? 'Unsupported file format' : 'Bad request');
+      const details = data?.threats || data?.errors || [];
+      toast.badRequest(reason, details, 'Bad Request — File Rejected');
     }
 
     return Promise.reject(error);

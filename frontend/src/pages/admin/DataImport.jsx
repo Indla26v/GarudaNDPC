@@ -8,10 +8,10 @@
  *
  * Also includes real-time SSE logs for the final import progress.
  */
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import api from '../../api/axios';
-import CustomSelect from '../../components/CustomSelect';
 import { useSSE } from '../../hooks/useSSE';
+import { toast } from '../../context/ToastContext';
 import * as XLSX from 'xlsx';
 
 /* ────────────────────────────────────────────────── */
@@ -23,22 +23,30 @@ function ImportLogCard({ log, onDismiss }) {
 
   return (
     <div
-      className="card rounded-xl p-4 border relative overflow-hidden transition-all duration-300"
+      className="card rounded-2xl p-4 border relative overflow-hidden transition-all duration-300 shadow-sm"
       style={{
         background: 'var(--color-garuda-800)',
-        borderColor: hasErrors ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)',
+        borderColor: hasErrors ? 'rgba(239, 68, 68, 0.3)' : 'rgba(16, 185, 129, 0.3)',
       }}
     >
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-start gap-3">
           <div
-            className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 text-sm"
+            className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-sm"
             style={{
-              background: hasErrors ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)',
+              background: hasErrors ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)',
               color: hasErrors ? '#f87171' : '#34d399',
             }}
           >
-            {hasErrors ? '⚠️' : '✓'}
+            {hasErrors ? (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            ) : (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            )}
           </div>
           <div>
             <p className="text-sm font-semibold" style={{ color: 'var(--color-garuda-100)' }}>
@@ -51,7 +59,7 @@ function ImportLogCard({ log, onDismiss }) {
         </div>
         <button
           onClick={() => onDismiss(log.id)}
-          className="text-xs hover:text-white cursor-pointer bg-transparent border-none text-slate-500"
+          className="text-xs hover:text-white cursor-pointer bg-transparent border-none text-slate-500 rounded-full p-1"
         >
           ✕
         </button>
@@ -68,15 +76,15 @@ function ImportLogCard({ log, onDismiss }) {
           </button>
           {showErrors && (
             <div
-              className="mt-2 p-3 rounded-lg text-xs font-mono max-h-40 overflow-y-auto"
+              className="mt-2 p-3 rounded-xl text-xs font-mono max-h-40 overflow-y-auto"
               style={{
                 background: 'var(--color-garuda-950)',
                 color: '#f87171',
-                border: '1px solid rgba(239, 68, 68, 0.15)',
+                border: '1px solid rgba(239, 68, 68, 0.2)',
               }}
             >
               {log.errors.map((err, idx) => (
-                <div key={idx} className="py-0.5 border-b border-red-950/20 last:border-b-0">
+                <div key={idx} className="py-1 border-b border-red-950/20 last:border-b-0">
                   {err}
                 </div>
               ))}
@@ -98,6 +106,7 @@ export default function DataImport() {
   const [isSaving, setIsSaving] = useState(false);
   const [previewData, setPreviewData] = useState(null);
   const [importLogs, setImportLogs] = useState([]);
+  const [isDragging, setIsDragging] = useState(false);
   const { lastEvent } = useSSE();
 
   /* ── SSE: listen for real-time import results from other sessions ── */
@@ -119,10 +128,44 @@ export default function DataImport() {
     }
   }, [lastEvent]);
 
-  /* ── Upload Handler (Preview) ── */
-  const handleFileChange = async (e) => {
-    const file = e.target.files?.[0];
+  /* ── Unified File Processor ── */
+  const processUploadedFile = async (file) => {
     if (!file) return;
+
+    // Macro-enabled file check
+    const ext = file.name.split('.').pop()?.toLowerCase() || '';
+    if (['xlsm', 'xlsb', 'xltm', 'xla', 'xlam', 'docm', 'pptm'].includes(ext)) {
+      const msg = `Macro-enabled file format (.${ext}) is blocked for security.`;
+      const details = ['Macro-enabled workbooks (.xlsm, .xlsb, .docm) are not permitted. Please upload standard .xlsx, .xls, or .csv files.'];
+      toast.badRequest(msg, details, 'Bad Request — Blocked File Type');
+      setImportLogs((prev) => [
+        {
+          id: 'err_' + Date.now() + Math.random(),
+          timestamp: new Date().toLocaleTimeString(),
+          type: 'error',
+          text: `File Rejected: ${msg}`,
+          errors: details,
+        },
+        ...prev,
+      ]);
+      return;
+    }
+
+    if (file.size > 50 * 1024 * 1024) {
+      const msg = `File size (${(file.size / (1024 * 1024)).toFixed(1)}MB) exceeds 50MB limit.`;
+      toast.badRequest(msg, ['Maximum allowed Excel file size is 50MB.'], 'Bad Request — File Too Large');
+      setImportLogs((prev) => [
+        {
+          id: 'err_' + Date.now() + Math.random(),
+          timestamp: new Date().toLocaleTimeString(),
+          type: 'error',
+          text: `File Rejected: ${msg}`,
+          errors: ['Maximum allowed Excel file size is 50MB.'],
+        },
+        ...prev,
+      ]);
+      return;
+    }
 
     setIsParsing(true);
     setPreviewData(null);
@@ -131,29 +174,39 @@ export default function DataImport() {
     reader.onload = async (evt) => {
       try {
         const bstr = evt.target.result;
-        const wb = XLSX.read(bstr, { type: 'array' });
+        let wb;
+        try {
+          wb = XLSX.read(bstr, { type: 'array' });
+        } catch (parseErr) {
+          throw new Error('Corrupted or invalid spreadsheet file. Could not read workbook content.');
+        }
+
         const wsname = wb.SheetNames[0];
+        if (!wsname) {
+          throw new Error('Spreadsheet contains no valid sheets.');
+        }
         const ws = wb.Sheets[wsname];
         const aoa = XLSX.utils.sheet_to_json(ws, { header: 1 });
 
         const res = await api.post('/admin/import/dpr/preview', {
           aoa,
-          importType
+          importType,
         });
         setPreviewData(res.data.data.rows);
       } catch (err) {
         console.error(err);
+        const errMsg = err.response?.data?.message || err.message || 'Unknown error';
+        const threats = err.response?.data?.threats || [];
         const logMessage = {
           id: 'err_' + Date.now() + Math.random(),
           timestamp: new Date().toLocaleTimeString(),
           type: 'error',
-          text: `Preview Failed: ${err.response?.data?.message || err.message || 'Unknown error'}`,
-          errors: [err.response?.data?.message || err.message || 'Unknown error'],
+          text: `Preview Failed: ${errMsg}`,
+          errors: threats.length ? threats : [errMsg],
         };
         setImportLogs((prev) => [logMessage, ...prev]);
       } finally {
         setIsParsing(false);
-        if (fileInputRef.current) fileInputRef.current.value = '';
       }
     };
     reader.onerror = (err) => {
@@ -171,12 +224,33 @@ export default function DataImport() {
     reader.readAsArrayBuffer(file);
   };
 
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) processUploadedFile(file);
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) processUploadedFile(file);
+  };
+
   /* ── Inline Editing ── */
   const handleFieldChange = (index, field, value) => {
     const newData = [...previewData];
     newData[index][field] = value;
-    
-    // Basic inline validation check
+
     if (importType === 'UNIFIED' || importType === 'CASE' || importType === 'AP_LO') {
       if (field === 'crNo' || field === 'psName' || field === 'accusedDetails') {
         const errors = [];
@@ -196,7 +270,7 @@ export default function DataImport() {
         newData[index].isValid = errors.length === 0;
       }
     }
-    
+
     setPreviewData(newData);
   };
 
@@ -246,34 +320,34 @@ export default function DataImport() {
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold" style={{ color: 'var(--color-garuda-50)' }}>
-            DPR Data Import
+            DPR Data Ingestion Engine
           </h1>
           <p className="text-sm mt-1" style={{ color: 'var(--color-garuda-400)' }}>
-            Staged Import: Upload Excel, cross-check the parsed data, and approve to insert into the database.
+            Staged Import: Upload Excel/CSV, verify records in interactive grid, and commit to NDPS repository.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-3">
           {isParsing ? (
             <span
-              className="text-xs animate-pulse font-semibold self-center px-4"
-              style={{ color: 'var(--color-accent-400)' }}
+              className="text-xs animate-pulse font-semibold self-center px-4 py-2 rounded-full border border-amber-500/30 bg-amber-500/10 text-amber-400"
             >
-              Parsing Excel...
+              Parsing Spreadsheet Content...
             </span>
           ) : !previewData ? (
-            <>
+            <div className="flex items-center gap-2">
               <div className="w-56">
-                <CustomSelect
+                <select
                   value={importType}
                   onChange={(e) => setImportType(e.target.value)}
-                  options={[
-                    { value: 'UNIFIED', label: 'Unified DPR (All Data)' },
-                    { value: 'AP_LO', label: 'AP State L&O Police Data' },
-                    { value: 'CONSUMER', label: 'Consumers Only' },
-                    { value: 'OFFENDER', label: 'Offenders Only' },
-                    { value: 'CASE', label: 'Cases Only' },
-                  ]}
-                />
+                  className="w-full rounded-full px-4 py-2 text-xs font-semibold outline-none shadow-xs cursor-pointer"
+                  style={{ background: 'var(--color-garuda-900)', color: 'var(--color-garuda-100)', border: '1px solid var(--color-garuda-700)' }}
+                >
+                  <option value="UNIFIED">Unified DPR (All Data)</option>
+                  <option value="AP_LO">AP State L&O Police Data</option>
+                  <option value="CONSUMER">Consumers Only</option>
+                  <option value="OFFENDER">Offenders Only</option>
+                  <option value="CASE">Cases Only</option>
+                </select>
               </div>
               <input
                 type="file"
@@ -285,47 +359,121 @@ export default function DataImport() {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="px-6 py-2 rounded-full font-extrabold text-xs tracking-wide shadow-md hover:shadow-lg transition-all duration-200 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white flex items-center gap-2 cursor-pointer border-none active:scale-95"
+                className="px-6 py-2.5 rounded-full font-bold text-xs tracking-wide shadow-sm hover:shadow-md transition-all duration-200 flex items-center gap-2 cursor-pointer border-none active:scale-95 text-white"
+                style={{ background: 'linear-gradient(135deg, var(--color-accent-500), var(--color-accent-600))' }}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                 </svg>
-                <span>Upload & Preview</span>
+                <span>Select Spreadsheet</span>
               </button>
-            </>
+            </div>
           ) : null}
         </div>
       </div>
 
+      {/* ── Dynamic Ingestion Dropzone (Shown when no preview) ── */}
+      {!previewData && (
+        <div
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          onClick={() => fileInputRef.current?.click()}
+          className={`group relative rounded-3xl p-10 transition-all duration-300 cursor-pointer text-center flex flex-col items-center justify-center gap-4 shadow-sm hover:shadow-md ${
+            isDragging ? 'scale-[1.01]' : ''
+          }`}
+          style={{ 
+            background: 'var(--color-garuda-800)', 
+            border: isDragging ? '2px dashed var(--color-accent-500)' : '2px dashed var(--color-garuda-500)',
+          }}
+        >
+          {/* Security active banner pill */}
+          <div 
+            className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full text-xs font-bold"
+            style={{ background: 'rgba(16, 185, 129, 0.12)', color: '#059669', border: '1px solid rgba(16, 185, 129, 0.25)' }}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+            </svg>
+            <span>Real-time Malware & Macro Defense Active</span>
+          </div>
+
+          <div 
+            className="w-16 h-16 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-xs"
+            style={{ background: 'rgba(234, 88, 12, 0.1)', color: 'var(--color-accent-500)', border: '1px solid rgba(234, 88, 12, 0.25)' }}
+          >
+            <svg className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+            </svg>
+          </div>
+
+          <div className="space-y-1">
+            <h3 className="text-base font-bold" style={{ color: 'var(--color-garuda-100)' }}>
+              Drag & drop your DPR Excel / CSV file here
+            </h3>
+            <p className="text-xs max-w-md mx-auto" style={{ color: 'var(--color-garuda-400)' }}>
+              Supports standard <strong>.xlsx</strong>, <strong>.xls</strong>, and <strong>.csv</strong> spreadsheets up to 50MB. Macro files (.xlsm) and script payloads are automatically trapped.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+            <span 
+              className="px-3 py-1 rounded-full text-[11px] font-semibold"
+              style={{ background: 'var(--color-garuda-900)', color: 'var(--color-garuda-200)', border: '1px solid var(--color-garuda-700)' }}
+            >
+              .XLSX
+            </span>
+            <span 
+              className="px-3 py-1 rounded-full text-[11px] font-semibold"
+              style={{ background: 'var(--color-garuda-900)', color: 'var(--color-garuda-200)', border: '1px solid var(--color-garuda-700)' }}
+            >
+              .XLS
+            </span>
+            <span 
+              className="px-3 py-1 rounded-full text-[11px] font-semibold"
+              style={{ background: 'var(--color-garuda-900)', color: 'var(--color-garuda-200)', border: '1px solid var(--color-garuda-700)' }}
+            >
+              .CSV
+            </span>
+            <span 
+              className="px-3 py-1 rounded-full text-[11px] font-semibold"
+              style={{ background: 'rgba(239, 68, 68, 0.08)', color: '#dc2626', border: '1px solid rgba(239, 68, 68, 0.25)' }}
+            >
+              .XLSM Blocked
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* ── Preview Grid ── */}
       {previewData && (
-        <div className="card rounded-xl overflow-hidden animate-fade-in" style={{ border: '1px solid var(--color-garuda-700)', background: 'var(--color-garuda-900)' }}>
-          <div className="p-4 flex items-center justify-between" style={{ background: 'var(--color-garuda-800)', borderBottom: '1px solid var(--color-garuda-700)' }}>
+        <div className="card rounded-2xl overflow-hidden animate-fade-in shadow-2xl" style={{ border: '1px solid var(--color-garuda-700)', background: 'var(--color-garuda-900)' }}>
+          <div className="p-4 flex items-center justify-between flex-wrap gap-3" style={{ background: 'var(--color-garuda-800)', borderBottom: '1px solid var(--color-garuda-700)' }}>
             <div>
-              <h2 className="font-bold text-sm" style={{ color: 'var(--color-garuda-100)' }}>Cross-check Data</h2>
+              <h2 className="font-bold text-sm" style={{ color: 'var(--color-garuda-100)' }}>Cross-check Ingested Records</h2>
               <p className="text-xs" style={{ color: 'var(--color-garuda-400)' }}>
-                {previewData.length} rows found. Correct any red fields before approving.
+                {previewData.length} rows parsed. Verify column mappings before committing to database.
               </p>
             </div>
             <div className="flex gap-2">
               <button
                 onClick={handleCancel}
                 disabled={isSaving}
-                className="btn btn-secondary btn-sm"
+                className="px-4 py-2 rounded-full text-xs font-bold border border-slate-600 bg-slate-800 hover:bg-slate-700 text-slate-200 cursor-pointer"
               >
                 Cancel Import
               </button>
               <button
                 onClick={handleApprove}
                 disabled={isSaving}
-                className="btn btn-primary btn-sm"
+                className="px-5 py-2 rounded-full text-xs font-black bg-emerald-500 hover:bg-emerald-400 text-black shadow-md cursor-pointer flex items-center gap-1.5"
               >
-                {isSaving ? 'Importing...' : 'Approve & Save to DB'}
+                {isSaving ? 'Committing...' : 'Approve & Commit to Database'}
               </button>
             </div>
           </div>
           
-          <div className="overflow-x-auto max-h-[70vh] custom-scrollbar rounded-b-xl" style={{ background: 'var(--color-garuda-900)' }}>
+          <div className="overflow-x-auto max-h-[70vh] custom-scrollbar rounded-b-2xl" style={{ background: 'var(--color-garuda-900)' }}>
             <table className="w-full text-sm text-left border-collapse">
               <thead className="sticky top-0 z-20" style={{ background: 'var(--color-garuda-800)', boxShadow: '0 1px 2px rgba(0,0,0,0.1)' }}>
                 <tr>
@@ -392,12 +540,12 @@ export default function DataImport() {
                 {previewData.map((row, idx) => (
                   <tr key={row.id} className="transition-colors group hover:bg-slate-100 dark:hover:bg-slate-800/40">
                     <td className="px-3 py-3 font-mono text-xs whitespace-nowrap" style={{ color: 'var(--color-garuda-500)' }}>
-                      #{row.originalRow}
+                      #{idx + 1}
                     </td>
                     <td className="px-3 py-3 whitespace-nowrap">
                       {row.isValid ? (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold" style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
-                          <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#10b981' }}></span> Ready
+                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-400 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+                          Ready
                         </span>
                       ) : (
                         <div className="group/err relative inline-block">

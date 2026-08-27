@@ -4,6 +4,7 @@ import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useSSE } from '../../hooks/useSSE';
+import { toast } from '../../context/ToastContext';
 import CustomSelect from '../../components/CustomSelect';
 import FloatingPagination from '../../components/FloatingPagination';
 
@@ -117,6 +118,42 @@ export default function OffenderList({ isConsumerOnly = false }) {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    const ext = file.name.split('.').pop()?.toLowerCase() || '';
+    if (['xlsm', 'xlsb', 'xltm', 'xla', 'xlam', 'docm', 'pptm'].includes(ext)) {
+      const msg = `Macro-enabled file format (.${ext}) is blocked for security.`;
+      const details = [`Macro-enabled file format (.${ext}) is not allowed. Please upload clean .xlsx or .xls files.`];
+      toast.badRequest(msg, details, 'Bad Request — Blocked File Type');
+      setImportLogs(prev => [
+        {
+          id: 'err_' + Date.now() + Math.random(),
+          timestamp: new Date().toLocaleTimeString(),
+          type: 'error',
+          text: `File Rejected: ${msg}`,
+          errors: details
+        },
+        ...prev
+      ]);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
+    if (file.size > 50 * 1024 * 1024) {
+      const msg = 'File size exceeds 50MB limit.';
+      toast.badRequest(msg, ['Maximum allowed Excel file size is 50MB.'], 'Bad Request — File Too Large');
+      setImportLogs(prev => [
+        {
+          id: 'err_' + Date.now() + Math.random(),
+          timestamp: new Date().toLocaleTimeString(),
+          type: 'error',
+          text: `File Rejected: ${msg}`,
+          errors: ['Maximum allowed Excel file size is 50MB.']
+        },
+        ...prev
+      ]);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
     setImporting(true);
     const formData = new FormData();
     formData.append('file', file);
@@ -141,12 +178,14 @@ export default function OffenderList({ isConsumerOnly = false }) {
       fetchOffenders();
     } catch (err) {
       console.error(err);
+      const errMsg = err.response?.data?.message || err.message || 'Unknown error';
+      const threats = err.response?.data?.threats || [];
       const logMessage = {
         id: 'err_' + Date.now() + Math.random(),
         timestamp: new Date().toLocaleTimeString(),
         type: 'error',
-        text: `Import Failed: ${err.response?.data?.message || err.message || 'Unknown error'}`,
-        errors: [err.response?.data?.message || err.message || 'Unknown error']
+        text: `Import Failed: ${errMsg}`,
+        errors: threats.length ? threats : [errMsg]
       };
       setImportLogs(prev => [logMessage, ...prev]);
     } finally {
@@ -762,22 +801,30 @@ function ImportLogCard({ log, onDismiss }) {
 
   return (
     <div 
-      className="card rounded-xl p-4 border relative overflow-hidden transition-all duration-300"
+      className="card rounded-2xl p-4 border relative overflow-hidden transition-all duration-300 shadow-sm"
       style={{ 
         background: 'var(--color-garuda-800)',
-        borderColor: hasErrors ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)',
+        borderColor: hasErrors ? 'rgba(239, 68, 68, 0.3)' : 'rgba(16, 185, 129, 0.3)',
       }}
     >
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-start gap-3">
           <div 
-            className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 text-sm"
+            className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-sm"
             style={{ 
-              background: hasErrors ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)',
+              background: hasErrors ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)',
               color: hasErrors ? '#f87171' : '#34d399'
             }}
           >
-            {hasErrors ? '⚠️' : '✓'}
+            {hasErrors ? (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            ) : (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            )}
           </div>
           <div>
             <p className="text-sm font-semibold" style={{ color: 'var(--color-garuda-100)' }}>
@@ -790,7 +837,7 @@ function ImportLogCard({ log, onDismiss }) {
         </div>
         <button
           onClick={() => onDismiss(log.id)}
-          className="text-xs hover:text-white cursor-pointer bg-transparent border-none text-slate-500"
+          className="text-xs hover:text-white cursor-pointer bg-transparent border-none text-slate-500 rounded-full p-1"
         >
           ✕
         </button>
@@ -807,15 +854,15 @@ function ImportLogCard({ log, onDismiss }) {
           </button>
           {showErrors && (
             <div 
-              className="mt-2 p-3 rounded-lg text-xs font-mono max-h-40 overflow-y-auto"
+              className="mt-2 p-3 rounded-xl text-xs font-mono max-h-40 overflow-y-auto"
               style={{ 
                 background: 'var(--color-garuda-950)',
                 color: '#f87171',
-                border: '1px solid rgba(239, 68, 68, 0.15)'
+                border: '1px solid rgba(239, 68, 68, 0.2)'
               }}
             >
               {log.errors.map((err, idx) => (
-                <div key={idx} className="py-0.5 border-b border-red-950/20 last:border-b-0">
+                <div key={idx} className="py-1 border-b border-red-950/20 last:border-b-0">
                   {err}
                 </div>
               ))}

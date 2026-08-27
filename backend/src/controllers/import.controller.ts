@@ -345,7 +345,13 @@ export const importDprExcel = async (req: AuthRequest, res: Response) => {
         });
       }
 
-      const wb = XLSX.read(file.buffer, { type: 'buffer' });
+      let wb: XLSX.WorkBook;
+      try {
+        wb = XLSX.read(file.buffer, { type: 'buffer' });
+      } catch (readErr: any) {
+        await releaseImportLock(userIdStr);
+        return res.status(400).json({ message: `Corrupted or unreadable Excel file: ${readErr.message || 'Parsing failed'}` });
+      }
 
       // ── SECURITY: Zip bomb / decompression bomb guard ──
       const zbCheck = guardZipBomb(wb, file.buffer.length);
@@ -653,7 +659,12 @@ export const previewDprExcel = async (req: AuthRequest, res: Response) => {
         });
       }
 
-      const wb = XLSX.read(file.buffer, { type: 'buffer' });
+      let wb: XLSX.WorkBook;
+      try {
+        wb = XLSX.read(file.buffer, { type: 'buffer' });
+      } catch (readErr: any) {
+        return res.status(400).json({ message: `Corrupted or unreadable Excel file: ${readErr.message || 'Parsing failed'}` });
+      }
 
       // ── SECURITY: Zip bomb / decompression bomb guard ──
       const zbCheck = guardZipBomb(wb, file.buffer.length);

@@ -24,6 +24,7 @@ import fs from 'fs';
 import { requirePermission } from '../middleware/authorize.middleware';
 import { uploadDocument } from '../middleware/upload.middleware';
 import { validateMagicBytes, scanForMalware } from '../utils/file-security';
+import { validateImageDimensions, stripImageMetadata } from '../utils/image-sanitizer';
 
 const router = Router();
 
@@ -60,10 +61,9 @@ router.post('/upload', uploadLimiter, uploadDocument.single('file'), (req: any, 
 
   // ── SECURITY: Magic bytes validation for uploaded document ──
   try {
-    const fileBuffer = fs.readFileSync(req.file.path);
+    let fileBuffer = fs.readFileSync(req.file.path);
     const mbCheck = validateMagicBytes(fileBuffer, req.file.originalname);
     if (!mbCheck.valid) {
-      // Cleanup invalid file from disk
       if (fs.existsSync(req.file.path)) {
         fs.unlinkSync(req.file.path);
       }
@@ -81,11 +81,23 @@ router.post('/upload', uploadLimiter, uploadDocument.single('file'), (req: any, 
         threats: scanResult.threats,
       });
     }
+
+    // ── Image specific security ──
+    if (isImage) {
+      const dimCheck = validateImageDimensions(fileBuffer, req.file.originalname);
+      if (!dimCheck.valid) {
+        if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+        return res.status(400).json({ message: dimCheck.reason });
+      }
+      // Strip EXIF metadata before saving to disk
+      const sanitizedBuffer = stripImageMetadata(fileBuffer, req.file.originalname);
+      fs.writeFileSync(req.file.path, sanitizedBuffer);
+    }
   } catch (err: any) {
     if (req.file.path && fs.existsSync(req.file.path)) {
       fs.unlinkSync(req.file.path);
     }
-    return res.status(500).json({ message: 'Failed to process uploaded file' });
+    return res.status(400).json({ message: 'Failed to process uploaded file: ' + (err.message || 'Validation error') });
   }
 
   res.json({

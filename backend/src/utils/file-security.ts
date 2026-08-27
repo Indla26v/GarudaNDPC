@@ -9,6 +9,7 @@
  *   import { validateMagicBytes, guardZipBomb, acquireImportLock, releaseImportLock, scanForMalware } from '../utils/file-security';
  */
 import * as XLSX from 'xlsx';
+import zlib from 'zlib';
 import prisma from '../config/prisma';
 
 /* ───────────────────────── Magic Bytes ────────────────────────── */
@@ -81,14 +82,22 @@ export function validateMagicBytes(buffer: Buffer, filename: string): MagicBytes
     return { valid: false, reason: `Macro-enabled file format (.${ext}) is not allowed.` };
   }
 
-  // ── CSV / TXT: no magic bytes — just verify it's plausible UTF-8 text ──
+  // ── CSV / TXT: no magic bytes — verify it's valid printable UTF-8 text ──
   if (ext === 'csv' || ext === 'txt') {
-    // Check for null bytes which indicate a binary file disguised as text
     const sampleSize = Math.min(buffer.length, 8192);
+    let nonPrintableCount = 0;
     for (let i = 0; i < sampleSize; i++) {
-      if (buffer[i] === 0x00) {
+      const byte = buffer[i]!;
+      if (byte === 0x00) {
         return { valid: false, reason: 'File contains binary content but claims to be CSV/text.' };
       }
+      // Check for excessive control characters (excluding \t, \n, \r)
+      if (byte < 32 && byte !== 0x09 && byte !== 0x0a && byte !== 0x0d) {
+        nonPrintableCount++;
+      }
+    }
+    if (sampleSize > 20 && nonPrintableCount / sampleSize > 0.1) {
+      return { valid: false, reason: 'File contains non-text binary characters. Plausible CSV/text required.' };
     }
     return { valid: true };
   }
@@ -376,6 +385,7 @@ const SUSPICIOUS_PATTERNS: { name: string; pattern: RegExp }[] = [
   { name: 'PHP short tag with code',     pattern: /<\?=/ },
   { name: 'PowerShell command',          pattern: /powershell\s+(?:-[eE]|-[cC]|Invoke-|IEX\b)/i },
   { name: 'Shell script shebang',        pattern: /#!\s*\/(?:bin|usr)\/(?:ba)?sh/ },
+  { name: 'Script interpreter shebang',  pattern: /#!\s*\/.*(?:python|perl|ruby|node|bash|sh|zsh)/i },
   { name: 'Windows batch command',       pattern: /@echo\s+off/i },
   { name: 'VBScript CreateObject',       pattern: /CreateObject\s*\(/i },
   { name: 'JavaScript eval injection',   pattern: /\beval\s*\(\s*(?:atob|unescape|decodeURIComponent)/ },
@@ -436,15 +446,12 @@ export function scanForMalware(buffer: Buffer, filename: string): MalwareScanRes
     }
   }
 
-  // ── 4. Suspicious string patterns in text-like files ──
-  const textExts = new Set(['csv', 'txt', 'html', 'htm', 'xml', 'json', 'svg']);
-  if (textExts.has(ext) || ext === 'pdf') {
-    // Sample the first 64KB for pattern scanning (performance)
-    const sampleStr = buffer.slice(0, 65536).toString('utf8');
-    for (const { name, pattern } of SUSPICIOUS_PATTERNS) {
-      if (pattern.test(sampleStr)) {
-        threats.push(`Suspicious content: ${name}`);
-      }
+  // ── 4. Suspicious string patterns across all files ──
+  // Sample the first 64KB for pattern scanning (performance)
+  const sampleStr = buffer.slice(0, 65536).toString('utf8');
+  for (const { name, pattern } of SUSPICIOUS_PATTERNS) {
+    if (pattern.test(sampleStr)) {
+      threats.push(`Suspicious content: ${name}`);
     }
   }
 
@@ -462,42 +469,107 @@ export function scanForMalware(buffer: Buffer, filename: string): MalwareScanRes
     }
   }
 
-  // ── 6. PDF-specific: embedded JavaScript, launch actions ──
+  // ── 6. PDF-specific: embedded JavaScript, launch actions, compressed streams ──
   if (ext === 'pdf') {
-    const pdfStr = buffer.slice(0, Math.min(buffer.length, 262144)).toString('latin1');
-    if (/\/JS\s/i.test(pdfStr) || /\/JavaScript\s/i.test(pdfStr)) {
+    const rawPdf = buffer.toString('latin1');
+
+    // 6a. Raw uncompressed markers
+    if (/\/JS[\s\<\(\[\/\r\n]/i.test(rawPdf) || /\/JavaScript[\s\<\(\[\/\r\n]/i.test(rawPdf)) {
       threats.push('PDF contains embedded JavaScript, which can be used for exploitation.');
     }
-    if (/\/Launch\s/i.test(pdfStr)) {
+    if (/\/Launch[\s\<\(\[\/\r\n]/i.test(rawPdf)) {
       threats.push('PDF contains a Launch action, which can execute system commands.');
     }
-    if (/\/AA\s/i.test(pdfStr) && /\/OpenAction\s/i.test(pdfStr)) {
-      threats.push('PDF contains auto-executing actions (AA/OpenAction).');
+    if (/\/OpenAction[\s\<\(\[\/\r\n]/i.test(rawPdf)) {
+      threats.push('PDF contains an OpenAction trigger, which executes actions automatically upon opening.');
     }
-
-    // ── 7. PDF XFA form detection ──
-    // XFA (XML Forms Architecture) can contain complex dynamic logic
-    // that bypasses standard security scanners.
-    if (/\/XFA\s/i.test(pdfStr) || /\/XDP\s/i.test(pdfStr)) {
+    if (/\/AA[\s\<\(\[\/\r\n]/i.test(rawPdf)) {
+      threats.push('PDF contains an Additional Action (AA) trigger.');
+    }
+    if (/\/EmbeddedFiles[\s\<\(\[\/\r\n]/i.test(rawPdf) || /\/RichMedia[\s\<\(\[\/\r\n]/i.test(rawPdf)) {
+      threats.push('PDF contains embedded executable or rich media payloads.');
+    }
+    if (/\/XFA[\s\<\(\[\/\r\n]/i.test(rawPdf) || /\/XDP[\s\<\(\[\/\r\n]/i.test(rawPdf)) {
       threats.push('PDF contains an XFA form. XFA forms can execute complex dynamic logic and are not allowed.');
     }
-
-    // ── 8. PDF SSRF prevention: external references ──
-    // These PDF actions can cause a server that processes the PDF
-    // to make outbound HTTP requests (Server-Side Request Forgery).
-    if (/\/GoToR\s/i.test(pdfStr)) {
+    if (/\/GoToR[\s\<\(\[\/\r\n]/i.test(rawPdf)) {
       threats.push('PDF contains a GoToR (remote GoTo) action, which can trigger external requests.');
     }
-    if (/\/SubmitForm\s/i.test(pdfStr)) {
+    if (/\/SubmitForm[\s\<\(\[\/\r\n]/i.test(rawPdf)) {
       threats.push('PDF contains a SubmitForm action, which can exfiltrate data to an external URL.');
     }
-    if (/\/ImportData\s/i.test(pdfStr)) {
+    if (/\/ImportData[\s\<\(\[\/\r\n]/i.test(rawPdf)) {
       threats.push('PDF contains an ImportData action, which can load external data sources.');
     }
-    // Check for /URI with http(s) URLs (informational — very common in benign PDFs,
-    // so only flag when combined with suspicious action markers)
-    if (/\/URI\s/i.test(pdfStr) && (/\/AA\s/i.test(pdfStr) || /\/OpenAction\s/i.test(pdfStr))) {
-      threats.push('PDF contains URI actions combined with auto-executing triggers, which may indicate SSRF.');
+
+    // 6b. Deep stream decompression: scan compressed /ObjStm and FlateDecode streams
+    let pos = 0;
+    let streamCount = 0;
+    const maxStreamsToScan = 200;
+
+    while ((pos = buffer.indexOf('stream', pos)) !== -1 && streamCount < maxStreamsToScan) {
+      streamCount++;
+      let streamStart = pos + 6;
+      if (buffer[streamStart] === 0x0d && buffer[streamStart + 1] === 0x0a) {
+        streamStart += 2;
+      } else if (buffer[streamStart] === 0x0a || buffer[streamStart] === 0x0d) {
+        streamStart += 1;
+      }
+
+      const streamEnd = buffer.indexOf('endstream', streamStart);
+      if (streamEnd === -1) break;
+
+      const chunk = buffer.slice(streamStart, streamEnd);
+      pos = streamEnd + 9;
+
+      if (chunk.length > 0) {
+        let decomp: Buffer | null = null;
+        try {
+          decomp = zlib.inflateSync(chunk);
+        } catch {
+          try {
+            decomp = zlib.inflateRawSync(chunk);
+          } catch {
+            // Not a zlib stream or proprietary encoding
+          }
+        }
+
+        if (decomp) {
+          const decompStr = decomp.toString('latin1');
+
+          if (
+            (/\/JS\b/i.test(decompStr) || /\/JavaScript\b/i.test(decompStr) || /app\.alert\s*\(/i.test(decompStr)) &&
+            !threats.some(t => t.includes('JavaScript'))
+          ) {
+            threats.push('PDF contains embedded JavaScript in compressed stream, which is blocked for security.');
+          }
+
+          if (/\/Launch\b/i.test(decompStr) && !threats.some(t => t.includes('Launch'))) {
+            threats.push('PDF contains a Launch action in compressed stream.');
+          }
+
+          if (
+            (/\/OpenAction\b/i.test(decompStr) || /\/AA\b/i.test(decompStr)) &&
+            !threats.some(t => t.includes('OpenAction') || t.includes('Action'))
+          ) {
+            threats.push('PDF contains auto-executing action triggers in compressed stream.');
+          }
+
+          if (
+            (/\/EmbeddedFiles\b/i.test(decompStr) || /\/RichMedia\b/i.test(decompStr)) &&
+            !threats.some(t => t.includes('embedded'))
+          ) {
+            threats.push('PDF contains embedded files or rich media in compressed stream.');
+          }
+
+          if (
+            (/\/SubmitForm\b/i.test(decompStr) || /\/ImportData\b/i.test(decompStr)) &&
+            !threats.some(t => t.includes('SubmitForm') || t.includes('ImportData'))
+          ) {
+            threats.push('PDF contains data submission actions in compressed stream.');
+          }
+        }
+      }
     }
   }
 

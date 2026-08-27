@@ -2,12 +2,14 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { ToastProvider } from './context/ToastContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import RoleGuard from './components/RoleGuard';
 import Layout from './components/Layout';
 import ConnectionGuard from './components/ConnectionGuard';
 import Login from './pages/Login';
 import ForceChangePassword from './pages/ForceChangePassword';
+import ForgotPassword from './pages/ForgotPassword';
 import NoAccess from './pages/NoAccess';
 import Dashboard from './pages/Dashboard';
 import OffenderList from './pages/offenders/OffenderList';
@@ -47,10 +49,12 @@ function DashboardRoute() {
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <ConnectionGuard>
-      <AuthProvider>
-        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <ToastProvider>
+        <AuthProvider>
+          <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/change-password" element={<ForceChangePassword />} />
 
             {/* Protected Routes */}
@@ -153,6 +157,7 @@ createRoot(document.getElementById('root')).render(
           </Routes>
         </BrowserRouter>
       </AuthProvider>
-    </ConnectionGuard>
-  </StrictMode>
+    </ToastProvider>
+  </ConnectionGuard>
+</StrictMode>
 );
